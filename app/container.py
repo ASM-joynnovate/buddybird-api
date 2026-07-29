@@ -1,0 +1,24 @@
+from dependency_injector import containers, providers
+from dependency_injector.containers import DeclarativeContainer
+
+from app.shared_kernel.infra.object_storages import S3StorageClient
+from app.shared_kernel.infra.services import FileAnalyzer
+from app.word.container import WordContainer
+
+
+class AppContainer(DeclarativeContainer):
+    config = providers.Configuration()
+    wiring_config = containers.WiringConfiguration(
+        packages=[
+            "app.word.presentation",
+        ]
+    )
+
+    object_storage_client = providers.Singleton(S3StorageClient)
+    file_analyzer = providers.Singleton(FileAnalyzer)
+
+    word = providers.Container(
+        WordContainer,
+        object_storage_client=object_storage_client,
+        file_analyzer=file_analyzer,
+    )
