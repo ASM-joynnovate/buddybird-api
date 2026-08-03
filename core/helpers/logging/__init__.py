@@ -108,7 +108,7 @@ def generate_logging_config(app: ExtendedFastAPI) -> dict:
                               + [
                                   structlog.dev.ConsoleRenderer(
                                       colors=True,
-                                      exception_formatter=structlog.dev.rich_traceback
+                                      exception_formatter=structlog.dev.RichTracebackFormatter(show_locals=False, max_frames=5)
                                   ),
                               ],
                 "foreign_pre_chain": processors,
