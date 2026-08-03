@@ -23,9 +23,9 @@ class CommonSettings(BaseSettings):
     AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: int
     AUTH_REFRESH_TOKEN_EXPIRE_MINUTES: int
 
-    S3_ENDPOINT_URL: str
-    S3_ACCESS_KEY: str
-    S3_SECRET_KEY: str
+    S3_ENDPOINT_URL: str | None = None
+    S3_ACCESS_KEY: str | None = None
+    S3_SECRET_KEY: str | None = None
     S3_REGION: str
     S3_BUCKET_NAME: str
     S3_BUCKET_DOMAIN: str
