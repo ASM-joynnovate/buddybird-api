@@ -31,7 +31,10 @@ class Word(AggregateRoot):
                 file=command.audio_file.file,
             )
         )
-        file.validate(allowed_types=["audio/mpeg", "audio/wav", "audio/x-wav", "audio/aac"], max_size="5MB")
+        file.validate(
+            allowed_types=["audio/mpeg", "audio/wav", "audio/x-wav", "audio/aac", "audio/mp4", "audio/x-m4a"],
+            max_size="5MB",
+        )
 
         return cls(
             label=command.label,
