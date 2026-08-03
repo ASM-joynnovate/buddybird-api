@@ -12,12 +12,14 @@ dependencies = [
     "dependency-injector>=4.49.1",
     "fastapi[standard]>=0.141.1",
     "greenlet>=3.5.4",
+    "opentelemetry-api>=1.44.0",
     "opentelemetry-distro>=0.64b0",
     "opentelemetry-exporter-otlp>=1.44.0",
     "opentelemetry-instrumentation-fastapi>=0.64b0",
     "opentelemetry-instrumentation-httpx>=0.64b0",
     "opentelemetry-instrumentation-redis>=0.64b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.64b0",
+    "opentelemetry-sdk>=1.44.0",
     "orjson>=3.11.9",
     "psycopg2-binary>=2.9.12",
     "pydantic>=2.13.4",
@@ -40,6 +42,7 @@ dev = [
     "pytest>=8.4.1",
     "pytest-asyncio>=0.25.3",
     "alembic>=1.18.5",
+    "ruff>=0.16.1",
 ]
 
 [tool.ruff]
@@ -48,14 +51,66 @@ line-length = 120
 indent-width = 4
 
 [tool.ruff.lint]
-select = ["B", "E", "F", "I", "UP", "W"]
-ignore = ["B008"]
+select = [
+    "ASYNC",
+    "B",
+    "C4",
+    "DTZ",
+    "E",
+    "ERA",
+    "F",
+    "FAST",
+    "FURB",
+    "G",
+    "I",
+    "LOG",
+    "N",
+    "PERF",
+    "PIE",
+    "PT",
+    "PTH",
+    "RET",
+    "RUF",
+    "S",
+    "SIM",
+    "T20",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+]
+ignore = [
+    "E111",
+    "E114",
+    "E117",
+    "TRY003",
+    "W191",
+]
 fixable = ["ALL"]
 unfixable = []
-preview = true
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["classmethod", "pydantic.model_validator", "pydantic.field_validator"]
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/versions/*.py" = ["N999", "ERA001", "E501"]
+"tests/**" = ["S101", "ARG", "PLR2004"]
+"__init__.py" = ["F401"]
 
 [tool.ruff.format]
 indent-style = "space"
 quote-style = "double"
 docstring-code-format = true
-preview = true
