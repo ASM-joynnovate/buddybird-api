@@ -21,6 +21,12 @@ class CreateWordUseCase:
 
     @Transactional()
     async def execute(self, *, data: CreateWordDTO) -> None:
+        if await self._word_repo.exists(
+            user_id=data.firebase_anon_uid,
+            client_word_id=data.client_word_id,
+        ):
+            return
+
         command = CreateWordCommand(
             label=data.label,
             firebase_anon_uid=data.firebase_anon_uid,

@@ -54,5 +54,17 @@ class WordSQLAlchemyRepo(IWordRepo):
             result = await read_session.execute(stmt)
             return result.scalar_one()
 
+    async def exists(self, *, user_id: str, client_word_id: str) -> bool:
+        async with session_factory() as read_session:
+            stmt = (
+                select(Word)
+                .where(Word.is_deleted.is_(False))
+                .where(Word.firebase_anon_uid == user_id)
+                .where(Word.client_word_id == client_word_id)
+            )
+
+            result = await read_session.execute(stmt)
+            return result.scalar_one_or_none()
+
     async def save(self, *, word: Word) -> None:
         session.add(word)
