@@ -6,7 +6,7 @@ class CustomException(Exception):
 
     def __init__(
             self,
-            code: int | None = None,
+            code: int,
             message: str | None = None,
             *,
             detail: dict | str | None = None
