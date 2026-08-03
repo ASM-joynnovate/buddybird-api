@@ -56,4 +56,4 @@ coverage:
 	coverage html
 
 check:
-	uvx ruff check
+	uv run ruff check
