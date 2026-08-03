@@ -1,9 +1,22 @@
+import logging
+from collections.abc import Callable, Awaitable
+from contextvars import ContextVar
+
 from functools import wraps
 
 from sqlalchemy.orm.exc import StaleDataError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from .session import session
+
+logger = logging.getLogger("buddybird.transaction")
+
+_rollback_actions: ContextVar[list[Callable[[], Awaitable[None]]]] = ContextVar("rollback_actions")
+
+
+def on_rollback(action: Callable[[], Awaitable[None]]) -> None:
+    if (actions := _rollback_actions.get(None)) is not None:
+        actions.append(action)
 
 
 class Transactional:
@@ -15,12 +28,21 @@ class Transactional:
             wait=wait_exponential(multiplier=1, min=1, max=10),
         )
         async def _transactional(*args, **kwargs):
+            token = _rollback_actions.set([])
+            committed = False
             try:
                 result = await func(*args, **kwargs)
                 await session.commit()
+                committed = True
                 return result
-            except Exception:
-                await session.rollback()
-                raise
+            finally:
+                if not committed:
+                    for action in _rollback_actions.get():
+                        try:
+                            await action()
+                        except Exception:
+                            logger.exception("compensation failed")
+                    await session.rollback()
+                _rollback_actions.reset(token)
 
         return _transactional
