@@ -12,7 +12,7 @@ class CreateWordRequest(BaseModel):
         description="단어명",
         examples=["안녕"]
     )
-    firebase_anon_id: str = Field(
+    firebase_anon_uid: str = Field(
         ...,
         description="Firebase Authentication UID",
         examples=["FJTNzziLv9VlWUaOMUUdrWNe3Rm2"]

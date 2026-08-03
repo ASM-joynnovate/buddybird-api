@@ -1,3 +1,5 @@
+from functools import partial
+
 from app.shared_kernel.domain.command.file import AssignFileCommand
 from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
 from app.shared_kernel.domain.interfaces.services import IFileAnalyzer
@@ -6,6 +8,7 @@ from app.word.domain.command import CreateWordCommand
 from app.word.domain.entities.word import Word
 from app.word.domain.interfaces.repositories import IWordRepo
 from core.db import Transactional
+from core.db.transactional import on_rollback
 
 
 class CreateWordUseCase:
@@ -28,7 +31,7 @@ class CreateWordUseCase:
     ) -> None:
         command = CreateWordCommand(
             label=data.label,
-            firebase_anon_id=data.firebase_anon_uid,
+            firebase_anon_uid=data.firebase_anon_uid,
             audio_file=AssignFileCommand(
                 name=data.audio_file.name,
                 type=self._file_analyzer.get_mime_type(file=data.audio_file.file),
@@ -42,7 +45,10 @@ class CreateWordUseCase:
         word = Word.create(command=command)
         await self._word_repo.save(word=word)
 
+
+        audio_file_path = f"{word.audio_file.file_path}/{word.audio_file.file_name}"
+        on_rollback(partial(self._object_storage_client.delete, path=audio_file_path))
         await self._object_storage_client.upload(
-            path=f"{word.audio_file.file_path}/{word.audio_file.file_name}",
+            path=audio_file_path,
             file=data.audio_file.file,
         )

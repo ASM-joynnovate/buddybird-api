@@ -16,6 +16,7 @@ def init_word_mappers():
                 FileEntity,
                 primaryjoin=word_table.c.audio_file_id == FileEntity.id,
                 uselist=False,
+                lazy="selectin",
             )
         }
     )

@@ -12,7 +12,7 @@ class Word(AggregateRoot):
     label: str
     firebase_anon_uid: str
     is_preset: bool
-    audio_file: File | None
+    audio_file: File
     device_platform: str | None
     device_os_version: str | None
     device_model: str | None
@@ -26,10 +26,20 @@ class Word(AggregateRoot):
             *,
             command: CreateWordCommand
     ) -> "Word":
-        word = cls(
+        file = File.create(
+            command=CreateFileCommand(
+                name=command.audio_file.name,
+                path=f"word/{command.firebase_anon_uid}",
+                type=command.audio_file.type,
+                file=command.audio_file.file
+            )
+        )
+        file.validate(allowed_types=["audio/mpeg", "audio/wav", "audio/x-wav", "audio/aac"], max_size="5MB")
+
+        return cls(
             label=command.label,
-            firebase_anon_uid=command.firebase_anon_id,
-            audio_file=None,
+            firebase_anon_uid=command.firebase_anon_uid,
+            audio_file=file,
             is_preset=False,
             device_platform=command.device_platform,
             device_os_version=command.device_os_version,
@@ -38,19 +48,6 @@ class Word(AggregateRoot):
             updated_at=None,
             is_deleted=False,
         )
-
-        file = File.create(
-            command=CreateFileCommand(
-                name=command.audio_file.name,
-                path=f"word/{word.id}",
-                type=command.audio_file.type,
-                file=command.audio_file.file
-            )
-        )
-        file.validate(allowed_types=["audio/mpeg", "audio/wav", "audio/aac"], max_size="5MB")
-        word.audio_file = file
-
-        return word
 
     def delete(self):
         if self.audio_file is not None:
