@@ -5,13 +5,7 @@ from core.config.base import CommonSettings
 
 
 class ExtendedFastAPI(FastAPI):
-    def __init__(
-            self,
-            env: Env,
-            settings: CommonSettings,
-            *args,
-            **kwargs
-    ):
+    def __init__(self, env: Env, settings: CommonSettings, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.env = env

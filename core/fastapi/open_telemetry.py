@@ -37,5 +37,5 @@ def setup_fastapi_opentelemetry(app: ExtendedFastAPI) -> None:
         meter_provider=otel_meter_provider,
         client_request_hook=client_request_hook,
         client_response_hook=client_response_hook,
-        excluded_urls="healthz,docs,redoc,openapi.json"
+        excluded_urls="healthz,docs,redoc,openapi.json",
     )

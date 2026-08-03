@@ -9,7 +9,7 @@ class ProdSettings(CommonSettings):
     DEBUG: bool = False
     PROFILING_ENABLED: bool = False
     MULTITENANCY_ENABLED: bool = True
-    FRONTEND_CORS_ORIGIN: list[str] = field(default_factory=lambda: [])
+    FRONTEND_CORS_ORIGIN: list[str] = field(default_factory=list)
     DOCS_URL: str | None = None
     REDOC_URL: str | None = None
     OPENAPI_URL: str | None = None

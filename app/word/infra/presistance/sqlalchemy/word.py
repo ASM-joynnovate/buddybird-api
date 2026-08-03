@@ -1,36 +1,29 @@
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from app.word.domain.entities.word import Word
 from app.word.domain.interfaces.repositories import IWordRepo
-from core.db import session_factory, session
+from core.db import session, session_factory
 
 
 class WordSQLAlchemyRepo(IWordRepo):
     async def get_by_id(self, *, word_id: UUID) -> Word | None:
         async with session_factory() as read_session:
-            stmt = await read_session.execute(
-                select(Word)
-                    .where(Word.id == word_id)
-                    .where(Word.is_deleted.is_(False))
-            )
+            stmt = await read_session.execute(select(Word).where(Word.id == word_id).where(Word.is_deleted.is_(False)))
 
             return stmt.scalar_one_or_none()
 
     async def get_list(
-            self,
-            *,
-            limit: int = 100,
-            prev: int | None = None,
-            label: str | None = None,
-            user_id: str | None = None,
+        self,
+        *,
+        limit: int = 100,
+        prev: int | None = None,
+        label: str | None = None,
+        user_id: str | None = None,
     ) -> list[Word]:
         async with session_factory() as read_session:
-            stmt = (
-                select(Word)
-                    .where(Word.is_deleted.is_(False))
-            )
+            stmt = select(Word).where(Word.is_deleted.is_(False))
 
             if label is not None:
                 stmt = stmt.where(Word.label == label)
@@ -45,17 +38,13 @@ class WordSQLAlchemyRepo(IWordRepo):
             return result.scalars().all()
 
     async def get_count(
-            self,
-            *,
-            label: str | None,
-            user_id: str | None,
+        self,
+        *,
+        label: str | None,
+        user_id: str | None,
     ) -> int:
         async with session_factory() as read_session:
-            stmt = (
-                select(func.count())
-                    .where(Word.is_deleted.is_(False))
-                    .where(Word.firebase_anon_uid == user_id)
-            )
+            stmt = select(func.count()).where(Word.is_deleted.is_(False)).where(Word.firebase_anon_uid == user_id)
 
             if label is not None:
                 stmt = stmt.where(Word.label == label)

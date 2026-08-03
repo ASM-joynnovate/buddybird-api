@@ -1,7 +1,6 @@
 import logging
-from collections.abc import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-
 from functools import wraps
 
 from sqlalchemy.orm.exc import StaleDataError

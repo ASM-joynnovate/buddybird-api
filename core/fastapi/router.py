@@ -15,8 +15,8 @@ def register_routers(app: ExtendedFastAPI):
     @api_router.get("/scalar", include_in_schema=False)
     async def scalar_html():
         return get_scalar_api_reference(
-            openapi_url=app.openapi_url,    # Type: ignore
-            title=app.title,                # Type: ignore
+            openapi_url=app.openapi_url,  # Type: ignore
+            title=app.title,  # Type: ignore
         )
 
     api_router.include_router(word_router)

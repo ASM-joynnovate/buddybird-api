@@ -8,7 +8,7 @@ ValueObjectType = TypeVar("ValueObjectType", bound="ValueObject")
 
 class ValueObject:
     def __composite_values__(self):
-        return self.value,
+        return (self.value,)
 
     @classmethod
     def from_value(cls, value: Any) -> ValueObjectType:

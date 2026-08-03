@@ -1,4 +1,4 @@
-from sqlalchemy import UUID, BigInteger, Boolean, Column, ForeignKey, String
+from sqlalchemy import UUID, BigInteger, Boolean, Column, String
 from uuid_utils import uuid7
 
 from core.db.sqlalchemy.models.base import BaseTable, metadata

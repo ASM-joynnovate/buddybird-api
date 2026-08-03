@@ -1,9 +1,9 @@
 class MetaDataHelper:
     @staticmethod
     def generate_page_metadata(
-            count: int,
-            page: int,
-            limit: int = 100,
+        count: int,
+        page: int,
+        limit: int = 100,
     ) -> dict:
         return {
             "current_page": page,

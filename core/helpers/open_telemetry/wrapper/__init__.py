@@ -9,8 +9,8 @@ from pydantic import BaseModel
 class OpenTelemetryTrace:
     def __init__(
         self,
-        name: str = None,
-        redact_keys: list[str] = None,
+        name: str | None = None,
+        redact_keys: list[str] | None = None,
         max_depth: int = 5,
         max_length: int = 200,
         include_args: bool = True,
@@ -53,7 +53,7 @@ class OpenTelemetryTrace:
                     else:
                         val = value if isinstance(value, str | int | float | bool) else str(value)
                         if isinstance(val, str) and len(val) > self.max_length:
-                            val = val[:self.max_length] + "..."
+                            val = val[: self.max_length] + "..."
                         span.set_attribute(prefix, val)
                 except Exception:
                     pass
@@ -84,8 +84,8 @@ class OpenTelemetryTrace:
                         {
                             "exception.code": getattr(e, "error_code", "INTERNAL_SERVER_ERROR"),
                             "exception.type": type(e).__name__,
-                            "exception.message": getattr(e, "message", "")
-                        }
+                            "exception.message": getattr(e, "message", ""),
+                        },
                     )
                     span.set_status(StatusCode.ERROR)
                     raise
@@ -101,8 +101,8 @@ class OpenTelemetryTrace:
                         {
                             "exception.code": getattr(e, "error_code", "INTERNAL_SERVER_ERROR"),
                             "exception.type": type(e).__name__,
-                            "exception.message": getattr(e, "message", "")
-                        }
+                            "exception.message": getattr(e, "message", ""),
+                        },
                     )
                     span.set_status(StatusCode.ERROR)
                     raise

@@ -52,6 +52,7 @@ indent-width = 4
 
 [tool.ruff.lint]
 select = [
+    "ARG",
     "ASYNC",
     "B",
     "C4",

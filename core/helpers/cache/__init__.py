@@ -8,10 +8,4 @@ def init_cache() -> None:
     Cache.init(backend=RedisBackend(), key_maker=CustomKeyMaker())
 
 
-__all__ = [
-    "Cache",
-    "RedisBackend",
-    "CustomKeyMaker",
-    "CacheTag",
-    "init_cache"
-]
+__all__ = ["Cache", "CacheTag", "CustomKeyMaker", "RedisBackend", "init_cache"]

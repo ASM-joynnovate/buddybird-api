@@ -8,28 +8,13 @@ class BaseTable(Table):
         column_names = {col.name for col in args if isinstance(col, Column)}
 
         extra_columns = []
-        if 'created_at' not in column_names:
+        if "created_at" not in column_names:
+            extra_columns.append(Column("created_at", DateTime(timezone=True), nullable=False, default=func.now()))
+        if "updated_at" not in column_names:
             extra_columns.append(
-                Column(
-                    'created_at',
-                    DateTime(timezone=True),
-                    nullable=False,
-                    default=func.now()
-                )
+                Column("updated_at", DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
             )
-        if 'updated_at' not in column_names:
-            extra_columns.append(
-                Column(
-                    'updated_at',
-                    DateTime(timezone=True),
-                    nullable=False,
-                    default=func.now(),
-                    onupdate=func.now()
-                )
-            )
-        if 'version_id' not in column_names:
-            extra_columns.append(
-                Column('version_id', BigInteger, nullable=False, default=0)
-            )
+        if "version_id" not in column_names:
+            extra_columns.append(Column("version_id", BigInteger, nullable=False, default=0))
 
         super().__init__(name, metadata_obj, *(args + tuple(extra_columns)), **kwargs)

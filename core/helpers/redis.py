@@ -95,16 +95,10 @@ class RedisHelper:
     async def smembers(self, key: str) -> set:
         return await self.client.smembers(key)
 
-    async def sadd(
-            self,
-            name: str,
-            value: bytes | bytearray | memoryview | str | int | float
-    ) -> Awaitable[int] | int:
+    async def sadd(self, name: str, value: bytes | bytearray | memoryview | str | int | float) -> Awaitable[int] | int:
         return await self.client.sadd(name, value)
 
     async def srem(
-            self,
-            name: str,
-            *values: bytes | bytearray | memoryview | str | int | float
+        self, name: str, *values: bytes | bytearray | memoryview | str | int | float
     ) -> Awaitable[int] | int:
         return await self.client.srem(name, *values)

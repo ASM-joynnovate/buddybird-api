@@ -1,5 +1,4 @@
-from collections import namedtuple
-from typing import Any, ClassVar
+from typing import Any, ClassVar, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -29,7 +28,8 @@ class BaseRequest(BaseModel):
         if isinstance(value, str) and value == "":
             return cls._handle_empty_string(key)
         if value is None:
-            return cls._handle_null_value(key)
+            cls._handle_null_value(key)
+            return None
         return value
 
     @classmethod
@@ -44,8 +44,13 @@ class BaseRequest(BaseModel):
     @classmethod
     def _handle_null_value(cls, key: str) -> None:
         if key in cls.null_fields or cls.null_fields == {"*"}:
-            return None
+            return
         raise ValueError(f"필드 '{key}'는 null일 수 없습니다.")
+
+
+class PrevLimit(NamedTuple):
+    prev: int
+    limit: int
 
 
 class PageParams(BaseModel):
@@ -54,5 +59,5 @@ class PageParams(BaseModel):
     page: int = Field(1, description="페이지 번호", ge=1, examples=[1])
     count_by_page: int = Field(12, description="페이지 당 조회 개수", ge=1, le=100, examples=[10])
 
-    def to_prev_limit(self) -> namedtuple("PrevLimit", ["prev", "limit"]):
-        return (self.page - 1) * self.count_by_page, self.count_by_page
+    def to_prev_limit(self) -> PrevLimit:
+        return PrevLimit((self.page - 1) * self.count_by_page, self.count_by_page)

@@ -25,21 +25,21 @@ def setup_opentelemetry(app: ExtendedFastAPI) -> None:
         logger.warning("OpenTelemetry exporter endpoint is not set. Skipping OpenTelemetry setup.")
         return
 
-    resource = Resource.create(attributes={
-        SERVICE_NAME: app.settings.SERVICE_NAME,
-        "host.id": app.settings.HOSTNAME,
-        "host.name": app.settings.SERVERNAME,
-        "deployment.environment": app.env
-    })
+    resource = Resource.create(
+        attributes={
+            SERVICE_NAME: app.settings.SERVICE_NAME,
+            "host.id": app.settings.HOSTNAME,
+            "host.name": app.settings.SERVERNAME,
+            "deployment.environment": app.env,
+        }
+    )
 
     # Set up OpenTelemetry logging
     logger_provider = LoggerProvider(resource=resource)
     exporter = OTLPLogExporter(
         endpoint=app.settings.OTEL_EXPORTER_OTLP_ENDPOINT + "/v1/logs",
     )
-    logger_provider.add_log_record_processor(
-        BatchLogRecordProcessor(exporter)
-    )
+    logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
 
     set_logger_provider(logger_provider)
 
@@ -47,21 +47,12 @@ def setup_opentelemetry(app: ExtendedFastAPI) -> None:
     tracer_provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(tracer_provider)
 
-    trace_exporter = OTLPSpanExporter(
-        endpoint=app.settings.OTEL_EXPORTER_OTLP_ENDPOINT + "/v1/traces"
-    )
+    trace_exporter = OTLPSpanExporter(endpoint=app.settings.OTEL_EXPORTER_OTLP_ENDPOINT + "/v1/traces")
     tracer_provider.add_span_processor(FilteredSpanProcessor(trace_exporter))
 
     # Set up OpenTelemetry metrics
-    metrics_exporter = OTLPMetricExporter(
-        endpoint=app.settings.OTEL_EXPORTER_OTLP_ENDPOINT + "/v1/metrics"
-    )
-    metric_provider = MeterProvider(
-        resource=resource,
-        metric_readers=[
-            PeriodicExportingMetricReader(metrics_exporter)
-        ]
-    )
+    metrics_exporter = OTLPMetricExporter(endpoint=app.settings.OTEL_EXPORTER_OTLP_ENDPOINT + "/v1/metrics")
+    metric_provider = MeterProvider(resource=resource, metric_readers=[PeriodicExportingMetricReader(metrics_exporter)])
 
     set_meter_provider(metric_provider)
 

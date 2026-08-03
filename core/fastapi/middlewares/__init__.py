@@ -9,7 +9,7 @@ from .sqlalchemy import SQLAlchemyMiddleware
 
 
 def make_middleware() -> list[Middleware]:
-    middleware = [
+    return [
         Middleware(
             CORSMiddleware,
             allow_origins=config.FRONTEND_CORS_ORIGIN,
@@ -19,13 +19,11 @@ def make_middleware() -> list[Middleware]:
         ),
         Middleware(ETagMiddleware),
         Middleware(CorrelationIdMiddleware),
-        Middleware(SQLAlchemyMiddleware)
+        Middleware(SQLAlchemyMiddleware),
     ]
-
-    return middleware
 
 
 __all__ = [
-    "make_middleware",
     "SQLAlchemyMiddleware",
+    "make_middleware",
 ]

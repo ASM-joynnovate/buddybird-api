@@ -4,6 +4,7 @@ from core.db.sqlalchemy.models import file_table
 
 def init_shared_kernel_mappers():
     from app.shared_kernel.domain.entities.file import File as FileEntity
+
     mapper_registry.map_imperatively(
         FileEntity,
         file_table,

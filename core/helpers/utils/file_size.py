@@ -9,14 +9,7 @@ class FileSizeHelper:
             return None
 
         number, unit = parsed
-        unit_multipliers = {
-            'B': 1,
-            'KB': 1024,
-            'MB': 1024 ** 2,
-            'GB': 1024 ** 3,
-            'TB': 1024 ** 4,
-            'PB': 1024 ** 5
-        }
+        unit_multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4, "PB": 1024**5}
 
         if unit not in unit_multipliers:
             return None
@@ -25,10 +18,10 @@ class FileSizeHelper:
 
     @classmethod
     def bytes_to_human_readable(cls, bytes_value: int) -> str:
-        units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
 
         for unit in reversed(units):
-            if unit == 'B':
+            if unit == "B":
                 divisor = 1
             else:
                 divisor = 1024 ** (units.index(unit))
@@ -37,14 +30,13 @@ class FileSizeHelper:
                 value = bytes_value / divisor
                 if value == int(value):
                     return f"{int(value)}{unit}"
-                else:
-                    return f"{value:.1f}{unit}"
+                return f"{value:.1f}{unit}"
 
         return f"{bytes_value}B"
 
     @classmethod
     def _is_size_format(cls, text: str) -> bool:
-        pattern = r'^\d+(?:\.\d+)?(?:B|KB|MB|GB|TB|PB)$'
+        pattern = r"^\d+(?:\.\d+)?(?:B|KB|MB|GB|TB|PB)$"
         return bool(re.match(pattern, text.strip(), re.IGNORECASE))
 
     @classmethod
@@ -52,7 +44,7 @@ class FileSizeHelper:
         if not cls._is_size_format(text):
             return None
 
-        pattern = r'^(\d+(?:\.\d+)?)(.*?)$'
+        pattern = r"^(\d+(?:\.\d+)?)(.*?)$"
         match = re.match(pattern, text.strip(), re.IGNORECASE)
 
         if match:

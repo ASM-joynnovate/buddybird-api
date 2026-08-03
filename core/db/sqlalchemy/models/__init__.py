@@ -1,7 +1,4 @@
-from .word import word_table
 from .file import file_table
+from .word import word_table
 
-__all__ = [
-    "word_table",
-    "file_table"
-]
+__all__ = ["file_table", "word_table"]

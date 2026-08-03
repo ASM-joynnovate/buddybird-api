@@ -6,14 +6,17 @@ import orjson
 import structlog
 from asgi_correlation_id import correlation_id as ctxvar_correlation_id
 from opentelemetry import trace
+from structlog.typing import Processor
 
 from core.fastapi import ExtendedFastAPI
 from core.helpers.logging.open_telemetry.handler import OTELLogHandler
 
+logger = logging.getLogger(__name__)
+
 
 def extract_event_dict(_, __, event_dict: MutableMapping) -> MutableMapping:
     try:
-        event_dict = event_dict | orjson.loads(event_dict["event"])
+        event_dict.update(orjson.loads(event_dict["event"]))
     except ValueError:
         pass
     else:
@@ -53,14 +56,14 @@ def cleanup_event_dict(_, __, event_dict: MutableMapping) -> MutableMapping:
 
 
 def generate_logging_config(app: ExtendedFastAPI) -> dict:
-    processors = [
+    processors: list[Processor] = [
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S.%f"),
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.ExtraAdder(),
         structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.StackInfoRenderer()
+        structlog.processors.StackInfoRenderer(),
     ]
     if app.settings.LOG_FORMAT == "json":
         processors.append(
@@ -75,7 +78,8 @@ def generate_logging_config(app: ExtendedFastAPI) -> dict:
             )
         )
 
-    common_formatter_processors = processors + [
+    common_formatter_processors = [
+        *processors,
         extract_event_dict,
         inject_request_id,
         inject_open_telemetry_spans,
@@ -84,7 +88,7 @@ def generate_logging_config(app: ExtendedFastAPI) -> dict:
     ]
     log_level = getattr(logging, app.settings.LOG_LEVEL)
     structlog.configure(
-        processors=processors + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
+        processors=[*processors, structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.make_filtering_bound_logger(log_level),
         cache_logger_on_first_use=True,
@@ -95,22 +99,22 @@ def generate_logging_config(app: ExtendedFastAPI) -> dict:
         "formatters": {
             "json": {
                 "()": structlog.stdlib.ProcessorFormatter,
-                "processors": common_formatter_processors
-                              + [
-                                  structlog.processors.format_exc_info,
-                                  structlog.processors.JSONRenderer(ensure_ascii=False),
-                              ],
+                "processors": [
+                    *common_formatter_processors,
+                    structlog.processors.format_exc_info,
+                    structlog.processors.JSONRenderer(ensure_ascii=False),
+                ],
                 "foreign_pre_chain": processors,
             },
             "colored": {
                 "()": structlog.stdlib.ProcessorFormatter,
-                "processors": common_formatter_processors
-                              + [
-                                  structlog.dev.ConsoleRenderer(
-                                      colors=True,
-                                      exception_formatter=structlog.dev.RichTracebackFormatter(show_locals=False, max_frames=5)
-                                  ),
-                              ],
+                "processors": [
+                    *common_formatter_processors,
+                    structlog.dev.ConsoleRenderer(
+                        colors=True,
+                        exception_formatter=structlog.dev.RichTracebackFormatter(show_locals=False, max_frames=5),
+                    ),
+                ],
                 "foreign_pre_chain": processors,
             },
         },
@@ -137,7 +141,7 @@ def generate_logging_config(app: ExtendedFastAPI) -> dict:
                 "level": app.settings.LOG_LEVEL,
                 "handlers": ["console"],
                 "propagate": False,
-            }
+            },
         },
     }
 
@@ -154,4 +158,4 @@ def setup_logging(app: ExtendedFastAPI):
         try:
             __import__("logging_tree").printout()
         except ImportError:
-            logging.warning("The logging_tree module was not found. Skipping logging debug.")
+            logger.warning("The logging_tree module was not found. Skipping logging debug.")

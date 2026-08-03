@@ -31,10 +31,10 @@ class UUIDEncoder(JSONEncoder):
 class TokenHelper:
     @staticmethod
     def encode(
-            *,
-            payload: dict,
-            key: str,
-            delta: int,
+        *,
+        payload: dict,
+        key: str,
+        delta: int,
     ) -> tuple[str, float]:
         exp = (datetime.now() + timedelta(minutes=delta)).timestamp()
         token = jwt.encode(

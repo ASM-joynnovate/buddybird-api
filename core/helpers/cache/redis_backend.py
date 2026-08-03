@@ -23,7 +23,7 @@ class RedisBackend(BaseBackend):
 
     async def set(self, *, response: Any, key: str, ttl: int = 60) -> None:
         if RedisHelper().get_status() == RedisStatus.DOWN:
-            return None
+            return
 
         if isinstance(response, dict):
             response = orjson.dumps(response)
@@ -31,18 +31,18 @@ class RedisBackend(BaseBackend):
             response = pickle.dumps(response)
 
         await RedisHelper().setex(key=key, value=response, seconds=ttl)
-        return None
+        return
 
     async def delete_include(self, *, value: str) -> None:
         if RedisHelper().get_status() == RedisStatus.DOWN:
-            return None
+            return
 
         await RedisHelper().delete_with_wildcard(f"*{value}*")
-        return None
+        return
 
     async def delete_startwith(self, *, value: str) -> None:
         if RedisHelper().get_status() == RedisStatus.DOWN:
-            return None
+            return
 
         await RedisHelper().delete_with_wildcard(f"{value}*")
-        return None
+        return

@@ -1,6 +1,6 @@
 from uuid import uuid7
 
-from sqlalchemy import Column, UUID, String, Text, Boolean, ForeignKey
+from sqlalchemy import UUID, Boolean, Column, ForeignKey, String, Text
 
 from core.db.sqlalchemy.models.base import BaseTable, metadata
 

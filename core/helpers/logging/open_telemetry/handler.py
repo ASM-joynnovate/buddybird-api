@@ -16,14 +16,15 @@ SENSITIVE_FIELDS = [
     re.compile(r"(password\s*[=:]\s*)[^&\s]+", re.IGNORECASE),
     re.compile(r"(token\s*[=:]\s*)[^&\s]+", re.IGNORECASE),
     re.compile(r"(authorization\s*[=:]\s*)[^&\s]+", re.IGNORECASE),
-    re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")  # no group
+    re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"),  # no group
 ]
 
 
 def sanitize_message(message: str) -> str:
     sanitized = message
     for pattern in SENSITIVE_FIELDS:
-        if pattern.groups:  # e.g., (password=)
+        # ruff: ignore[SIM108]
+        if pattern.groups:  # e.g. (password=)
             sanitized = pattern.sub(r"\1***", sanitized)
         else:  # e.g., email
             sanitized = pattern.sub("***", sanitized)
@@ -40,9 +41,7 @@ class OTELLogHandler(logging.Handler):
             message = self.format(record)
             sanitized_message = sanitize_message(message)
 
-            severity_number = LOG_LEVEL_TO_SEVERITY_NUMBER.get(
-                record.levelno, SeverityNumber.UNSPECIFIED
-            )
+            severity_number = LOG_LEVEL_TO_SEVERITY_NUMBER.get(record.levelno, SeverityNumber.UNSPECIFIED)
 
             extra_data = record.__dict__.get("extra_info", {})
             self.otel_logger.emit(

@@ -20,11 +20,11 @@ class CacheManager:
         self.key_maker = key_maker
 
     def cached(
-            self,
-            *,
-            prefix: str | None = None,
-            tag: CacheTag | None = None,
-            ttl: int = 60,
+        self,
+        *,
+        prefix: str | None = None,
+        tag: CacheTag | None = None,
+        ttl: int = 60,
     ):
         def _cached(function):
             @wraps(function)
@@ -39,9 +39,7 @@ class CacheManager:
                     bound_args.apply_defaults()
 
                     key = await self.key_maker.make(
-                        function=function,
-                        prefix=prefix if prefix else tag.value,
-                        bound_args=bound_args
+                        function=function, prefix=prefix or tag.value, bound_args=bound_args
                     )
                     span.set_attribute("cache.key", key)
                     try:
@@ -62,7 +60,9 @@ class CacheManager:
                     except Exception as e:
                         span.record_exception(e)
                     return response
+
             return __cached
+
         return _cached
 
     async def remove_by_tag(self, *, key: CacheTag) -> None:
