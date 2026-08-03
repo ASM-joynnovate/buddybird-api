@@ -3,7 +3,7 @@ import logging
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse
 from starlette import status
 
 from core.common.exceptions.base import CustomException
@@ -16,7 +16,7 @@ logger = logging.getLogger("buddybird.exception")
 def register_exception_handlers(app: ExtendedFastAPI):
     @app.exception_handler(CustomException)
     async def custom_exception_handler(_: Request, exc: CustomException):
-        return Response(
+        return JSONResponse(
             status_code=exc.code,
             content={
                 "error_code": exc.error_code,
@@ -35,7 +35,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
         })
 
         if app.env == Env.prod:
-            return Response(
+            return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=jsonable_encoder(
                     {
@@ -45,7 +45,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
                 ),
             )
         else:
-            return Response(
+            return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=jsonable_encoder(
                     {
@@ -58,7 +58,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
     @app.exception_handler(RequestValidationError)
     async def request_validation_exception_handler(_: Request, exc: RequestValidationError):
         if app.env == Env.prod:
-            return Response(
+            return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=jsonable_encoder(
                     {
@@ -68,7 +68,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
                 ),
             )
         else:
-            return Response(
+            return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=jsonable_encoder(
                     {
@@ -92,7 +92,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
         })
 
         if app.env == Env.prod:
-            return Response(
+            return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=jsonable_encoder(
                     {
@@ -102,7 +102,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
                 ),
             )
         else:
-            return Response(
+            return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=jsonable_encoder(
                     {
