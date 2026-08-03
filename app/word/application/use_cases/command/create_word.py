@@ -13,22 +13,14 @@ from core.db.transactional import on_rollback
 
 class CreateWordUseCase:
     def __init__(
-            self,
-            *,
-            object_storage_client: IObjectStorageClient,
-            file_analyzer: IFileAnalyzer,
-            word_repo: IWordRepo
+        self, *, object_storage_client: IObjectStorageClient, file_analyzer: IFileAnalyzer, word_repo: IWordRepo
     ):
         self._object_storage_client = object_storage_client
         self._file_analyzer = file_analyzer
         self._word_repo = word_repo
 
     @Transactional()
-    async def execute(
-            self,
-            *,
-            data: CreateWordDTO
-    ) -> None:
+    async def execute(self, *, data: CreateWordDTO) -> None:
         command = CreateWordCommand(
             label=data.label,
             firebase_anon_uid=data.firebase_anon_uid,
@@ -44,7 +36,6 @@ class CreateWordUseCase:
 
         word = Word.create(command=command)
         await self._word_repo.save(word=word)
-
 
         audio_file_path = f"{word.audio_file.file_path}/{word.audio_file.file_name}"
         on_rollback(partial(self._object_storage_client.delete, path=audio_file_path))

@@ -11,21 +11,21 @@ class IWordRepo(ABC):
 
     @abstractmethod
     async def get_list(
-            self,
-            *,
-            limit: int = 100,
-            prev: int | None,
-            label: str | None,
-            user_id: str | None,
+        self,
+        *,
+        limit: int = 100,
+        prev: int | None,
+        label: str | None,
+        user_id: str | None,
     ) -> list[Word]:
         pass
 
     @abstractmethod
     async def get_count(
-            self,
-            *,
-            label: str | None,
-            user_id: str | None,
+        self,
+        *,
+        label: str | None,
+        user_id: str | None,
     ) -> int:
         pass
 

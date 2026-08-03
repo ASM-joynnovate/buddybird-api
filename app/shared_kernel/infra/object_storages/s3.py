@@ -14,13 +14,7 @@ class S3StorageClient(IObjectStorageClient):
             region_name=config.S3_REGION,
         )
 
-    async def upload(
-            self,
-            *,
-            path: str,
-            file: bytes,
-            metadata: dict[str, str] | None = None
-    ) -> None:
+    async def upload(self, *, path: str, file: bytes, metadata: dict[str, str] | None = None) -> None:
         if metadata is None:
             metadata = {}
 
@@ -32,14 +26,8 @@ class S3StorageClient(IObjectStorageClient):
         )
 
     async def download(self, *, path: str) -> bytes:
-        response = self._client.get_object(
-            Bucket=config.S3_BUCKET_NAME,
-            Key=path
-        )
-        return response['Body'].read()
+        response = self._client.get_object(Bucket=config.S3_BUCKET_NAME, Key=path)
+        return response["Body"].read()
 
     async def delete(self, *, path: str) -> None:
-        self._client.delete_object(
-            Bucket=config.S3_BUCKET_NAME,
-            Key=path
-        )
+        self._client.delete_object(Bucket=config.S3_BUCKET_NAME, Key=path)

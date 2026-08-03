@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from uuid import UUID
 
 from app.shared_kernel.domain.command.file import CreateFileCommand
 from app.shared_kernel.domain.exceptions import FileSizeExceededException, NotAllowedFileTypeException
@@ -16,17 +15,13 @@ class File(Entity):
     is_deleted: bool
 
     @classmethod
-    def create(
-            cls,
-            *,
-            command: CreateFileCommand
-    ) -> "File":
+    def create(cls, *, command: CreateFileCommand) -> File:
         file = cls(
             file_name=command.name,
             file_path=command.path,
             file_size=len(command.file),
             file_type=command.type,
-            is_deleted=False
+            is_deleted=False,
         )
         file.file_path = f"{file.file_path}/{file.id}"
         return file
@@ -49,6 +44,6 @@ class File(Entity):
         if self.file_size > max_size:
             raise FileSizeExceededException(
                 message=f"최대 파일 크기를 초과했습니다."
-                        f" 현재 파일 크기: {FileSizeHelper.bytes_to_human_readable(self.file_size)},"
-                        f" 최대 크기: {FileSizeHelper.bytes_to_human_readable(max_size)}"
+                f" 현재 파일 크기: {FileSizeHelper.bytes_to_human_readable(self.file_size)},"
+                f" 최대 크기: {FileSizeHelper.bytes_to_human_readable(max_size)}"
             )

@@ -1,5 +1,5 @@
-from datetime import datetime, UTC
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from app.shared_kernel.domain.command.file import CreateFileCommand
 from app.shared_kernel.domain.entities.file import File
@@ -21,17 +21,13 @@ class Word(AggregateRoot):
     is_deleted: bool
 
     @classmethod
-    def create(
-            cls,
-            *,
-            command: CreateWordCommand
-    ) -> "Word":
+    def create(cls, *, command: CreateWordCommand) -> Word:
         file = File.create(
             command=CreateFileCommand(
                 name=command.audio_file.name,
                 path=f"word/{command.firebase_anon_uid}",
                 type=command.audio_file.type,
-                file=command.audio_file.file
+                file=command.audio_file.file,
             )
         )
         file.validate(allowed_types=["audio/mpeg", "audio/wav", "audio/x-wav", "audio/aac"], max_size="5MB")
