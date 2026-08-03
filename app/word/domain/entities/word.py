@@ -10,7 +10,8 @@ from core.common.entity import AggregateRoot
 @dataclass(eq=False, slots=True)
 class Word(AggregateRoot):
     label: str
-    firebase_anon_uid: str
+    firebase_anon_uid: str | None
+    client_word_id: str
     is_preset: bool
     audio_file: File
     device_platform: str | None
@@ -35,6 +36,7 @@ class Word(AggregateRoot):
         return cls(
             label=command.label,
             firebase_anon_uid=command.firebase_anon_uid,
+            client_word_id=command.client_word_id,
             audio_file=file,
             is_preset=False,
             device_platform=command.device_platform,

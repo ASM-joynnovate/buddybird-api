@@ -24,6 +24,7 @@ class CreateWordUseCase:
         command = CreateWordCommand(
             label=data.label,
             firebase_anon_uid=data.firebase_anon_uid,
+            client_word_id=data.client_word_id,
             audio_file=AssignFileCommand(
                 name=data.audio_file.name,
                 type=self._file_analyzer.get_mime_type(file=data.audio_file.file),
