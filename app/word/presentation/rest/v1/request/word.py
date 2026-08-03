@@ -1,7 +1,9 @@
 from typing import Annotated
 
 from fastapi import File, UploadFile
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.word.presentation.rest.v1.exceptions import ReservedClientWordIdException
 
 
 class CreateWordRequest(BaseModel):
@@ -16,3 +18,10 @@ class CreateWordRequest(BaseModel):
     device_platform: str | None = Field(None, max_length=200, description="단어를 녹음한 기기의 OS")
     device_os_version: str | None = Field(None, max_length=200, description="단어를 녹음한 기기의 OS 버전")
     device_model: str | None = Field(None, max_length=200, description="단어를 녹음한 기기의 모델명")
+
+    @field_validator("client_word_id")
+    @classmethod
+    def not_reserved(cls, value: str) -> str:
+        if value.startswith("preset"):
+            raise ReservedClientWordIdException
+        return value

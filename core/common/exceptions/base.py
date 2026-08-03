@@ -4,7 +4,7 @@ class CustomException(Exception):
     message = "BAD GATEWAY"
     detail = None
 
-    def __init__(self, code: int, message: str | None = None, *, detail: dict | str | None = None):
+    def __init__(self, code: int | None = None, message: str | None = None, *, detail: dict | str | None = None):
         if code:
             self.code = code
         if message:
