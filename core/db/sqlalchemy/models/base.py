@@ -10,11 +10,22 @@ class BaseTable(Table):
         extra_columns = []
         if 'created_at' not in column_names:
             extra_columns.append(
-                Column('created_at', DateTime, nullable=False, default=func.now())
+                Column(
+                    'created_at',
+                    DateTime(timezone=True),
+                    nullable=False,
+                    default=func.now()
+                )
             )
         if 'updated_at' not in column_names:
             extra_columns.append(
-                Column('updated_at', DateTime, nullable=False, default=func.now(), onupdate=func.now())
+                Column(
+                    'updated_at',
+                    DateTime(timezone=True),
+                    nullable=False,
+                    default=func.now(),
+                    onupdate=func.now()
+                )
             )
         if 'version_id' not in column_names:
             extra_columns.append(
