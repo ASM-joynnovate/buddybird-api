@@ -13,7 +13,6 @@ class File(Entity):
     file_path: str
     file_size: int
     file_type: str
-    uploader_id: UUID
     is_deleted: bool
 
     @classmethod
