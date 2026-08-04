@@ -14,7 +14,7 @@ from .request import BatchCreateAudioCaptureRequest
 router = APIRouter()
 
 
-@router.post("/batch", name="클립 배치 업로드", response_model=BatchCreateAudioCaptureResponse)
+@router.post("", name="클립 배치 업로드", response_model=BatchCreateAudioCaptureResponse)
 @inject
 async def batch_create_audio_capture(
     body: Annotated[BatchCreateAudioCaptureRequest, Form(..., media_type="multipart/form-data")],
