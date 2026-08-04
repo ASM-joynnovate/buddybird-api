@@ -1,3 +1,3 @@
-from .file_analyzer import FileAnalyzer
+from .magic_file_analyzer import MagicFileAnalyzer
 
-__all__ = ["FileAnalyzer"]
+__all__ = ["MagicFileAnalyzer"]
