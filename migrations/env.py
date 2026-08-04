@@ -14,7 +14,7 @@ from core.db.sqlalchemy.models.base import metadata
 config = context.config
 
 sync_url = app_settings.WRITER_DB_URL.replace("+asyncpg", "+psycopg2")
-config.set_main_option("sqlalchemy.url", sync_url)
+config.set_main_option("sqlalchemy.url", sync_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
