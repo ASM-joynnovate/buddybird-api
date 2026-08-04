@@ -1,3 +1,5 @@
+import asyncio
+
 import boto3
 
 from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
@@ -18,7 +20,8 @@ class S3StorageClient(IObjectStorageClient):
         if metadata is None:
             metadata = {}
 
-        self._client.put_object(
+        await asyncio.to_thread(
+            self._client.put_object,
             Bucket=config.S3_BUCKET_NAME,
             Key=path,
             Body=file,
@@ -26,8 +29,15 @@ class S3StorageClient(IObjectStorageClient):
         )
 
     async def download(self, *, path: str) -> bytes:
+        return await asyncio.to_thread(self._download, path=path)
+
+    def _download(self, *, path: str) -> bytes:
         response = self._client.get_object(Bucket=config.S3_BUCKET_NAME, Key=path)
         return response["Body"].read()
 
     async def delete(self, *, path: str) -> None:
-        self._client.delete_object(Bucket=config.S3_BUCKET_NAME, Key=path)
+        await asyncio.to_thread(
+            self._client.delete_object,
+            Bucket=config.S3_BUCKET_NAME,
+            Key=path,
+        )
