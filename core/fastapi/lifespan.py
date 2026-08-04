@@ -6,6 +6,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.trace import get_tracer_provider
 
+from core.config import config
 from core.db.session import EngineType, engines, sqlalchemy_instrumentor
 from core.fastapi import ExtendedFastAPI
 from core.helpers.redis import RedisHelper
@@ -24,15 +25,18 @@ def start():
         commenter_options={},
         enable_attribute_commenter=True,
     )
-    RedisInstrumentor().instrument(tracer_provider=get_tracer_provider())
     HTTPXClientInstrumentor().instrument()
 
-    asyncio.create_task(RedisHelper().check_status())
+    if config.REDIS_ENABLED:
+        RedisInstrumentor().instrument(tracer_provider=get_tracer_provider())
+        asyncio.create_task(RedisHelper().check_status())
 
 
 def shutdown():
+    if config.REDIS_ENABLED:
+        RedisInstrumentor().uninstrument()
+
     sqlalchemy_instrumentor.uninstrument()
-    RedisInstrumentor().uninstrument()
     HTTPXClientInstrumentor().uninstrument()
     FastAPIInstrumentor().uninstrument()
 

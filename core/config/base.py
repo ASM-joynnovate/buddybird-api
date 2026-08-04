@@ -1,4 +1,5 @@
 from typing import Literal
+from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings
 
@@ -14,8 +15,25 @@ class CommonSettings(BaseSettings):
     SERVERNAME: str = "localhost"
     SERVICE_NAME: str = "api.buddybird"
 
-    READER_DB_URL: str
-    WRITER_DB_URL: str
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
+    DB_NAME: str
+    DB_USER: str
+    DB_PASSWORD: str
+
+    @property
+    def WRITER_DB_URL(self) -> str:  # noqa: N802
+        return self._dsn()
+
+    @property
+    def READER_DB_URL(self) -> str:  # noqa: N802
+        return self._dsn()
+
+    def _dsn(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.DB_USER}:{quote_plus(self.DB_PASSWORD)}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
 
     AUTH_ACCESS_TOKEN_SECRET_KEY: str
     AUTH_REFRESH_TOKEN_SECRET_KEY: str
@@ -26,15 +44,19 @@ class CommonSettings(BaseSettings):
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str | None = None
     S3_SECRET_KEY: str | None = None
-    S3_REGION: str
+    S3_REGION: str = "ap-northeast-2"
     S3_BUCKET_NAME: str
     S3_BUCKET_DOMAIN: str
 
-    REDIS_HOST: str
-    REDIS_PORT: int
-    REDIS_DB: int
-    REDIS_USERNAME: str
-    REDIS_PASSWORD: str
+    REDIS_ENABLED: bool = False
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_USERNAME: str = "default"
+    REDIS_PASSWORD: str = ""
+
+    CELERY_BROKER_URL: str | None = None
+    CELERY_BACKEND_URL: str | None = None
 
     SQLALCHEMY_ECHO: bool = False
     FRONTEND_CORS_ORIGIN: list[str] = []
@@ -42,9 +64,6 @@ class CommonSettings(BaseSettings):
     OPENAPI_URL: str | None = "/api/openapi.json"
     DOCS_URL: str | None = "/api/docs"
     REDOC_URL: str | None = "/api/redoc"
-
-    CELERY_BROKER_URL: str
-    CELERY_BACKEND_URL: str
 
     LOG_LEVEL: LogLevel = "INFO"
     LOG_FORMAT: LogFormat = "plain"

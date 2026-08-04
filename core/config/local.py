@@ -10,6 +10,8 @@ class LocalSettings(CommonSettings):
 
     FRONTEND_CORS_ORIGIN: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
+    REDIS_ENABLED: bool = True
+
     LOG_LEVEL: LogLevel = "DEBUG"
     LOG_FORMAT: LogFormat = "uvicorn"
     LOG_DEBUG: bool = True
