@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -23,10 +24,12 @@ class Word(AggregateRoot):
 
     @classmethod
     def create(cls, *, command: CreateWordCommand) -> Word:
+        word_id = uuid.uuid7()
+
         file = File.create(
             command=CreateFileCommand(
                 name=command.audio_file.name,
-                path=f"word/{command.firebase_anon_uid}",
+                path=f"word/{command.firebase_anon_uid}/{word_id}",
                 type=command.audio_file.type,
                 file=command.audio_file.file,
             )
@@ -37,6 +40,7 @@ class Word(AggregateRoot):
         )
 
         return cls(
+            id=word_id,
             label=command.label,
             firebase_anon_uid=command.firebase_anon_uid,
             client_word_id=command.client_word_id,
