@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from scalar_fastapi import get_scalar_api_reference
 
+from app.audio_capture.presentation.rest import router as audio_capture_router
 from app.word.presentation.rest import router as word_router
 from core.fastapi import ExtendedFastAPI
 
@@ -20,5 +21,6 @@ def register_routers(app: ExtendedFastAPI):
         )
 
     api_router.include_router(word_router)
+    api_router.include_router(audio_capture_router)
 
     app.include_router(api_router)

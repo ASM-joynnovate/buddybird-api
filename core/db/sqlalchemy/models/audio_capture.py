@@ -1,5 +1,3 @@
-from uuid import uuid7
-
 from sqlalchemy import UUID, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Text
 
 from core.db.sqlalchemy.models.base import BaseTable, metadata
@@ -7,7 +5,7 @@ from core.db.sqlalchemy.models.base import BaseTable, metadata
 audio_capture_table = BaseTable(
     "audio_captures",
     metadata,
-    Column("id", UUID, primary_key=True, default=lambda: str(uuid7())),
+    Column("id", UUID, primary_key=True),
     Column("firebase_anon_uid", Text, nullable=False),
     Column("client_capture_id", Text, nullable=False),
     Column("client_session_id", Text, nullable=False),
