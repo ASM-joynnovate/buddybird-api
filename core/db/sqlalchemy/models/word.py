@@ -1,5 +1,3 @@
-from uuid import uuid7
-
 from sqlalchemy import UUID, Boolean, Column, ForeignKey, String, Text
 
 from core.db.sqlalchemy.models.base import BaseTable, metadata
@@ -7,7 +5,7 @@ from core.db.sqlalchemy.models.base import BaseTable, metadata
 word_table = BaseTable(
     "word_entries",
     metadata,
-    Column("id", UUID, primary_key=True, default=lambda: str(uuid7())),
+    Column("id", UUID, primary_key=True),
     Column("label", String(255), nullable=False),
     Column("firebase_anon_uid", Text, nullable=True),
     Column("client_word_id", Text, nullable=False),
