@@ -7,7 +7,7 @@ from uuid_utils import uuid7
 
 @dataclass
 class Entity:
-    id: UUID = field(init=False, default_factory=lambda: uuid7())
+    id: UUID = field(kw_only=True, default_factory=lambda: uuid7())
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, type(self)):
