@@ -34,4 +34,4 @@ async def create_word(
         audio_file=CreateFileDTO(file=await body.audio_file.read(), name=body.audio_file.filename),
     )
 
-    return BaseResponse(message="단어 생성 성공", data=await use_case.execute(data=data))
+    return BaseResponse(message="단어 업로드 성공", data=await use_case.execute(data=data))
