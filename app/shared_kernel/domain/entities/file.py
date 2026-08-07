@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.shared_kernel.domain.command.file import CreateFileCommand
 from app.shared_kernel.domain.exceptions import FileSizeExceededException, NotAllowedFileTypeException
@@ -17,7 +18,7 @@ class File(Entity):
     @classmethod
     def create(cls, *, command: CreateFileCommand) -> File:
         file = cls(
-            file_name=command.name,
+            file_name=Path(command.name).name,
             file_path=command.path,
             file_size=len(command.file),
             file_type=command.type,
@@ -40,7 +41,6 @@ class File(Entity):
                 message="허용되지 않는 파일 타입입니다. 허용된 파일 타입: {}".format(", ".join(allowed_types))
             )
 
-        print(f"File size: {self.file_size}, Max size: {max_size}")
         if self.file_size > max_size:
             raise FileSizeExceededException(
                 message=f"최대 파일 크기를 초과했습니다."
