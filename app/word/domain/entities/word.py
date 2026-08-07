@@ -36,7 +36,7 @@ class Word(AggregateRoot):
         )
         file.validate(
             allowed_types=["audio/mpeg", "audio/wav", "audio/x-wav", "audio/aac", "audio/mp4", "audio/x-m4a"],
-            max_size="5MB",
+            max_size="3MB",
         )
 
         return cls(
