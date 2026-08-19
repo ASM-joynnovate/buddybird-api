@@ -2,7 +2,7 @@ from app.word.application.dto import GetWordDTO
 from core.common.response import BaseResponse
 
 
-class GetWordsResponse(BaseResponse):
+class GetWordListResponse(BaseResponse):
     data: list[GetWordDTO]
 
 

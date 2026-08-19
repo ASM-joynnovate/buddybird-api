@@ -28,9 +28,6 @@ class AudioCapture(AggregateRoot):
     device_platform: str | None
     device_os_version: str | None
     device_model: str | None
-    reviewed_at: datetime | None
-    review_passed: bool | None
-    review_note: str | None
     created_at: datetime
     updated_at: datetime | None
     is_deleted: bool
@@ -70,9 +67,6 @@ class AudioCapture(AggregateRoot):
             device_platform=command.device_platform,
             device_os_version=command.device_os_version,
             device_model=command.device_model,
-            reviewed_at=None,
-            review_passed=None,
-            review_note=None,
             created_at=datetime.now(UTC),
             updated_at=None,
             is_deleted=False,

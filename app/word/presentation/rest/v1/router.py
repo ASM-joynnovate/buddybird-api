@@ -19,7 +19,9 @@ router = APIRouter()
 
 @router.get("/{word_id:uuid}", name="단어 조회 (ID)", response_model=GetWordResponse)
 @inject
-async def get_by_id(word_id: UUID, use_case: WordQueryUseCase = Depends(Provide[AppContainer.word.word_query])):
+async def get_by_id(
+    word_id: UUID, use_case: Annotated[WordQueryUseCase, Depends(Provide[AppContainer.word.word_query])]
+):
     return BaseResponse(message="단어 조회 성공", data=await use_case.get_by_id(word_id=word_id))
 
 
@@ -27,7 +29,7 @@ async def get_by_id(word_id: UUID, use_case: WordQueryUseCase = Depends(Provide[
 @inject
 async def create_word(
     body: Annotated[CreateWordRequest, Form(..., media_type="multipart/form-data")],
-    use_case: CreateWordUseCase = Depends(Provide[AppContainer.word.create_word_command]),
+    use_case: Annotated[CreateWordUseCase, Depends(Provide[AppContainer.word.create_word_command])],
 ):
     data = CreateWordDTO(
         **body.model_dump(exclude={"audio_file"}, exclude_unset=True),

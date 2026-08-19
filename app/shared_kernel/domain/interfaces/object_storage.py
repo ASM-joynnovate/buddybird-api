@@ -17,3 +17,7 @@ class IObjectStorageClient(ABC):
     @abstractmethod
     async def delete(self, *, path: str) -> None:
         pass
+
+    @abstractmethod
+    async def generate_presigned_url(self, *, path: str, expires_in: int = 3600) -> str:
+        pass

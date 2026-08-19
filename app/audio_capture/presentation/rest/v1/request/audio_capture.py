@@ -1,11 +1,14 @@
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import File, UploadFile
 from pydantic import BaseModel, ConfigDict, Field, Json, field_validator
 
 from app.audio_capture.application.dto.audio_capture import CreateAudioCaptureItemDTO
+from app.audio_capture.domain.enum import LabelStatusEnum
 from app.audio_capture.presentation.rest.v1.exceptions import AudioCaptureBatchSizeExceededException
 from app.shared_kernel.domain.exceptions import FileSizeExceededException
+from core.common.request.base import PageParams
 from core.helpers.utils import FileSizeHelper
 
 MAX_BATCH_SIZE = 10
@@ -53,3 +56,11 @@ class BatchCreateAudioCaptureRequest(BaseModel):
                 message=f"압축 파일의 최대 크기를 초과했습니다. 최대 크기: {MAX_ARCHIVE_SIZE}"
             )
         return value
+
+
+class GetAudioCaptureListRequest(PageParams):
+    firebase_anon_uid: str | None = Field(None, description="Firebase Authentication 익명 ID")
+    word_label: str | None = Field(None, description="연결된 단어명")
+    label_status: LabelStatusEnum = Field(LabelStatusEnum.ALL, description="라벨링 상태 필터")
+    date_from: datetime | None = Field(None, description="캡처 시각 시작 범위")
+    date_to: datetime | None = Field(None, description="캡처 시각 끝 범위")

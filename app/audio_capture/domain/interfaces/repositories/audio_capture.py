@@ -1,12 +1,40 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from uuid import UUID
 
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
+from app.audio_capture.domain.enum import LabelStatusEnum
 
 
 class IAudioCaptureRepo(ABC):
     @abstractmethod
     async def get_by_id(self, *, audio_capture_id: UUID) -> AudioCapture | None:
+        pass
+
+    @abstractmethod
+    async def get_list(
+        self,
+        *,
+        firebase_anon_uid: str | None,
+        word_label: str | None,
+        label_status: LabelStatusEnum,
+        date_from: datetime | None,
+        date_to: datetime | None,
+        prev: int,
+        limit: int,
+    ) -> list[AudioCapture]:
+        pass
+
+    @abstractmethod
+    async def get_count(
+        self,
+        *,
+        firebase_anon_uid: str | None,
+        word_label: str | None,
+        label_status: LabelStatusEnum,
+        date_from: datetime | None,
+        date_to: datetime | None,
+    ) -> int:
         pass
 
     @abstractmethod

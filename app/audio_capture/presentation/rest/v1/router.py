@@ -18,9 +18,9 @@ router = APIRouter()
 @inject
 async def batch_create_audio_capture(
     body: Annotated[BatchCreateAudioCaptureRequest, Form(..., media_type="multipart/form-data")],
-    use_case: BatchCreateAudioCaptureUseCase = Depends(
-        Provide[AppContainer.audio_capture.batch_create_audio_capture_command]
-    ),
+    use_case: Annotated[
+        BatchCreateAudioCaptureUseCase, Depends(Provide[AppContainer.audio_capture.batch_create_audio_capture_command])
+    ],
 ):
     data = BatchCreateAudioCaptureDTO(
         **body.model_dump(exclude={"file", "metadata"}, exclude_unset=True),

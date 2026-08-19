@@ -1,3 +1,13 @@
-from .sqlalchemy import SQLAlchemyAudioCaptureRepo
+from .sqlalchemy import (
+    SQLAlchemyAudioCaptureRepo,
+    SQLAlchemyAudioSegmentRepo,
+    SQLAlchemyLabelCategoryRepo,
+    SQLAlchemyLabelOptionRepo,
+)
 
-__all__ = ["SQLAlchemyAudioCaptureRepo"]
+__all__ = [
+    "SQLAlchemyAudioCaptureRepo",
+    "SQLAlchemyAudioSegmentRepo",
+    "SQLAlchemyLabelCategoryRepo",
+    "SQLAlchemyLabelOptionRepo",
+]

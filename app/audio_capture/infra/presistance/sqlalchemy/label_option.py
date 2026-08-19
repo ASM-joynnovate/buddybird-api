@@ -1,0 +1,18 @@
+from uuid import UUID
+
+from sqlalchemy import select
+
+from app.audio_capture.domain.entities.label import LabelOption
+from app.audio_capture.domain.interfaces.repositories.label_option import ILabelOptionRepo
+from core.db import session
+
+
+class SQLAlchemyLabelOptionRepo(ILabelOptionRepo):
+    async def get_by_id(self, *, label_option_id: UUID) -> LabelOption | None:
+        result = await session.execute(
+            select(LabelOption).where(LabelOption.id == label_option_id).where(LabelOption.is_deleted.is_(False))
+        )
+        return result.scalar_one_or_none()
+
+    async def save(self, *, label_option: LabelOption) -> None:
+        session.add(label_option)

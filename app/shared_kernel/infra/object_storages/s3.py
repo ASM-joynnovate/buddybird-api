@@ -41,3 +41,10 @@ class S3StorageClient(IObjectStorageClient):
             Bucket=config.S3_BUCKET_NAME,
             Key=path,
         )
+
+    async def generate_presigned_url(self, *, path: str, expires_in: int = 3600) -> str:
+        return self._client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": config.S3_BUCKET_NAME, "Key": path},
+            ExpiresIn=expires_in,
+        )

@@ -22,8 +22,5 @@ audio_capture_table = BaseTable(
     Column("device_platform", Text, nullable=True),
     Column("device_os_version", Text, nullable=True),
     Column("device_model", Text, nullable=True),
-    Column("reviewed_at", DateTime(timezone=True), nullable=True),
-    Column("review_passed", Boolean, nullable=True),
-    Column("review_note", Text, nullable=True),
     Column("is_deleted", Boolean, nullable=False, default=False),
 )
