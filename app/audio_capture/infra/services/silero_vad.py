@@ -37,7 +37,9 @@ class SileroVadService(IVadService):
             samples = resample(samples, orig_freq=sample_rate, new_freq=16000)
 
         # 음성 구간 감지
-        timestamps = get_speech_timestamps(samples, self._model, sampling_rate=16000, return_seconds=True)
+        timestamps = get_speech_timestamps(
+            samples, self._model, sampling_rate=16000, return_seconds=True, threshold=0.1
+        )
 
         # ms로 변환
         return [(int(timestamp["start"] * 1000), int(timestamp["end"] * 1000)) for timestamp in timestamps]
