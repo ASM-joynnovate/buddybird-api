@@ -62,5 +62,6 @@ class GetAudioCaptureListRequest(PageParams):
     firebase_anon_uid: str | None = Field(None, description="Firebase Authentication 익명 ID")
     word_label: str | None = Field(None, description="연결된 단어명")
     label_status: LabelStatusEnum = Field(LabelStatusEnum.ALL, description="라벨링 상태 필터")
+    has_memo: bool | None = Field(None, description="메모가 있는 세그먼트 존재 여부 필터")
     date_from: datetime | None = Field(None, description="캡처 시각 시작 범위")
     date_to: datetime | None = Field(None, description="캡처 시각 끝 범위")

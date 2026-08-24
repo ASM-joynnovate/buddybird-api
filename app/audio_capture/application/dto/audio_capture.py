@@ -62,6 +62,7 @@ class GetAudioCaptureDTO(CustomBaseModel):
 class GetAudioCaptureListItemDTO(GetAudioCaptureDTO):
     segment_count: int = Field(..., description="전체 세그먼트 수")
     labeled_count: int = Field(..., description="라벨링된 세그먼트 수")
+    has_memo: bool = Field(..., description="메모가 있는 세그먼트 존재 여부")
 
 
 class GetAudioCaptureDetailDTO(GetAudioCaptureDTO):

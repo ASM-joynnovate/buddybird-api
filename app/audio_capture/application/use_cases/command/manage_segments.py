@@ -6,11 +6,13 @@ from app.audio_capture.application.dto.audio_segment import (
     AssignAudioSegmentLabelDTO,
     CreateAudioSegmentDTO,
     TrimAudioSegmentDTO,
+    UpdateAudioSegmentMemoDTO,
 )
 from app.audio_capture.domain.command.audio_segment import (
     AssignAudioSegmentLabelCommand,
     CreateAudioSegmentCommand,
     TrimAudioSegmentCommand,
+    UpdateAudioSegmentMemoCommand,
 )
 from app.audio_capture.domain.entities.audio_segment import AudioSegment
 from app.audio_capture.domain.interfaces.repositories import (
@@ -138,6 +140,19 @@ class AssignAudioSegmentLabelUseCase:
             raise ResourceNotFoundException
 
         segment.assign_label(command=AssignAudioSegmentLabelCommand(label_option_id=data.label_option_id))
+
+
+class UpdateAudioSegmentMemoUseCase:
+    def __init__(self, *, audio_segment_repo: IAudioSegmentRepo):
+        self._audio_segment_repo = audio_segment_repo
+
+    @Transactional()
+    async def execute(self, *, audio_segment_id: UUID, data: UpdateAudioSegmentMemoDTO) -> None:
+        segment = await self._audio_segment_repo.get_by_id(audio_segment_id=audio_segment_id)
+        if segment is None:
+            raise ResourceNotFoundException
+
+        segment.update_memo(command=UpdateAudioSegmentMemoCommand(memo=data.memo))
 
 
 class DetectAudioSegmentsUseCase:

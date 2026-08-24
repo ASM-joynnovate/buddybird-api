@@ -11,6 +11,7 @@ from .audio_segment import (
     CreateAudioSegmentDTO,
     GetAudioSegmentDTO,
     TrimAudioSegmentDTO,
+    UpdateAudioSegmentMemoDTO,
 )
 from .label import (
     CreateLabelCategoryDTO,
@@ -36,6 +37,7 @@ __all__ = [
     "GetLabelCategoryDTO",
     "GetLabelOptionDTO",
     "TrimAudioSegmentDTO",
+    "UpdateAudioSegmentMemoDTO",
     "UpdateLabelCategoryDTO",
     "UpdateLabelOptionDTO",
 ]

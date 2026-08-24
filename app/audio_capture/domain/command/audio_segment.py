@@ -22,3 +22,8 @@ class TrimAudioSegmentCommand:
 @dataclass
 class AssignAudioSegmentLabelCommand:
     label_option_id: UUID
+
+
+@dataclass
+class UpdateAudioSegmentMemoCommand:
+    memo: str | None

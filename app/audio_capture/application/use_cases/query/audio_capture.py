@@ -30,6 +30,7 @@ class AudioCaptureQueryUseCase:
         firebase_anon_uid: str | None,
         word_label: str | None,
         label_status: LabelStatusEnum,
+        has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
         prev: int,
@@ -39,6 +40,7 @@ class AudioCaptureQueryUseCase:
             firebase_anon_uid=firebase_anon_uid,
             word_label=word_label,
             label_status=label_status,
+            has_memo=has_memo,
             date_from=date_from,
             date_to=date_to,
             prev=prev,
@@ -59,8 +61,9 @@ class AudioCaptureQueryUseCase:
                 captured_at=capture.captured_at,
                 duration_ms=capture.duration_ms,
                 created_at=capture.created_at,
-                segment_count=counts.get(capture.id, (0, 0))[0],
-                labeled_count=counts.get(capture.id, (0, 0))[1],
+                segment_count=counts.get(capture.id, (0, 0, 0))[0],
+                labeled_count=counts.get(capture.id, (0, 0, 0))[1],
+                has_memo=counts.get(capture.id, (0, 0, 0))[2] > 0,
             )
             for capture in captures
         ]
@@ -71,6 +74,7 @@ class AudioCaptureQueryUseCase:
         firebase_anon_uid: str | None,
         word_label: str | None,
         label_status: LabelStatusEnum,
+        has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
     ) -> int:
@@ -78,6 +82,7 @@ class AudioCaptureQueryUseCase:
             firebase_anon_uid=firebase_anon_uid,
             word_label=word_label,
             label_status=label_status,
+            has_memo=has_memo,
             date_from=date_from,
             date_to=date_to,
         )
@@ -104,6 +109,7 @@ class AudioCaptureQueryUseCase:
                     start_ms=segment.range.start_ms,
                     end_ms=segment.range.end_ms,
                     label_option_id=segment.label_option_id,
+                    memo=segment.memo,
                     audio_url=segment_url,
                 )
             )

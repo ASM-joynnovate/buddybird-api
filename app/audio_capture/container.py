@@ -15,6 +15,7 @@ from app.audio_capture.application.use_cases.command.manage_segments import (
     DeleteAudioSegmentUseCase,
     DetectAudioSegmentsUseCase,
     TrimAudioSegmentUseCase,
+    UpdateAudioSegmentMemoUseCase,
 )
 from app.audio_capture.application.use_cases.query.audio_capture import AudioCaptureQueryUseCase
 from app.audio_capture.application.use_cases.query.export_audio_segment import ExportAudioSegmentsUseCase
@@ -108,6 +109,10 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
         AssignAudioSegmentLabelUseCase,
         audio_segment_repo=audio_segment_repo,
         label_option_repo=label_option_repo,
+    )
+    update_audio_segment_memo_command = providers.Factory(
+        UpdateAudioSegmentMemoUseCase,
+        audio_segment_repo=audio_segment_repo,
     )
     detect_audio_segments_command = providers.Factory(
         DetectAudioSegmentsUseCase,

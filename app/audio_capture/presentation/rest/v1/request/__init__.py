@@ -3,6 +3,7 @@ from .audio_segment import (
     AssignAudioSegmentLabelRequest,
     CreateAudioSegmentRequest,
     TrimAudioSegmentRequest,
+    UpdateAudioSegmentMemoRequest,
 )
 from .label import (
     CreateLabelCategoryRequest,
@@ -19,6 +20,7 @@ __all__ = [
     "CreateLabelOptionRequest",
     "GetAudioCaptureListRequest",
     "TrimAudioSegmentRequest",
+    "UpdateAudioSegmentMemoRequest",
     "UpdateLabelCategoryRequest",
     "UpdateLabelOptionRequest",
 ]

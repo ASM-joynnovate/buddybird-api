@@ -28,7 +28,7 @@ class SQLAlchemyAudioSegmentRepo(IAudioSegmentRepo):
             )
             return result.scalars().all()
 
-    async def get_counts_by_capture_ids(self, *, audio_capture_ids: list[UUID]) -> dict[UUID, tuple[int, int]]:
+    async def get_counts_by_capture_ids(self, *, audio_capture_ids: list[UUID]) -> dict[UUID, tuple[int, int, int]]:
         if not audio_capture_ids:
             return {}
 
@@ -38,12 +38,13 @@ class SQLAlchemyAudioSegmentRepo(IAudioSegmentRepo):
                     AudioSegment.audio_capture_id,
                     func.count(AudioSegment.id),
                     func.count(AudioSegment.label_option_id),
+                    func.count(AudioSegment.memo),
                 )
                 .where(AudioSegment.audio_capture_id.in_(audio_capture_ids))
                 .where(AudioSegment.is_deleted.is_(False))
                 .group_by(AudioSegment.audio_capture_id)
             )
-            return {row[0]: (row[1], row[2]) for row in result.all()}
+            return {row[0]: (row[1], row[2], row[3]) for row in result.all()}
 
     async def get_by_id(self, *, audio_segment_id: UUID) -> AudioSegment | None:
         result = await session.execute(
