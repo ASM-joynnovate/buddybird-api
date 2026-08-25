@@ -21,7 +21,8 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
+    - name: post message
+      shell: bash
       env:
         WEBHOOK_URL: ${{ inputs.webhook-url }}
         TITLE: ${{ inputs.title }}

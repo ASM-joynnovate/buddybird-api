@@ -10,11 +10,16 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v9
-      - run: uv run --frozen --only-dev ruff check
+      - name: checkout
+        uses: actions/checkout@v7
 
-      - name: notify failure
+      - name: set up uv
+        uses: astral-sh/setup-uv@v9.0.0
+
+      - name: ruff check
+        run: uv run --frozen --only-dev ruff check
+
+      - name: notify lint failure
         if: failure()
         uses: ./.github/actions/notify-slack
         continue-on-error: true
