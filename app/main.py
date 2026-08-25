@@ -1,4 +1,6 @@
 import logging
+import tomllib
+from pathlib import Path
 
 from fastapi.responses import JSONResponse
 
@@ -28,7 +30,7 @@ def create_app() -> ExtendedFastAPI:
 버디버드 API
         """,
         middleware=make_middleware(),
-        version="0.0.1",
+        version=tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())["project"]["version"],
         env=env,
         settings=config,
         lifespan=lifespan,
