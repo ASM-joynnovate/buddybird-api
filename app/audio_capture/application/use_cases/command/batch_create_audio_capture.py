@@ -7,9 +7,9 @@ from app.audio_capture.application.dto.audio_capture import (
     BatchCreateAudioCaptureDTO,
     CreateAudioCaptureItemDTO,
 )
-from app.audio_capture.application.exceptions import (
-    AudioCaptureArchiveEntryNotFoundException,
-    AudioCaptureArchiveInvalidException,
+from app.audio_capture.application.errors import (
+    AudioCaptureArchiveEntryNotFoundError,
+    AudioCaptureArchiveInvalidError,
 )
 from app.audio_capture.domain.command import CreateAudioCaptureCommand
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
@@ -18,7 +18,7 @@ from app.audio_capture.domain.interfaces.services import IAudioAnalyzer
 from app.shared_kernel.domain.command.file import AssignFileCommand
 from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
 from app.shared_kernel.domain.interfaces.services import IFileAnalyzer
-from core.common.exceptions import CustomException
+from core.common.errors import CustomError
 from core.db import Transactional
 from core.db.transactional import on_rollback
 
@@ -42,7 +42,7 @@ class BatchCreateAudioCaptureUseCase:
         try:
             archive = zipfile.ZipFile(io.BytesIO(data.archive_file))
         except zipfile.BadZipFile as e:
-            raise AudioCaptureArchiveInvalidException from e
+            raise AudioCaptureArchiveInvalidError from e
 
         # 이미 저장된(firebase_anon_id, client_capture_id 조합이 동일한) 데이터 불러오기
         saved_client_capture_ids = await self._audio_capture_repo.get_existing_client_capture_ids(
@@ -60,7 +60,7 @@ class BatchCreateAudioCaptureUseCase:
 
                 try:
                     await self._save_one(data=data, item=item, archive=archive)
-                except CustomException as e:
+                except CustomError as e:
                     results[item.client_capture_id] = AudioCaptureUploadResultDTO(
                         status="rejected",
                         code=e.code,
@@ -84,9 +84,9 @@ class BatchCreateAudioCaptureUseCase:
         try:
             audio = archive.read(item.file_name)
         except KeyError as e:
-            raise AudioCaptureArchiveEntryNotFoundException from e
+            raise AudioCaptureArchiveEntryNotFoundError from e
         except zipfile.BadZipFile as e:
-            raise AudioCaptureArchiveInvalidException from e
+            raise AudioCaptureArchiveInvalidError from e
 
         file_type = self._file_analyzer.get_mime_type(file=audio)
         duration_ms = self._audio_analyzer.get_duration_ms(file=audio)

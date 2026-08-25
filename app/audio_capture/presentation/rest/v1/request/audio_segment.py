@@ -21,3 +21,9 @@ class AssignAudioSegmentLabelRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label_option_id: UUID = Field(..., description="지정할 라벨 옵션 ID")
+
+
+class UpdateAudioSegmentMemoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    memo: str | None = Field(None, description="메모")

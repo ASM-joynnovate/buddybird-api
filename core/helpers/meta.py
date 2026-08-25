@@ -8,6 +8,6 @@ class MetaDataHelper:
         return {
             "current_page": page,
             "total_page_count": count // limit + 1 if count % limit != 0 else count // limit,
-            "is_first": True if page == 1 else False,
-            "is_last": True if page * limit >= count else False,
+            "is_first": page == 1,
+            "is_last": page * limit >= count,
         }

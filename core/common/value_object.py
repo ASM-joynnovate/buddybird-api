@@ -1,7 +1,7 @@
 from enum import EnumMeta
 from typing import Any, TypeVar
 
-from core.common.exceptions import ValueObjectEnumException
+from core.common.errors import ValueObjectEnumError
 
 ValueObjectType = TypeVar("ValueObjectType", bound="ValueObject")
 
@@ -16,7 +16,6 @@ class ValueObject:
             for item in cls:
                 if item.value == value:
                     return item
-            raise ValueObjectEnumException
+            raise ValueObjectEnumError
 
-        instance = cls(value=value)
-        return instance
+        return cls(value=value)

@@ -1,4 +1,4 @@
-class CustomException(Exception):
+class CustomError(Exception):
     code = 400
     error_code = "BAD_GATEWAY"
     message = "BAD GATEWAY"
@@ -13,13 +13,13 @@ class CustomException(Exception):
             self.detail = detail
 
 
-class ValueObjectEnumException(CustomException):
+class ValueObjectEnumError(CustomError):
     code = 400
     error_code = "ENUM__INVALID"
     message = "유효하지 않은 Enum 값입니다."
 
 
-class ResourceNotFoundException(CustomException):
+class ResourceNotFoundError(CustomError):
     code = 404
     error_code = "RESOURCE_NOT_FOUND"
     message = "요청한 리소스를 찾을 수 없습니다."

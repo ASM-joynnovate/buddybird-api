@@ -19,16 +19,13 @@ class RedisBackend(BaseBackend):
         try:
             return orjson.loads(result)
         except Exception:
-            return pickle.loads(result)
+            return pickle.loads(result)  # noqa: S301
 
     async def set(self, *, response: Any, key: str, ttl: int = 60) -> None:
         if RedisHelper().get_status() == RedisStatus.DOWN:
             return
 
-        if isinstance(response, dict):
-            response = orjson.dumps(response)
-        else:
-            response = pickle.dumps(response)
+        response = orjson.dumps(response) if isinstance(response, dict) else pickle.dumps(response)
 
         await RedisHelper().setex(key=key, value=response, seconds=ttl)
         return

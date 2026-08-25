@@ -1,21 +1,21 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from json import JSONEncoder
 from uuid import UUID
 
 import jwt
 from jwt.exceptions import DecodeError, ExpiredSignatureError
 
-from core.common.exceptions import CustomException
+from core.common.errors import CustomError
 from core.config import config
 
 
-class DecodeTokenException(CustomException):
+class DecodeTokenError(CustomError):
     code = 400
     error_code = "TOKEN__DECODE_ERROR"
     message = "유효하지 않은 토큰입니다."
 
 
-class ExpiredTokenException(CustomException):
+class ExpiredTokenError(CustomError):
     code = 400
     error_code = "TOKEN__EXPIRE_TOKEN"
     message = "만료된 토큰입니다."
@@ -36,7 +36,7 @@ class TokenHelper:
         key: str,
         delta: int,
     ) -> tuple[str, float]:
-        exp = (datetime.now() + timedelta(minutes=delta)).timestamp()
+        exp = (datetime.now(tz=UTC) + timedelta(minutes=delta)).timestamp()
         token = jwt.encode(
             payload={
                 **payload,
@@ -59,6 +59,6 @@ class TokenHelper:
                 verify=True,
             )
         except DecodeError as e:
-            raise DecodeTokenException from e
+            raise DecodeTokenError from e
         except ExpiredSignatureError as e:
-            raise ExpiredTokenException from e
+            raise ExpiredTokenError from e

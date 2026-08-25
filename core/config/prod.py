@@ -1,4 +1,5 @@
 from dataclasses import field
+from typing import ClassVar
 
 from pydantic_settings import SettingsConfigDict
 
@@ -9,10 +10,15 @@ class ProdSettings(CommonSettings):
     DEBUG: bool = False
     PROFILING_ENABLED: bool = False
     MULTITENANCY_ENABLED: bool = True
-    FRONTEND_CORS_ORIGIN: list[str] = field(default_factory=list)
+
+    DB_SSL_MODE: str = "require"
+
+    FRONTEND_CORS_ORIGIN: ClassVar[list[str]] = field(default_factory=list)
+
     DOCS_URL: str | None = None
     REDOC_URL: str | None = None
     OPENAPI_URL: str | None = None
+
     LOG_FORMAT: LogFormat = "json"
 
     model_config = SettingsConfigDict(

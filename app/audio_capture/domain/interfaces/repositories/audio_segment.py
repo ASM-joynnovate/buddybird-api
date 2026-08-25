@@ -14,8 +14,8 @@ class IAudioSegmentRepo(ABC):
         pass
 
     @abstractmethod
-    async def get_counts_by_capture_ids(self, *, audio_capture_ids: list[UUID]) -> dict[UUID, tuple[int, int]]:
-        """캡처 id별 (전체 세그먼트 수, 라벨된 세그먼트 수)를 반환한다."""
+    async def get_counts_by_capture_ids(self, *, audio_capture_ids: list[UUID]) -> dict[UUID, tuple[int, int, int]]:
+        """캡처 id별 (전체 세그먼트 수, 라벨된 세그먼트 수, 메모가 있는 세그먼트 수)를 반환한다."""
 
     @abstractmethod
     async def get_by_id(self, *, audio_segment_id: UUID) -> AudioSegment | None:

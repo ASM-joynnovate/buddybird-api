@@ -5,7 +5,7 @@ import torch
 from silero_vad import get_speech_timestamps, load_silero_vad
 from torchaudio.functional import resample
 
-from app.audio_capture.domain.exceptions import UnsupportedAudioFormatException
+from app.audio_capture.domain.errors import UnsupportedAudioFormatError
 from app.audio_capture.domain.interfaces.services import IVadService
 
 
@@ -23,7 +23,7 @@ class SileroVadService(IVadService):
 
         # 16비트 PCM만 허용
         if sample_width != 2:
-            raise UnsupportedAudioFormatException
+            raise UnsupportedAudioFormatError
 
         # 16비트 정수 샘플을 -1 ~ 1 실수로 변환
         samples = torch.frombuffer(bytearray(frames), dtype=torch.int16).float() / 32768.0

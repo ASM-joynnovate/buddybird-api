@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
 from starlette import status
 
-from core.common.exceptions.base import CustomException
+from core.common.errors.base import CustomError
 from core.config import Env
 from core.fastapi import ExtendedFastAPI
 
@@ -14,8 +14,8 @@ logger = logging.getLogger("buddybird.exception")
 
 
 def register_exception_handlers(app: ExtendedFastAPI):
-    @app.exception_handler(CustomException)
-    async def custom_exception_handler(_: Request, exc: CustomException):
+    @app.exception_handler(CustomError)
+    async def custom_exception_handler(_: Request, exc: CustomError):
         return JSONResponse(
             status_code=exc.code,
             content={"error_code": exc.error_code, "message": exc.message},

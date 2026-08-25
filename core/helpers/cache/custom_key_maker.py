@@ -18,12 +18,12 @@ class CustomKeyMaker(BaseKeyMaker):
 
             args += arg.name
             if arg.name in bound_args.arguments:
-                if isinstance(bound_args.arguments[arg.name], str) or isinstance(bound_args.arguments[arg.name], int):
+                if isinstance(bound_args.arguments[arg.name], str) or isinstance(bound_args.arguments[arg.name], int):  # noqa: SIM101
                     args += f"={bound_args.arguments[arg.name]}"
                 elif isinstance(bound_args.arguments[arg.name], dict):
                     args += f"={sorted(bound_args.arguments[arg.name].items())}"
                 elif (
-                    isinstance(bound_args.arguments[arg.name], list)
+                    isinstance(bound_args.arguments[arg.name], list)  # noqa: SIM101
                     or isinstance(bound_args.arguments[arg.name], set)
                     or isinstance(bound_args.arguments[arg.name], tuple)
                 ):

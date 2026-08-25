@@ -1,9 +1,10 @@
 [project]
 name = "buddybird-api"
-version = "0.1.0"
+version = "0.1.1"
 description = "버디버드 API Backend"
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.18.5",
     "asgi-correlation-id>=5.0.1",
     "asyncpg>=0.31.0",
     "bcrypt>=5.0.0",
@@ -41,7 +42,6 @@ dev = [
     "pytest-mock>=3.14.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=0.25.3",
-    "alembic>=1.18.5",
     "ruff>=0.16.1",
 ]
 
@@ -49,6 +49,7 @@ dev = [
 target-version = "py314"
 line-length = 120
 indent-width = 4
+extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = [

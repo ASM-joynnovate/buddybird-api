@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.shared_kernel.domain.command.file import CreateFileCommand
-from app.shared_kernel.domain.exceptions import FileSizeExceededException, NotAllowedFileTypeException
+from app.shared_kernel.domain.errors import FileSizeExceededError, NotAllowedFileTypeError
 from core.common.entity import Entity
 from core.helpers.utils import FileSizeHelper
 
@@ -37,12 +37,12 @@ class File(Entity):
                 raise ValueError("Invalid size format")
 
         if self.file_type not in allowed_types:
-            raise NotAllowedFileTypeException(
+            raise NotAllowedFileTypeError(
                 message="허용되지 않는 파일 타입입니다. 허용된 파일 타입: {}".format(", ".join(allowed_types))
             )
 
         if self.file_size > max_size:
-            raise FileSizeExceededException(
+            raise FileSizeExceededError(
                 message=f"최대 파일 크기를 초과했습니다."
                 f" 현재 파일 크기: {FileSizeHelper.bytes_to_human_readable(self.file_size)},"
                 f" 최대 크기: {FileSizeHelper.bytes_to_human_readable(max_size)}"

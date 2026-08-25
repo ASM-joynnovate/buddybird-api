@@ -1,6 +1,6 @@
 import magic
 
-from app.shared_kernel.domain.exceptions import DetectFileMimeTypeFailedException
+from app.shared_kernel.domain.errors import DetectFileMimeTypeFailedError
 from app.shared_kernel.domain.interfaces.services import IFileAnalyzer
 
 
@@ -8,7 +8,7 @@ class MagicFileAnalyzer(IFileAnalyzer):
     def get_mime_type(self, *, file: bytes) -> str:
         file_type = magic.from_buffer(file, mime=True)
         if not file_type:
-            raise DetectFileMimeTypeFailedException()
+            raise DetectFileMimeTypeFailedError()
 
         return file_type
 

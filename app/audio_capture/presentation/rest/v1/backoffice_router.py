@@ -8,6 +8,7 @@ from app.audio_capture.application.dto.audio_segment import (
     AssignAudioSegmentLabelDTO,
     CreateAudioSegmentDTO,
     TrimAudioSegmentDTO,
+    UpdateAudioSegmentMemoDTO,
 )
 from app.audio_capture.application.dto.label import (
     CreateLabelCategoryDTO,
@@ -29,6 +30,7 @@ from app.audio_capture.application.use_cases.command.manage_segments import (
     DeleteAudioSegmentUseCase,
     DetectAudioSegmentsUseCase,
     TrimAudioSegmentUseCase,
+    UpdateAudioSegmentMemoUseCase,
 )
 from app.audio_capture.application.use_cases.query.audio_capture import AudioCaptureQueryUseCase
 from app.audio_capture.application.use_cases.query.export_audio_segment import ExportAudioSegmentsUseCase
@@ -50,6 +52,7 @@ from .request import (
     CreateLabelOptionRequest,
     GetAudioCaptureListRequest,
     TrimAudioSegmentRequest,
+    UpdateAudioSegmentMemoRequest,
     UpdateLabelCategoryRequest,
     UpdateLabelOptionRequest,
 )
@@ -163,6 +166,7 @@ async def get_captures(
         firebase_anon_uid=query.firebase_anon_uid,
         word_label=query.word_label,
         label_status=query.label_status,
+        has_memo=query.has_memo,
         date_from=query.date_from,
         date_to=query.date_to,
         prev=prev,
@@ -172,6 +176,7 @@ async def get_captures(
         firebase_anon_uid=query.firebase_anon_uid,
         word_label=query.word_label,
         label_status=query.label_status,
+        has_memo=query.has_memo,
         date_from=query.date_from,
         date_to=query.date_to,
     )
@@ -254,6 +259,22 @@ async def assign_audio_segment_label(
     await use_case.execute(audio_segment_id=audio_segment_id, data=data)
 
     return BaseResponse(message="오디오 세그먼트 라벨 지정 성공")
+
+
+@router.put("/segments/{audio_segment_id:uuid}/memo", name="오디오 세그먼트 메모 수정", response_model=BaseResponse)
+@inject
+async def update_audio_segment_memo(
+    audio_segment_id: UUID,
+    body: UpdateAudioSegmentMemoRequest,
+    use_case: Annotated[
+        UpdateAudioSegmentMemoUseCase,
+        Depends(Provide[AppContainer.audio_capture.update_audio_segment_memo_command]),
+    ],
+):
+    data = UpdateAudioSegmentMemoDTO(**body.model_dump(exclude_unset=True))
+    await use_case.execute(audio_segment_id=audio_segment_id, data=data)
+
+    return BaseResponse(message="오디오 세그먼트 메모 수정 성공")
 
 
 @router.delete("/segments/{audio_segment_id:uuid}", name="오디오 세그먼트 삭제", response_model=BaseResponse)

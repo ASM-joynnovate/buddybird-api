@@ -1,0 +1,69 @@
+name: notify slack
+description: Post a Block Kit message to a Slack incoming webhook
+
+inputs:
+  webhook-url:
+    description: Slack incoming webhook URL
+    required: true
+  title:
+    description: Header text, up to 150 characters
+    required: true
+  fields:
+    description: One "label=value" per line. Lines with an empty value are skipped.
+    default: ""
+  buttons:
+    description: One "text=url" per line.
+    default: ""
+  commit-range:
+    description: "<before>..<after>. Lists up to 20 commits in the range. Requires fetch-depth 0."
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: post message
+      shell: bash
+      env:
+        WEBHOOK_URL: ${{ inputs.webhook-url }}
+        TITLE: ${{ inputs.title }}
+        FIELDS: ${{ inputs.fields }}
+        BUTTONS: ${{ inputs.buttons }}
+        COMMIT_RANGE: ${{ inputs.commit-range }}
+        REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+      run: |
+        fields=$(printf '%s\n' "$FIELDS" | jq -R -s '
+          split("\n") | map(select(length > 0) | capture("^(?<k>[^=]*)=(?<v>.*)$") | select(.v | length > 0)
+            | {type: "mrkdwn", text: ("*\(.k)*\n\(.v)")})')
+
+        buttons=$(printf '%s\n' "$BUTTONS" | jq -R -s '
+          split("\n") | map(select(length > 0) | capture("^(?<t>[^=]*)=(?<u>.*)$")
+            | {type: "button", text: {type: "plain_text", text: .t}, url: .u})')
+
+        commits=""
+        if [ -n "$COMMIT_RANGE" ]; then
+          before="${COMMIT_RANGE%%..*}"
+          after="${COMMIT_RANGE##*..}"
+          if [ -z "$before" ] || [[ "$before" =~ ^0+$ ]]; then
+            log_args=(-1 "$after")
+          else
+            log_args=(-21 "$before..$after")
+          fi
+          commits=$(git log "${log_args[@]}" --format='%H%x1f%s%x1f%an' | jq -r -R -s --arg repo "$REPO_URL" '
+            def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
+            split("\n") | map(select(length > 0))
+            | if length == 0 then "" else
+                (if length > 20 then "\n...(이하 생략)" else "" end) as $more
+                | .[:20]
+                | map(split("\u001f") | "• <\($repo)/commit/\(.[0])|\(.[0][:7])> \(.[1][:80] | esc) (\(.[2] | esc))")
+                | "*커밋*\n" + join("\n") + $more
+              end')
+        fi
+
+        jq -n --arg title "$TITLE" --argjson fields "$fields" --argjson buttons "$buttons" --arg commits "$commits" '
+          {blocks: [
+            {type: "header", text: {type: "plain_text", text: ($title | .[:150])}},
+            (if ($fields | length) > 0 then {type: "section", fields: $fields} else empty end),
+            (if ($commits | length) > 0 then {type: "section", text: {type: "mrkdwn", text: $commits}} else empty end),
+            (if ($buttons | length) > 0 then {type: "actions", elements: $buttons} else empty end)
+          ]}' \
+          | curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' --data @- "$WEBHOOK_URL"

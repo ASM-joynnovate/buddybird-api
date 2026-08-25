@@ -7,6 +7,7 @@ from app.audio_capture.domain.command.audio_segment import (
     AssignAudioSegmentLabelCommand,
     CreateAudioSegmentCommand,
     TrimAudioSegmentCommand,
+    UpdateAudioSegmentMemoCommand,
 )
 from app.audio_capture.domain.value_objects import AudioSegmentRange
 from app.shared_kernel.domain.command.file import CreateFileCommand
@@ -20,6 +21,7 @@ class AudioSegment(AggregateRoot):
     range: AudioSegmentRange
     audio_file: File
     label_option_id: UUID | None
+    memo: str | None
     created_at: datetime
     updated_at: datetime | None
     is_deleted: bool
@@ -44,6 +46,7 @@ class AudioSegment(AggregateRoot):
             range=command.range,
             audio_file=file,
             label_option_id=None,
+            memo=None,
             created_at=datetime.now(UTC),
             updated_at=None,
             is_deleted=False,
@@ -69,6 +72,9 @@ class AudioSegment(AggregateRoot):
 
     def assign_label(self, *, command: AssignAudioSegmentLabelCommand) -> None:
         self.label_option_id = command.label_option_id
+
+    def update_memo(self, *, command: UpdateAudioSegmentMemoCommand) -> None:
+        self.memo = command.memo
 
     def delete(self) -> None:
         self.audio_file.delete()

@@ -42,17 +42,19 @@ engines = {
         config.WRITER_DB_URL,
         pool_recycle=3600,
         echo=config.SQLALCHEMY_ECHO,
+        connect_args={"ssl": config.DB_SSL_MODE},
     ),
     EngineType.READER: create_async_engine(
         config.READER_DB_URL,
         pool_recycle=3600,
         echo=config.SQLALCHEMY_ECHO,
+        connect_args={"ssl": config.DB_SSL_MODE},
     ),
 }
 
 
 class RoutingSession(Session):
-    def get_bind(self, mapper=None, clause=None, **kw):
+    def get_bind(self, mapper=None, clause=None, **kw):  # noqa: ARG002
         if self._flushing or isinstance(clause, Update | Delete | Insert):
             return engines[EngineType.WRITER].sync_engine
         return engines[EngineType.READER].sync_engine

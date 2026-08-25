@@ -1,3 +1,4 @@
+import contextlib
 import inspect
 from functools import update_wrapper
 
@@ -55,7 +56,7 @@ class OpenTelemetryTrace:
                         if isinstance(val, str) and len(val) > self.max_length:
                             val = val[: self.max_length] + "..."
                         span.set_attribute(prefix, val)
-                except Exception:
+                except Exception:  # noqa: S110
                     pass
 
         def _set_span_attributes(span, args, kwargs):
@@ -65,10 +66,8 @@ class OpenTelemetryTrace:
             span.set_attribute("function.line", func.__code__.co_firstlineno)
 
             if self.include_args:
-                try:
+                with contextlib.suppress(Exception):
                     span.set_attribute("function.args", str(args))
-                except Exception:
-                    pass
 
                 for key, value in kwargs.items():
                     _flatten_and_set(span, f"function.kwargs.{key}", value)

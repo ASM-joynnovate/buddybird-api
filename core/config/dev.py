@@ -8,6 +8,8 @@ class DevSettings(CommonSettings):
     PROFILING_ENABLED: bool = True
     SQLALCHEMY_ECHO: bool = True
 
+    DB_SSL_MODE: str = "require"
+
     LOG_LEVEL: LogLevel = "DEBUG"
     LOG_FORMAT: LogFormat = "uvicorn"
     LOG_DEBUG: bool = True

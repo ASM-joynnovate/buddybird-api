@@ -1,0 +1,158 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency: deploy-${{ github.ref_name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+    env:
+      ECR_REPOSITORY: jn-buddybird-api
+      ECS_CLUSTER: jn-cluster
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      ECS_SERVICE: jn-buddybird-api-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: read version
+        id: version
+        run: |
+          echo "version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')" >> "$GITHUB_OUTPUT"
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: notify deploy start
+        uses: ./.github/actions/notify-slack
+        continue-on-error: true
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          title: 🚀 ${{ env.ECS_SERVICE }} 배포 시작
+          fields: |
+            환경=${{ env.ENVIRONMENT }}
+            버전=${{ steps.version.outputs.version }}
+            실행자=${{ github.actor }}
+            트리거=${{ github.event_name }} to ${{ github.ref_name }}
+          buttons: |
+            실행 로그=${{ env.RUN_URL }}
+            변경 내역=${{ github.event.compare }}
+          commit-range: ${{ github.event.before }}..${{ github.sha }}
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::198252712951:role/jn-buddybird-api-deploy
+          aws-region: ap-northeast-2
+
+      - name: login to ecr
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: resolve image uri
+        id: image
+        run: echo "uri=${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: ensure version is not in ecr
+        id: check-new-version
+        if: github.ref_name == 'dev'
+        run: "! aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.version.outputs.version }}"
+
+      - name: ensure version is in ecr
+        id: check-image-exists
+        if: github.ref_name == 'main'
+        run: aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.version.outputs.version }}
+
+      - name: set up buildx
+        id: buildx
+        if: github.ref_name == 'dev'
+        uses: docker/setup-buildx-action@v4
+
+      - name: build and push image
+        id: build
+        if: github.ref_name == 'dev'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.image.outputs.uri }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: render task definition
+        id: task
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          aws ecs describe-task-definition --task-definition "$ECS_SERVICE" --query taskDefinition \
+            | jq --arg image "$IMAGE" '.containerDefinitions[0].image = $image' > task-definition.json
+          network=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration')
+          echo "subnets=$(echo "$network" | jq -r '.subnets | join(",")')" >> "$GITHUB_OUTPUT"
+          echo "security_groups=$(echo "$network" | jq -r '.securityGroups | join(",")')" >> "$GITHUB_OUTPUT"
+
+      - name: run migration and deploy service
+        id: deploy
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: task-definition.json
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          run-task: true
+          run-task-container-overrides: '[{"name": "api", "command": ["alembic", "upgrade", "head"]}]'
+          run-task-subnets: ${{ steps.task.outputs.subnets }}
+          run-task-security-groups: ${{ steps.task.outputs.security_groups }}
+          run-task-assign-public-IP: ENABLED
+          wait-for-task-stopped: true
+          wait-for-service-stability: true
+
+      - name: show migration logs
+        if: failure() && steps.deploy.outputs.run-task-arn != ''
+        env:
+          RUN_TASK_ARN: ${{ steps.deploy.outputs.run-task-arn }}
+        run: |
+          task_id=$(echo "$RUN_TASK_ARN" | jq -r '.[0] | split("/")[-1]')
+          aws logs get-log-events --log-group-name "/ecs/$ECS_SERVICE" --log-stream-name "api/api/$task_id" \
+            --start-from-head --query 'events[].message' --output text
+
+      - name: collect result
+        id: result
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          STARTED: ${{ steps.version.outputs.started }}
+        run: |
+          echo "failed_step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure") | .key][0] // ""' <<< "$STEPS")" >> "$GITHUB_OUTPUT"
+          elapsed=$(( $(date +%s) - STARTED ))
+          echo "duration=$(( elapsed / 60 ))m $(( elapsed % 60 ))s" >> "$GITHUB_OUTPUT"
+
+      - name: notify deploy result
+        if: always()
+        uses: ./.github/actions/notify-slack
+        continue-on-error: true
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          title: "${{ job.status == 'success' && '✅' || job.status == 'failure' && '❌' || '⚠️' }} ${{ env.ECS_SERVICE }} 배포 ${{ job.status == 'success' && '성공' || job.status == 'failure' && '실패' || '취소' }}"
+          fields: |
+            환경=${{ env.ENVIRONMENT }}
+            버전=${{ steps.version.outputs.version }}
+            실행자=${{ github.actor }}
+            트리거=${{ github.event_name }} to ${{ github.ref_name }}
+            소요 시간=${{ steps.result.outputs.duration }}
+            실패 step=${{ steps.result.outputs.failed_step }}
+          buttons: |
+            실행 로그=${{ env.RUN_URL }}
+            변경 내역=${{ github.event.compare }}
+          commit-range: ${{ github.event.before }}..${{ github.sha }}

@@ -18,6 +18,7 @@ class IAudioCaptureRepo(ABC):
         firebase_anon_uid: str | None,
         word_label: str | None,
         label_status: LabelStatusEnum,
+        has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
         prev: int,
@@ -32,6 +33,7 @@ class IAudioCaptureRepo(ABC):
         firebase_anon_uid: str | None,
         word_label: str | None,
         label_status: LabelStatusEnum,
+        has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
     ) -> int:

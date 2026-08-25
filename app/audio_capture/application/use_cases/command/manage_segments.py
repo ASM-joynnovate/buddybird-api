@@ -6,11 +6,13 @@ from app.audio_capture.application.dto.audio_segment import (
     AssignAudioSegmentLabelDTO,
     CreateAudioSegmentDTO,
     TrimAudioSegmentDTO,
+    UpdateAudioSegmentMemoDTO,
 )
 from app.audio_capture.domain.command.audio_segment import (
     AssignAudioSegmentLabelCommand,
     CreateAudioSegmentCommand,
     TrimAudioSegmentCommand,
+    UpdateAudioSegmentMemoCommand,
 )
 from app.audio_capture.domain.entities.audio_segment import AudioSegment
 from app.audio_capture.domain.interfaces.repositories import (
@@ -22,7 +24,7 @@ from app.audio_capture.domain.interfaces.services import IAudioAnalyzer, IVadSer
 from app.audio_capture.domain.value_objects import AudioSegmentRange
 from app.shared_kernel.domain.command.file import AssignFileCommand
 from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
-from core.common.exceptions import ResourceNotFoundException
+from core.common.errors import ResourceNotFoundError
 from core.db import Transactional
 from core.db.transactional import on_rollback
 
@@ -45,7 +47,7 @@ class CreateAudioSegmentUseCase:
     async def execute(self, *, audio_capture_id: UUID, data: CreateAudioSegmentDTO) -> None:
         capture = await self._audio_capture_repo.get_by_id(audio_capture_id=audio_capture_id)
         if capture is None:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         segment_range = AudioSegmentRange(start_ms=data.start_ms, end_ms=data.end_ms)
         source = await self._object_storage_client.download(
@@ -86,11 +88,11 @@ class TrimAudioSegmentUseCase:
     async def execute(self, *, audio_segment_id: UUID, data: TrimAudioSegmentDTO) -> None:
         segment = await self._audio_segment_repo.get_by_id(audio_segment_id=audio_segment_id)
         if segment is None:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         capture = await self._audio_capture_repo.get_by_id(audio_capture_id=segment.audio_capture_id)
         if capture is None:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         segment_range = AudioSegmentRange(start_ms=data.start_ms, end_ms=data.end_ms)
         source_path = f"{capture.audio_file.file_path}/{capture.audio_file.file_name}"
@@ -117,7 +119,7 @@ class DeleteAudioSegmentUseCase:
     async def execute(self, *, audio_segment_id: UUID) -> None:
         segment = await self._audio_segment_repo.get_by_id(audio_segment_id=audio_segment_id)
         if segment is None:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         segment.delete()
 
@@ -131,13 +133,26 @@ class AssignAudioSegmentLabelUseCase:
     async def execute(self, *, audio_segment_id: UUID, data: AssignAudioSegmentLabelDTO) -> None:
         segment = await self._audio_segment_repo.get_by_id(audio_segment_id=audio_segment_id)
         if segment is None:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         option = await self._label_option_repo.get_by_id(label_option_id=data.label_option_id)
         if option is None:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         segment.assign_label(command=AssignAudioSegmentLabelCommand(label_option_id=data.label_option_id))
+
+
+class UpdateAudioSegmentMemoUseCase:
+    def __init__(self, *, audio_segment_repo: IAudioSegmentRepo):
+        self._audio_segment_repo = audio_segment_repo
+
+    @Transactional()
+    async def execute(self, *, audio_segment_id: UUID, data: UpdateAudioSegmentMemoDTO) -> None:
+        segment = await self._audio_segment_repo.get_by_id(audio_segment_id=audio_segment_id)
+        if segment is None:
+            raise ResourceNotFoundError
+
+        segment.update_memo(command=UpdateAudioSegmentMemoCommand(memo=data.memo))
 
 
 class DetectAudioSegmentsUseCase:
@@ -160,7 +175,7 @@ class DetectAudioSegmentsUseCase:
     async def execute(self, *, audio_capture_id: UUID) -> None:
         capture = await self._audio_capture_repo.get_by_id(audio_capture_id=audio_capture_id)
         if capture is None:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         source = await self._object_storage_client.download(
             path=f"{capture.audio_file.file_path}/{capture.audio_file.file_name}"

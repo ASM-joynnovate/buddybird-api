@@ -3,6 +3,7 @@ from .audio_segment import (
     AssignAudioSegmentLabelCommand,
     CreateAudioSegmentCommand,
     TrimAudioSegmentCommand,
+    UpdateAudioSegmentMemoCommand,
 )
 from .label import (
     CreateLabelCategoryCommand,
@@ -18,6 +19,7 @@ __all__ = [
     "CreateLabelCategoryCommand",
     "CreateLabelOptionCommand",
     "TrimAudioSegmentCommand",
+    "UpdateAudioSegmentMemoCommand",
     "UpdateLabelCategoryCommand",
     "UpdateLabelOptionCommand",
 ]

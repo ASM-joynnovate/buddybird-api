@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+
+      - name: set up uv
+        uses: astral-sh/setup-uv@v9.0.0
+
+      - name: ruff check
+        run: uv run --frozen --only-dev ruff check
+
+      - name: notify lint failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        continue-on-error: true
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          title: ❌ lint 실패 ${{ github.event.pull_request.title }}
+          fields: |
+            PR=#${{ github.event.pull_request.number }}
+            브랜치=${{ github.head_ref }} → ${{ github.base_ref }}
+            작성자=${{ github.actor }}
+          buttons: |
+            PR 확인=${{ github.event.pull_request.html_url }}
+            실행 로그=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
