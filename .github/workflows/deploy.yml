@@ -18,9 +18,34 @@ jobs:
     env:
       ECR_REPOSITORY: jn-buddybird-api
       ECS_CLUSTER: jn-cluster
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
       ECS_SERVICE: jn-buddybird-api-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: version
+        run: |
+          echo "version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')" >> "$GITHUB_OUTPUT"
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: notify start
+        uses: ./.github/actions/notify-slack
+        continue-on-error: true
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          title: 🚀 ${{ env.ECS_SERVICE }} 배포 시작
+          fields: |
+            환경=${{ env.ENVIRONMENT }}
+            버전=${{ steps.version.outputs.version }}
+            실행자=${{ github.actor }}
+            트리거=${{ github.event_name }} to ${{ github.ref_name }}
+          buttons: |
+            실행 로그=${{ env.RUN_URL }}
+            변경 내역=${{ github.event.compare }}
+          commit-range: ${{ github.event.before }}..${{ github.sha }}
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -31,25 +56,22 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - id: image
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-        run: |
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "uri=$REGISTRY/$ECR_REPOSITORY:$version" >> "$GITHUB_OUTPUT"
+        run: echo "uri=${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
 
-      - name: fail if the version is already in ECR
+      - id: check-new-version
         if: github.ref_name == 'dev'
-        run: "! aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.image.outputs.version }}"
+        run: "! aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.version.outputs.version }}"
 
-      - name: fail if the version is not in ECR
+      - id: check-image-exists
         if: github.ref_name == 'main'
-        run: aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.image.outputs.version }}
+        run: aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.version.outputs.version }}
 
-      - if: github.ref_name == 'dev'
+      - id: buildx
+        if: github.ref_name == 'dev'
         uses: docker/setup-buildx-action@v4
 
-      - if: github.ref_name == 'dev'
+      - id: build
+        if: github.ref_name == 'dev'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -93,3 +115,32 @@ jobs:
           task_id=$(echo "$RUN_TASK_ARN" | jq -r '.[0] | split("/")[-1]')
           aws logs get-log-events --log-group-name "/ecs/$ECS_SERVICE" --log-stream-name "api/api/$task_id" \
             --start-from-head --query 'events[].message' --output text
+
+      - id: result
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          STARTED: ${{ steps.version.outputs.started }}
+        run: |
+          echo "failed_step=$(jq -r '[to_entries[] | select(.value.conclusion == "failure") | .key][0] // ""' <<< "$STEPS")" >> "$GITHUB_OUTPUT"
+          elapsed=$(( $(date +%s) - STARTED ))
+          echo "duration=$(( elapsed / 60 ))m $(( elapsed % 60 ))s" >> "$GITHUB_OUTPUT"
+
+      - name: notify result
+        if: always()
+        uses: ./.github/actions/notify-slack
+        continue-on-error: true
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          title: "${{ job.status == 'success' && '✅' || job.status == 'failure' && '❌' || '⚠️' }} ${{ env.ECS_SERVICE }} 배포 ${{ job.status == 'success' && '성공' || job.status == 'failure' && '실패' || '취소' }}"
+          fields: |
+            환경=${{ env.ENVIRONMENT }}
+            버전=${{ steps.version.outputs.version }}
+            실행자=${{ github.actor }}
+            트리거=${{ github.event_name }} to ${{ github.ref_name }}
+            소요 시간=${{ steps.result.outputs.duration }}
+            실패 step=${{ steps.result.outputs.failed_step }}
+          buttons: |
+            실행 로그=${{ env.RUN_URL }}
+            변경 내역=${{ github.event.compare }}
+          commit-range: ${{ github.event.before }}..${{ github.sha }}
