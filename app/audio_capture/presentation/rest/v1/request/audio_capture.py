@@ -6,8 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, Json, field_validator
 
 from app.audio_capture.application.dto.audio_capture import CreateAudioCaptureItemDTO
 from app.audio_capture.domain.enum import LabelStatusEnum
-from app.audio_capture.presentation.rest.v1.exceptions import AudioCaptureBatchSizeExceededException
-from app.shared_kernel.domain.exceptions import FileSizeExceededException
+from app.audio_capture.presentation.rest.v1.errors import AudioCaptureBatchSizeExceededError
+from app.shared_kernel.domain.errors import FileSizeExceededError
 from core.common.request.base import PageParams
 from core.helpers.utils import FileSizeHelper
 
@@ -45,16 +45,14 @@ class BatchCreateAudioCaptureRequest(BaseModel):
     @classmethod
     def within_batch_size(cls, value: list[CreateAudioCaptureItemDTO]) -> list[CreateAudioCaptureItemDTO]:
         if len(value) > MAX_BATCH_SIZE:
-            raise AudioCaptureBatchSizeExceededException
+            raise AudioCaptureBatchSizeExceededError
         return value
 
     @field_validator("file")
     @classmethod
     def within_archive_size(cls, value: UploadFile) -> UploadFile:
         if value.size is not None and value.size > FileSizeHelper.convert_size_to_bytes(MAX_ARCHIVE_SIZE):
-            raise FileSizeExceededException(
-                message=f"압축 파일의 최대 크기를 초과했습니다. 최대 크기: {MAX_ARCHIVE_SIZE}"
-            )
+            raise FileSizeExceededError(message=f"압축 파일의 최대 크기를 초과했습니다. 최대 크기: {MAX_ARCHIVE_SIZE}")
         return value
 
 

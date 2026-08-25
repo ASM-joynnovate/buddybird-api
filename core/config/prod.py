@@ -1,4 +1,5 @@
 from dataclasses import field
+from typing import ClassVar
 
 from pydantic_settings import SettingsConfigDict
 
@@ -12,7 +13,7 @@ class ProdSettings(CommonSettings):
 
     DB_SSL_MODE: str = "require"
 
-    FRONTEND_CORS_ORIGIN: list[str] = field(default_factory=list)
+    FRONTEND_CORS_ORIGIN: ClassVar[list[str]] = field(default_factory=list)
 
     DOCS_URL: str | None = None
     REDOC_URL: str | None = None

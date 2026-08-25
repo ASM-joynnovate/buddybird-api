@@ -54,7 +54,7 @@ engines = {
 
 
 class RoutingSession(Session):
-    def get_bind(self, mapper=None, clause=None, **kw):
+    def get_bind(self, mapper=None, clause=None, **kw):  # noqa: ARG002
         if self._flushing or isinstance(clause, Update | Delete | Insert):
             return engines[EngineType.WRITER].sync_engine
         return engines[EngineType.READER].sync_engine

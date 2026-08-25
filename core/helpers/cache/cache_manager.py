@@ -32,7 +32,7 @@ class CacheManager:
                 with self.tracer.start_as_current_span("cache") as span:
                     span.set_attribute("cache.function", function.__name__)
                     if not self.backend or not self.key_maker:
-                        raise Exception("backend or key_maker is None")
+                        raise Exception("backend or key_maker is None")  # noqa: TRY002
 
                     # 실제 호출 시의 인자들을 바인딩
                     bound_args = inspect.signature(function).bind(*args, **kwargs)

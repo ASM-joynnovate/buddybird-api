@@ -49,6 +49,7 @@ dev = [
 target-version = "py314"
 line-length = 120
 indent-width = 4
+extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = [

@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.word.domain.entities.word import Word
 from app.word.domain.interfaces.repositories import IWordRepo
-from core.common.exceptions import ResourceNotFoundException
+from core.common.errors import ResourceNotFoundError
 
 
 class WordQueryUseCase:
@@ -16,6 +16,6 @@ class WordQueryUseCase:
     async def get_by_id(self, *, word_id: UUID) -> Word:
         word = await self._word_repo.get_by_id(word_id=word_id)
         if not word:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         return word

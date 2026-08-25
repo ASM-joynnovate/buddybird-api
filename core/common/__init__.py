@@ -25,9 +25,8 @@ class CustomBaseModel(BaseModel):
 
     @classmethod
     def _validate_and_transform_value(cls, key: str, value: Any) -> Any:
-        if value is None:
-            if not cls._is_null_allowed(key):
-                raise ValueError(f"필드 '{key}'는 null일 수 없습니다.")
+        if value is None and not cls._is_null_allowed(key):
+            raise ValueError(f"필드 '{key}'는 null일 수 없습니다.")
         return value
 
     @classmethod

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import ClassVar, Literal
 from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings
@@ -62,7 +62,7 @@ class CommonSettings(BaseSettings):
     CELERY_BACKEND_URL: str | None = None
 
     SQLALCHEMY_ECHO: bool = False
-    FRONTEND_CORS_ORIGIN: list[str] = []
+    FRONTEND_CORS_ORIGIN: ClassVar[list[str]] = []
 
     OPENAPI_URL: str | None = "/api/openapi.json"
     DOCS_URL: str | None = "/api/docs"

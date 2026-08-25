@@ -29,7 +29,7 @@ def start():
 
     if config.REDIS_ENABLED:
         RedisInstrumentor().instrument(tracer_provider=get_tracer_provider())
-        asyncio.create_task(RedisHelper().check_status())
+        asyncio.create_task(RedisHelper().check_status())  # noqa: RUF006
 
 
 def shutdown():
@@ -42,7 +42,7 @@ def shutdown():
 
 
 @asynccontextmanager
-async def lifespan(app: ExtendedFastAPI):
+async def lifespan(_app: ExtendedFastAPI):
     start()
     yield
     shutdown()

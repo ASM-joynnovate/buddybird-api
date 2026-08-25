@@ -54,7 +54,7 @@ def create_app() -> ExtendedFastAPI:
     init_cache()
 
     logger = logging.getLogger("buddybird")
-    logger.info(f"Starting application with env: {env}")
+    logger.info("Starting application with env: %s", env)
 
     return app_
 

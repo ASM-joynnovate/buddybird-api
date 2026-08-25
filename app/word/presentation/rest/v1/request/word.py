@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import File, UploadFile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.word.presentation.rest.v1.exceptions import ReservedClientWordIdException
+from app.word.presentation.rest.v1.errors import ReservedClientWordIdError
 
 
 class CreateWordRequest(BaseModel):
@@ -21,10 +21,9 @@ class CreateWordRequest(BaseModel):
 
     # TODO: API 호출 및 도메인 로직에서 device_platform이 `iOS`, `Android` 만 들어가도록 하는 기능 추가 필요
 
-
     @field_validator("client_word_id")
     @classmethod
     def not_reserved(cls, value: str) -> str:
         if value.startswith("preset"):
-            raise ReservedClientWordIdException
+            raise ReservedClientWordIdError
         return value

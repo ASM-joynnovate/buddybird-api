@@ -21,10 +21,7 @@ class FileSizeHelper:
         units = ["B", "KB", "MB", "GB", "TB", "PB"]
 
         for unit in reversed(units):
-            if unit == "B":
-                divisor = 1
-            else:
-                divisor = 1024 ** (units.index(unit))
+            divisor = 1 if unit == "B" else 1024 ** units.index(unit)
 
             if bytes_value >= divisor:
                 value = bytes_value / divisor

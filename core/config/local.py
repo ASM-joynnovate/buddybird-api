@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from pydantic_settings import SettingsConfigDict
 
 from .base import CommonSettings, LogFormat, LogLevel
@@ -8,7 +10,7 @@ class LocalSettings(CommonSettings):
     PROFILING_ENABLED: bool = True
     SQLALCHEMY_ECHO: bool = True
 
-    FRONTEND_CORS_ORIGIN: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+    FRONTEND_CORS_ORIGIN: ClassVar[list[str]] = ["http://localhost:3000", "http://localhost:3001"]
 
     REDIS_ENABLED: bool = True
 

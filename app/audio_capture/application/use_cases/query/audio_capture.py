@@ -9,7 +9,7 @@ from app.audio_capture.application.dto.audio_segment import GetAudioSegmentDTO
 from app.audio_capture.domain.enum import LabelStatusEnum
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo, IAudioSegmentRepo
 from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
-from core.common.exceptions import ResourceNotFoundException
+from core.common.errors import ResourceNotFoundError
 
 
 class AudioCaptureQueryUseCase:
@@ -90,7 +90,7 @@ class AudioCaptureQueryUseCase:
     async def get_detail(self, *, audio_capture_id: UUID) -> GetAudioCaptureDetailDTO:
         capture = await self._audio_capture_repo.get_by_id(audio_capture_id=audio_capture_id)
         if not capture:
-            raise ResourceNotFoundException
+            raise ResourceNotFoundError
 
         segments = await self._audio_segment_repo.get_by_capture_id(audio_capture_id=capture.id)
 

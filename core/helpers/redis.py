@@ -67,7 +67,7 @@ class RedisHelper:
                 self._status = RedisStatus.DOWN
             finally:
                 if self._status != self._last_status:
-                    self._logger.info(f"Redis Status Changed [{self._last_status.value} -> {self._status.value}]")
+                    self._logger.info("Redis Status Changed [%s -> %s]", self._last_status.value, self._status.value)
                     self._last_status = self._status
 
             await asyncio.sleep(5)
