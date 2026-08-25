@@ -1,5 +1,9 @@
-.PHONY: patch minor major test local local-otel dev dev-otel coverage check
+.PHONY: setup patch minor major test local local-otel dev dev-otel coverage check
 
+
+setup:
+	uv sync
+	git config core.hooksPath .githooks
 
 patch minor major:
 	uv version --bump $@
@@ -51,4 +55,4 @@ coverage:
 	coverage html
 
 check:
-	uv run ruff check
+	uv run ruff check --fix
