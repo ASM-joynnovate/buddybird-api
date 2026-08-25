@@ -1,0 +1,95 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency: deploy-${{ github.ref_name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+    env:
+      ECR_REPOSITORY: jn-buddybird-api
+      ECS_CLUSTER: jn-cluster
+      ECS_SERVICE: jn-buddybird-api-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::198252712951:role/jn-buddybird-api-deploy
+          aws-region: ap-northeast-2
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - id: image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "uri=$REGISTRY/$ECR_REPOSITORY:$version" >> "$GITHUB_OUTPUT"
+
+      - name: fail if the version is already in ECR
+        if: github.ref_name == 'dev'
+        run: "! aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.image.outputs.version }}"
+
+      - name: fail if the version is not in ECR
+        if: github.ref_name == 'main'
+        run: aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.image.outputs.version }}
+
+      - if: github.ref_name == 'dev'
+        uses: docker/setup-buildx-action@v4
+
+      - if: github.ref_name == 'dev'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.image.outputs.uri }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - id: task
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          aws ecs describe-task-definition --task-definition "$ECS_SERVICE" --query taskDefinition \
+            | jq --arg image "$IMAGE" '.containerDefinitions[0].image = $image' > task-definition.json
+          network=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration')
+          echo "subnets=$(echo "$network" | jq -r '.subnets | join(",")')" >> "$GITHUB_OUTPUT"
+          echo "security_groups=$(echo "$network" | jq -r '.securityGroups | join(",")')" >> "$GITHUB_OUTPUT"
+
+      - id: deploy
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: task-definition.json
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          run-task: true
+          run-task-container-overrides: '[{"name": "api", "command": ["alembic", "upgrade", "head"]}]'
+          run-task-subnets: ${{ steps.task.outputs.subnets }}
+          run-task-security-groups: ${{ steps.task.outputs.security_groups }}
+          run-task-assign-public-IP: ENABLED
+          wait-for-task-stopped: true
+          wait-for-service-stability: true
+
+      - name: migration logs
+        if: failure() && steps.deploy.outputs.run-task-arn != ''
+        env:
+          RUN_TASK_ARN: ${{ steps.deploy.outputs.run-task-arn }}
+        run: |
+          task_id=$(echo "$RUN_TASK_ARN" | jq -r '.[0] | split("/")[-1]')
+          aws logs get-log-events --log-group-name "/ecs/$ECS_SERVICE" --log-stream-name "api/api/$task_id" \
+            --start-from-head --query 'events[].message' --output text
