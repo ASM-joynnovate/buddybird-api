@@ -1,15 +1,10 @@
-#.PHONY: patch minor major test local local-otel dev dev-otel coverage check
-.PHONY: test local local-otel dev dev-otel coverage check
+.PHONY: patch minor major test local local-otel dev dev-otel coverage check
 
 
-#patch:
-#	@python ./update_version.py patch
-#
-#minor:
-#	@python ./update_version.py minor
-#
-#major:
-#	@python ./update_version.py major
+patch minor major:
+	uv version --bump $@
+	git commit -m "chore: bump version to $$(uv version --short)" pyproject.toml uv.lock
+	git tag "v$$(uv version --short)"
 
 test:
 	BUDDYBIRD_ENV=test pytest $(ARGS)
