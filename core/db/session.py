@@ -42,11 +42,13 @@ engines = {
         config.WRITER_DB_URL,
         pool_recycle=3600,
         echo=config.SQLALCHEMY_ECHO,
+        connect_args={"ssl": config.DB_SSL_MODE},
     ),
     EngineType.READER: create_async_engine(
         config.READER_DB_URL,
         pool_recycle=3600,
         echo=config.SQLALCHEMY_ECHO,
+        connect_args={"ssl": config.DB_SSL_MODE},
     ),
 }
 

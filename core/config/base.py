@@ -20,6 +20,7 @@ class CommonSettings(BaseSettings):
     DB_NAME: str
     DB_USER: str
     DB_PASSWORD: str
+    DB_SSL_MODE: str = "prefer"
 
     @property
     def WRITER_DB_URL(self) -> str:  # noqa: N802
