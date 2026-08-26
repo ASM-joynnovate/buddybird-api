@@ -1,6 +1,3 @@
-from dataclasses import field
-from typing import ClassVar
-
 from pydantic_settings import SettingsConfigDict
 
 from .base import CommonSettings, LogFormat
@@ -12,8 +9,6 @@ class ProdSettings(CommonSettings):
     MULTITENANCY_ENABLED: bool = True
 
     DB_SSL_MODE: str = "require"
-
-    FRONTEND_CORS_ORIGIN: ClassVar[list[str]] = field(default_factory=list)
 
     DOCS_URL: str | None = None
     REDOC_URL: str | None = None
