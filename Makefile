@@ -1,14 +1,9 @@
-.PHONY: setup patch minor major test local local-otel dev dev-otel coverage check
+.PHONY: setup test local local-otel dev dev-otel coverage check
 
 
 setup:
 	uv sync
 	git config core.hooksPath .githooks
-
-patch minor major:
-	uv version --bump $@
-	git commit -m "chore: bump version to $$(uv version --short)" pyproject.toml uv.lock
-	git tag "v$$(uv version --short)"
 
 test:
 	BUDDYBIRD_ENV=test pytest $(ARGS)
