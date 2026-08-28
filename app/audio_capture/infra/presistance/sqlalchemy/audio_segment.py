@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from app.audio_capture.domain.entities.audio_segment import AudioSegment
 from app.audio_capture.domain.interfaces.repositories.audio_segment import IAudioSegmentRepo
 from core.db import session, session_factory
+from core.db.sqlalchemy.models import audio_capture_label_table
 
 
 class SQLAlchemyAudioSegmentRepo(IAudioSegmentRepo):
@@ -18,9 +19,7 @@ class SQLAlchemyAudioSegmentRepo(IAudioSegmentRepo):
             )
             return result.scalars().all()
 
-    async def get_labeled(self, *, audio_capture_label_option_ids: list[UUID] | None = None) -> list[AudioSegment]:
-        from core.db.sqlalchemy.models import audio_capture_label_table
-
+    async def get_labeled(self, *, audio_capture_label_option_ids: list[UUID]) -> list[AudioSegment]:
         async with session_factory() as read_session:
             stmt = (
                 select(AudioSegment)

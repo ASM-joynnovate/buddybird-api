@@ -20,9 +20,9 @@ class ExportAudioSegmentsUseCase:
         self._label_category_repo = label_category_repo
         self._object_storage_client = object_storage_client
 
-    async def execute(self, *, audio_capture_label_option_ids: list[UUID] | None = None) -> bytes:
+    async def execute(self, *, audio_capture_label_option_ids: list[UUID] | None) -> bytes:
         audio_segments = await self._audio_segment_repo.get_labeled(
-            audio_capture_label_option_ids=audio_capture_label_option_ids
+            audio_capture_label_option_ids=audio_capture_label_option_ids or []
         )
         label_categories = await self._label_category_repo.get_list()
 

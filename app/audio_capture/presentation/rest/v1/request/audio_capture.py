@@ -59,7 +59,7 @@ class BatchCreateAudioCaptureRequest(BaseModel):
 class GetAudioCaptureListRequest(PageParams):
     firebase_anon_uid: str | None = Field(None, description="Firebase Authentication 익명 ID")
     word_label: str | None = Field(None, description="연결된 단어명")
-    label_option_ids: list[UUID] | None = Field(None, description="클립 라벨 옵션 ID 필터")
+    label_option_ids: list[UUID] = Field([], description="클립 라벨 옵션 ID 필터")
     has_memo: bool | None = Field(None, description="메모가 있는 세그먼트 존재 여부 필터")
     date_from: datetime | None = Field(None, description="캡처 시각 시작 범위")
     date_to: datetime | None = Field(None, description="캡처 시각 끝 범위")
