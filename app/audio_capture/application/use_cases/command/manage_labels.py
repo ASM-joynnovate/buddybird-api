@@ -13,6 +13,7 @@ from app.audio_capture.domain.command.label import (
     UpdateLabelOptionCommand,
 )
 from app.audio_capture.domain.entities.label import LabelCategory, LabelOption
+from app.audio_capture.domain.errors import DuplicateLabelCategoryError, DuplicateLabelOptionError
 from app.audio_capture.domain.interfaces.repositories import ILabelCategoryRepo, ILabelOptionRepo
 from core.common.errors import ResourceNotFoundError
 from core.db import Transactional
@@ -24,6 +25,8 @@ class CreateLabelCategoryUseCase:
 
     @Transactional()
     async def execute(self, *, data: CreateLabelCategoryDTO) -> None:
+        if await self._label_category_repo.exists_by_name_and_target(name=data.name, target=data.target):
+            raise DuplicateLabelCategoryError
         category = LabelCategory.create(
             command=CreateLabelCategoryCommand(name=data.name, display_order=data.display_order, target=data.target)
         )
@@ -66,6 +69,10 @@ class CreateLabelOptionUseCase:
         category = await self._label_category_repo.get_by_id(label_category_id=label_category_id)
         if category is None:
             raise ResourceNotFoundError
+        if await self._label_option_repo.exists_by_category_id_and_name(
+            category_id=label_category_id, name=data.name
+        ):
+            raise DuplicateLabelOptionError
         option = LabelOption.create(
             command=CreateLabelOptionCommand(
                 category_id=label_category_id, name=data.name, display_order=data.display_order
