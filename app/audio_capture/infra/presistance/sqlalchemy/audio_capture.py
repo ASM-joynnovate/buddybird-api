@@ -2,44 +2,37 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import with_loader_criteria
 
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
-from app.audio_capture.domain.enum import LabelStatusEnum
+from app.audio_capture.domain.entities.label import LabelOption
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo
 from core.db import session, session_factory
-from core.db.sqlalchemy.models import audio_segment_table, word_table
+from core.db.sqlalchemy.models import audio_capture_label_table, audio_segment_table, word_table
 
 
 class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
     async def get_by_id(self, *, audio_capture_id: UUID) -> AudioCapture | None:
-        async with session_factory() as read_session:
-            stmt = await read_session.execute(
-                select(AudioCapture)
-                .where(AudioCapture.id == audio_capture_id)
-                .where(AudioCapture.is_deleted.is_(False))
-            )
-
-            return stmt.scalar_one_or_none()
+        result = await session.execute(
+            select(AudioCapture)
+            .where(AudioCapture.id == audio_capture_id)
+            .where(AudioCapture.is_deleted.is_(False))
+            .options(with_loader_criteria(LabelOption, LabelOption.is_deleted.is_(False)))
+        )
+        return result.scalar_one_or_none()
 
     async def get_list(
         self,
         *,
         firebase_anon_uid: str | None,
         word_label: str | None,
-        label_status: LabelStatusEnum,
+        label_option_ids: list[UUID] | None,
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
         prev: int,
         limit: int,
     ) -> list[AudioCapture]:
-        labeled_exists = (
-            select(audio_segment_table.c.id)
-            .where(audio_segment_table.c.audio_capture_id == AudioCapture.id)
-            .where(audio_segment_table.c.label_option_id.is_not(None))
-            .where(audio_segment_table.c.is_deleted.is_(False))
-            .exists()
-        )
         memo_exists = (
             select(audio_segment_table.c.id)
             .where(audio_segment_table.c.audio_capture_id == AudioCapture.id)
@@ -49,7 +42,11 @@ class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
         )
 
         async with session_factory() as read_session:
-            stmt = select(AudioCapture).where(AudioCapture.is_deleted.is_(False))
+            stmt = (
+                select(AudioCapture)
+                .where(AudioCapture.is_deleted.is_(False))
+                .options(with_loader_criteria(LabelOption, LabelOption.is_deleted.is_(False)))
+            )
 
             if firebase_anon_uid is not None:
                 stmt = stmt.where(AudioCapture.firebase_anon_uid == firebase_anon_uid)
@@ -64,10 +61,14 @@ class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
                     word_table.c.label == word_label
                 )
 
-            if label_status == LabelStatusEnum.LABELED:
-                stmt = stmt.where(labeled_exists)
-            elif label_status == LabelStatusEnum.UNLABELED:
-                stmt = stmt.where(~labeled_exists)
+            if label_option_ids:
+                label_filter = (
+                    select(audio_capture_label_table.c.label_option_id)
+                    .where(audio_capture_label_table.c.audio_capture_id == AudioCapture.id)
+                    .where(audio_capture_label_table.c.label_option_id.in_(label_option_ids))
+                    .exists()
+                )
+                stmt = stmt.where(label_filter)
 
             if has_memo:
                 stmt = stmt.where(memo_exists)
@@ -84,18 +85,11 @@ class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
         *,
         firebase_anon_uid: str | None,
         word_label: str | None,
-        label_status: LabelStatusEnum,
+        label_option_ids: list[UUID] | None,
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
     ) -> int:
-        labeled_exists = (
-            select(audio_segment_table.c.id)
-            .where(audio_segment_table.c.audio_capture_id == AudioCapture.id)
-            .where(audio_segment_table.c.label_option_id.is_not(None))
-            .where(audio_segment_table.c.is_deleted.is_(False))
-            .exists()
-        )
         memo_exists = (
             select(audio_segment_table.c.id)
             .where(audio_segment_table.c.audio_capture_id == AudioCapture.id)
@@ -120,10 +114,14 @@ class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
                     word_table.c.label == word_label
                 )
 
-            if label_status == LabelStatusEnum.LABELED:
-                stmt = stmt.where(labeled_exists)
-            elif label_status == LabelStatusEnum.UNLABELED:
-                stmt = stmt.where(~labeled_exists)
+            if label_option_ids:
+                label_filter = (
+                    select(audio_capture_label_table.c.label_option_id)
+                    .where(audio_capture_label_table.c.audio_capture_id == AudioCapture.id)
+                    .where(audio_capture_label_table.c.label_option_id.in_(label_option_ids))
+                    .exists()
+                )
+                stmt = stmt.where(label_filter)
 
             if has_memo:
                 stmt = stmt.where(memo_exists)

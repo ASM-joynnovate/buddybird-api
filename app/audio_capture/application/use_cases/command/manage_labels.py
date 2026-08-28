@@ -25,7 +25,7 @@ class CreateLabelCategoryUseCase:
     @Transactional()
     async def execute(self, *, data: CreateLabelCategoryDTO) -> None:
         category = LabelCategory.create(
-            command=CreateLabelCategoryCommand(name=data.name, display_order=data.display_order)
+            command=CreateLabelCategoryCommand(name=data.name, display_order=data.display_order, target=data.target)
         )
         await self._label_category_repo.save(label_category=category)
 

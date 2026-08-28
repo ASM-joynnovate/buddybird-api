@@ -23,5 +23,15 @@ class SQLAlchemyLabelCategoryRepo(ILabelCategoryRepo):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_ids(self, *, label_category_ids: list[UUID]) -> list[LabelCategory]:
+        if not label_category_ids:
+            return []
+        result = await session.execute(
+            select(LabelCategory)
+            .where(LabelCategory.id.in_(label_category_ids))
+            .where(LabelCategory.is_deleted.is_(False))
+        )
+        return list(result.scalars().all())
+
     async def save(self, *, label_category: LabelCategory) -> None:
         session.add(label_category)

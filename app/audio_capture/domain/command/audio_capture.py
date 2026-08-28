@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from uuid import UUID
 
+from app.audio_capture.domain.entities.label import LabelOption
 from app.audio_capture.domain.enum import PhaseEnum
 from app.shared_kernel.domain.command.file import AssignFileCommand
 
@@ -24,3 +25,8 @@ class CreateAudioCaptureCommand:
     device_platform: str | None
     device_os_version: str | None
     device_model: str | None
+
+
+@dataclass
+class AssignAudioCaptureLabelsCommand:
+    label_options: list[LabelOption]

@@ -1,9 +1,11 @@
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from uuid import UUID
 
 from app.audio_capture.domain.command import CreateAudioCaptureCommand
+from app.audio_capture.domain.command.audio_capture import AssignAudioCaptureLabelsCommand
+from app.audio_capture.domain.entities.label import LabelOption
 from app.audio_capture.domain.enum import PhaseEnum
 from app.shared_kernel.domain.command.file import CreateFileCommand
 from app.shared_kernel.domain.entities.file import File
@@ -31,6 +33,7 @@ class AudioCapture(AggregateRoot):
     created_at: datetime
     updated_at: datetime | None
     is_deleted: bool
+    label_options: list[LabelOption] = field(default_factory=list)
 
     @classmethod
     def create(cls, *, command: CreateAudioCaptureCommand) -> AudioCapture:
@@ -70,7 +73,11 @@ class AudioCapture(AggregateRoot):
             created_at=datetime.now(UTC),
             updated_at=None,
             is_deleted=False,
+            label_options=[],
         )
+
+    def assign_labels(self, *, command: AssignAudioCaptureLabelsCommand) -> None:
+        self.label_options = command.label_options
 
     def delete(self):
         if self.audio_file is not None:

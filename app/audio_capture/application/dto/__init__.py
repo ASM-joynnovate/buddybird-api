@@ -1,4 +1,5 @@
 from .audio_capture import (
+    AssignAudioCaptureLabelsDTO,
     AudioCaptureUploadResultDTO,
     BatchCreateAudioCaptureDTO,
     CreateAudioCaptureItemDTO,
@@ -23,6 +24,7 @@ from .label import (
 )
 
 __all__ = [
+    "AssignAudioCaptureLabelsDTO",
     "AssignAudioSegmentLabelDTO",
     "AudioCaptureUploadResultDTO",
     "BatchCreateAudioCaptureDTO",

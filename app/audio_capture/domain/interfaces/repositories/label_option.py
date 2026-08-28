@@ -10,5 +10,9 @@ class ILabelOptionRepo(ABC):
         pass
 
     @abstractmethod
+    async def get_by_ids(self, *, label_option_ids: list[UUID]) -> list[LabelOption]:
+        pass
+
+    @abstractmethod
     async def save(self, *, label_option: LabelOption) -> None:
         pass

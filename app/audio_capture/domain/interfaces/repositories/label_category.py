@@ -14,5 +14,9 @@ class ILabelCategoryRepo(ABC):
         pass
 
     @abstractmethod
+    async def get_by_ids(self, *, label_category_ids: list[UUID]) -> list[LabelCategory]:
+        pass
+
+    @abstractmethod
     async def save(self, *, label_category: LabelCategory) -> None:
         pass

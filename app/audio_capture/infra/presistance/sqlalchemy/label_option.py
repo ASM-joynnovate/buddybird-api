@@ -14,5 +14,13 @@ class SQLAlchemyLabelOptionRepo(ILabelOptionRepo):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_ids(self, *, label_option_ids: list[UUID]) -> list[LabelOption]:
+        if not label_option_ids:
+            return []
+        result = await session.execute(
+            select(LabelOption).where(LabelOption.id.in_(label_option_ids)).where(LabelOption.is_deleted.is_(False))
+        )
+        return list(result.scalars().all())
+
     async def save(self, *, label_option: LabelOption) -> None:
         session.add(label_option)

@@ -2,6 +2,7 @@ import asyncio
 import io
 import zipfile
 from collections import defaultdict
+from uuid import UUID
 
 from app.audio_capture.domain.interfaces.repositories import IAudioSegmentRepo, ILabelCategoryRepo
 from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
@@ -19,8 +20,10 @@ class ExportAudioSegmentsUseCase:
         self._label_category_repo = label_category_repo
         self._object_storage_client = object_storage_client
 
-    async def execute(self) -> bytes:
-        audio_segments = await self._audio_segment_repo.get_labeled()
+    async def execute(self, *, audio_capture_label_option_ids: list[UUID] | None = None) -> bytes:
+        audio_segments = await self._audio_segment_repo.get_labeled(
+            audio_capture_label_option_ids=audio_capture_label_option_ids
+        )
         label_categories = await self._label_category_repo.get_list()
 
         audio_segments_by_label_option = defaultdict(list)

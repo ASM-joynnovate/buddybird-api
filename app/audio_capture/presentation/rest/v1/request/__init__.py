@@ -1,4 +1,4 @@
-from .audio_capture import BatchCreateAudioCaptureRequest, GetAudioCaptureListRequest
+from .audio_capture import AssignAudioCaptureLabelsRequest, BatchCreateAudioCaptureRequest, GetAudioCaptureListRequest
 from .audio_segment import (
     AssignAudioSegmentLabelRequest,
     CreateAudioSegmentRequest,
@@ -13,6 +13,7 @@ from .label import (
 )
 
 __all__ = [
+    "AssignAudioCaptureLabelsRequest",
     "AssignAudioSegmentLabelRequest",
     "BatchCreateAudioCaptureRequest",
     "CreateAudioSegmentRequest",

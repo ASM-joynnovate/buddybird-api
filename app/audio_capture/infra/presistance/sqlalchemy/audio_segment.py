@@ -18,14 +18,27 @@ class SQLAlchemyAudioSegmentRepo(IAudioSegmentRepo):
             )
             return result.scalars().all()
 
-    async def get_labeled(self) -> list[AudioSegment]:
+    async def get_labeled(self, *, audio_capture_label_option_ids: list[UUID] | None = None) -> list[AudioSegment]:
+        from core.db.sqlalchemy.models import audio_capture_label_table
+
         async with session_factory() as read_session:
-            result = await read_session.execute(
+            stmt = (
                 select(AudioSegment)
                 .where(AudioSegment.label_option_id.is_not(None))
                 .where(AudioSegment.is_deleted.is_(False))
-                .order_by(AudioSegment.label_option_id, AudioSegment.created_at)
             )
+
+            if audio_capture_label_option_ids:
+                stmt = stmt.where(
+                    select(audio_capture_label_table.c.label_option_id)
+                    .where(audio_capture_label_table.c.audio_capture_id == AudioSegment.audio_capture_id)
+                    .where(audio_capture_label_table.c.label_option_id.in_(audio_capture_label_option_ids))
+                    .exists()
+                )
+
+            stmt = stmt.order_by(AudioSegment.label_option_id, AudioSegment.created_at)
+
+            result = await read_session.execute(stmt)
             return result.scalars().all()
 
     async def get_counts_by_capture_ids(self, *, audio_capture_ids: list[UUID]) -> dict[UUID, tuple[int, int, int]]:
