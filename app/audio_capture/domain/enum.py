@@ -6,7 +6,6 @@ class PhaseEnum(StrEnum):
     RESTING = "RE"
 
 
-class LabelStatusEnum(StrEnum):
-    UNLABELED = "UL"
-    LABELED = "LA"
-    ALL = "AL"
+class LabelCategoryTargetEnum(StrEnum):
+    CAPTURE = "CA"
+    SEGMENT = "SE"

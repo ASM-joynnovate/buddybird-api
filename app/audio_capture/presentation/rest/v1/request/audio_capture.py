@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Annotated, Any
+from uuid import UUID
 
 from fastapi import File, UploadFile
 from pydantic import BaseModel, ConfigDict, Field, Json, field_validator
 
 from app.audio_capture.application.dto.audio_capture import CreateAudioCaptureItemDTO
-from app.audio_capture.domain.enum import LabelStatusEnum
 from app.audio_capture.presentation.rest.v1.errors import AudioCaptureBatchSizeExceededError
 from app.shared_kernel.domain.errors import FileSizeExceededError
 from core.common.request.base import PageParams
@@ -59,7 +59,13 @@ class BatchCreateAudioCaptureRequest(BaseModel):
 class GetAudioCaptureListRequest(PageParams):
     firebase_anon_uid: str | None = Field(None, description="Firebase Authentication 익명 ID")
     word_label: str | None = Field(None, description="연결된 단어명")
-    label_status: LabelStatusEnum = Field(LabelStatusEnum.ALL, description="라벨링 상태 필터")
+    label_option_ids: list[UUID] = Field([], description="클립 라벨 옵션 ID 필터")
     has_memo: bool | None = Field(None, description="메모가 있는 세그먼트 존재 여부 필터")
     date_from: datetime | None = Field(None, description="캡처 시각 시작 범위")
     date_to: datetime | None = Field(None, description="캡처 시각 끝 범위")
+
+
+class AssignAudioCaptureLabelsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label_option_ids: list[UUID] = Field(..., description="지정할 라벨 옵션 ID 목록", examples=[[]])

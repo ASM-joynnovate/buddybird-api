@@ -1,5 +1,6 @@
 from dependency_injector import containers, providers
 
+from app.audio_capture.application.use_cases.command.assign_audio_capture_labels import AssignAudioCaptureLabelsUseCase
 from app.audio_capture.application.use_cases.command.batch_create_audio_capture import BatchCreateAudioCaptureUseCase
 from app.audio_capture.application.use_cases.command.manage_labels import (
     CreateLabelCategoryUseCase,
@@ -72,6 +73,8 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
     delete_label_category_command = providers.Factory(
         DeleteLabelCategoryUseCase,
         label_category_repo=label_category_repo,
+        audio_segment_repo=audio_segment_repo,
+        audio_capture_repo=audio_capture_repo,
     )
     create_label_option_command = providers.Factory(
         CreateLabelOptionUseCase,
@@ -85,6 +88,8 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
     delete_label_option_command = providers.Factory(
         DeleteLabelOptionUseCase,
         label_option_repo=label_option_repo,
+        audio_segment_repo=audio_segment_repo,
+        audio_capture_repo=audio_capture_repo,
     )
 
     create_audio_segment_command = providers.Factory(
@@ -105,10 +110,17 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
         DeleteAudioSegmentUseCase,
         audio_segment_repo=audio_segment_repo,
     )
+    assign_audio_capture_labels_command = providers.Factory(
+        AssignAudioCaptureLabelsUseCase,
+        audio_capture_repo=audio_capture_repo,
+        label_option_repo=label_option_repo,
+        label_category_repo=label_category_repo,
+    )
     assign_audio_segment_label_command = providers.Factory(
         AssignAudioSegmentLabelUseCase,
         audio_segment_repo=audio_segment_repo,
         label_option_repo=label_option_repo,
+        label_category_repo=label_category_repo,
     )
     update_audio_segment_memo_command = providers.Factory(
         UpdateAudioSegmentMemoUseCase,

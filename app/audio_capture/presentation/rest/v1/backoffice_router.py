@@ -4,6 +4,7 @@ from uuid import UUID
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, Query, Response
 
+from app.audio_capture.application.dto.audio_capture import AssignAudioCaptureLabelsDTO
 from app.audio_capture.application.dto.audio_segment import (
     AssignAudioSegmentLabelDTO,
     CreateAudioSegmentDTO,
@@ -15,6 +16,9 @@ from app.audio_capture.application.dto.label import (
     CreateLabelOptionDTO,
     UpdateLabelCategoryDTO,
     UpdateLabelOptionDTO,
+)
+from app.audio_capture.application.use_cases.command.assign_audio_capture_labels import (
+    AssignAudioCaptureLabelsUseCase,
 )
 from app.audio_capture.application.use_cases.command.manage_labels import (
     CreateLabelCategoryUseCase,
@@ -46,6 +50,7 @@ from core.common.response import BaseResponse
 from core.helpers.meta import MetaDataHelper
 
 from .request import (
+    AssignAudioCaptureLabelsRequest,
     AssignAudioSegmentLabelRequest,
     CreateAudioSegmentRequest,
     CreateLabelCategoryRequest,
@@ -165,7 +170,7 @@ async def get_captures(
     items = await use_case.get_list(
         firebase_anon_uid=query.firebase_anon_uid,
         word_label=query.word_label,
-        label_status=query.label_status,
+        label_option_ids=query.label_option_ids,
         has_memo=query.has_memo,
         date_from=query.date_from,
         date_to=query.date_to,
@@ -175,7 +180,7 @@ async def get_captures(
     total = await use_case.get_count(
         firebase_anon_uid=query.firebase_anon_uid,
         word_label=query.word_label,
-        label_status=query.label_status,
+        label_option_ids=query.label_option_ids,
         has_memo=query.has_memo,
         date_from=query.date_from,
         date_to=query.date_to,
@@ -290,15 +295,31 @@ async def delete_audio_segment(
     return BaseResponse(message="오디오 세그먼트 삭제 성공")
 
 
+@router.put("/captures/{audio_capture_id:uuid}/labels", name="오디오 클립 라벨 지정", response_model=BaseResponse)
+@inject
+async def assign_audio_capture_labels(
+    audio_capture_id: UUID,
+    body: AssignAudioCaptureLabelsRequest,
+    use_case: Annotated[
+        AssignAudioCaptureLabelsUseCase,
+        Depends(Provide[AppContainer.audio_capture.assign_audio_capture_labels_command]),
+    ],
+):
+    data = AssignAudioCaptureLabelsDTO(**body.model_dump(exclude_unset=True))
+    await use_case.execute(audio_capture_id=audio_capture_id, data=data)
+    return BaseResponse(message="오디오 클립 라벨 지정 성공")
+
+
 @router.get("/exports/segments", name="라벨링된 오디오 세그먼트 ZIP 내보내기")
 @inject
 async def export_audio_segments(
     use_case: Annotated[
         ExportAudioSegmentsUseCase, Depends(Provide[AppContainer.audio_capture.export_audio_segments_query])
     ],
+    audio_capture_label_option_ids: Annotated[list[UUID] | None, Query(description="클립 라벨 옵션 ID 필터")] = None,
 ):
     return Response(
-        content=await use_case.execute(),
+        content=await use_case.execute(audio_capture_label_option_ids=audio_capture_label_option_ids),
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=audio_segments.zip"},
     )
