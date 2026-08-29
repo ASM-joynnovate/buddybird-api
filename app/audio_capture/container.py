@@ -73,6 +73,8 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
     delete_label_category_command = providers.Factory(
         DeleteLabelCategoryUseCase,
         label_category_repo=label_category_repo,
+        audio_segment_repo=audio_segment_repo,
+        audio_capture_repo=audio_capture_repo,
     )
     create_label_option_command = providers.Factory(
         CreateLabelOptionUseCase,
@@ -86,6 +88,8 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
     delete_label_option_command = providers.Factory(
         DeleteLabelOptionUseCase,
         label_option_repo=label_option_repo,
+        audio_segment_repo=audio_segment_repo,
+        audio_capture_repo=audio_capture_repo,
     )
 
     create_audio_segment_command = providers.Factory(

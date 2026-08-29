@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import with_loader_criteria
 
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
@@ -145,6 +145,14 @@ class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
             )
 
             return set(result.scalars().all())
+
+    async def detach_label_options(self, *, label_option_ids: list[UUID]) -> None:
+        if not label_option_ids:
+            return
+
+        await session.execute(
+            delete(audio_capture_label_table).where(audio_capture_label_table.c.label_option_id.in_(label_option_ids))
+        )
 
     async def save(self, *, audio_capture: AudioCapture) -> None:
         session.add(audio_capture)

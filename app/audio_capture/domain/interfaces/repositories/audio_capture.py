@@ -45,5 +45,9 @@ class IAudioCaptureRepo(ABC):
         pass
 
     @abstractmethod
+    async def detach_label_options(self, *, label_option_ids: list[UUID]) -> None:
+        pass
+
+    @abstractmethod
     async def save(self, *, audio_capture: AudioCapture) -> None:
         pass
