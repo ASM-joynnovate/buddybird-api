@@ -3,7 +3,6 @@ from datetime import datetime
 from uuid import UUID
 
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
-from app.audio_capture.domain.enum import LabelStatusEnum
 
 
 class IAudioCaptureRepo(ABC):
@@ -17,7 +16,7 @@ class IAudioCaptureRepo(ABC):
         *,
         firebase_anon_uid: str | None,
         word_label: str | None,
-        label_status: LabelStatusEnum,
+        label_option_ids: list[UUID],
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
@@ -32,7 +31,7 @@ class IAudioCaptureRepo(ABC):
         *,
         firebase_anon_uid: str | None,
         word_label: str | None,
-        label_status: LabelStatusEnum,
+        label_option_ids: list[UUID],
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
@@ -43,6 +42,10 @@ class IAudioCaptureRepo(ABC):
     async def get_existing_client_capture_ids(
         self, *, firebase_anon_uid: str, client_capture_ids: list[str]
     ) -> set[str]:
+        pass
+
+    @abstractmethod
+    async def detach_label_options(self, *, label_option_ids: list[UUID]) -> None:
         pass
 
     @abstractmethod

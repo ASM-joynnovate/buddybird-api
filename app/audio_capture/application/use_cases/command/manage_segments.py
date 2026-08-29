@@ -15,9 +15,11 @@ from app.audio_capture.domain.command.audio_segment import (
     UpdateAudioSegmentMemoCommand,
 )
 from app.audio_capture.domain.entities.audio_segment import AudioSegment
+from app.audio_capture.domain.enum import LabelCategoryTargetEnum
 from app.audio_capture.domain.interfaces.repositories import (
     IAudioCaptureRepo,
     IAudioSegmentRepo,
+    ILabelCategoryRepo,
     ILabelOptionRepo,
 )
 from app.audio_capture.domain.interfaces.services import IAudioAnalyzer, IVadService
@@ -67,6 +69,7 @@ class CreateAudioSegmentUseCase:
 
         segment_path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
         on_rollback(partial(self._object_storage_client.delete, path=segment_path))
+
         await self._object_storage_client.upload(path=segment_path, file=trimmed)
 
 
@@ -108,6 +111,7 @@ class TrimAudioSegmentUseCase:
 
         segment_path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
         on_rollback(partial(self._object_storage_client.delete, path=segment_path))
+
         await self._object_storage_client.upload(path=segment_path, file=trimmed)
 
 
@@ -125,9 +129,16 @@ class DeleteAudioSegmentUseCase:
 
 
 class AssignAudioSegmentLabelUseCase:
-    def __init__(self, *, audio_segment_repo: IAudioSegmentRepo, label_option_repo: ILabelOptionRepo):
+    def __init__(
+        self,
+        *,
+        audio_segment_repo: IAudioSegmentRepo,
+        label_option_repo: ILabelOptionRepo,
+        label_category_repo: ILabelCategoryRepo,
+    ):
         self._audio_segment_repo = audio_segment_repo
         self._label_option_repo = label_option_repo
+        self._label_category_repo = label_category_repo
 
     @Transactional()
     async def execute(self, *, audio_segment_id: UUID, data: AssignAudioSegmentLabelDTO) -> None:
@@ -138,6 +149,11 @@ class AssignAudioSegmentLabelUseCase:
         option = await self._label_option_repo.get_by_id(label_option_id=data.label_option_id)
         if option is None:
             raise ResourceNotFoundError
+
+        category = await self._label_category_repo.get_by_id(label_category_id=option.category_id)
+        if category is None:
+            raise ResourceNotFoundError
+        category.ensure_target(target=LabelCategoryTargetEnum.SEGMENT)
 
         segment.assign_label(command=AssignAudioSegmentLabelCommand(label_option_id=data.label_option_id))
 
@@ -197,4 +213,5 @@ class DetectAudioSegmentsUseCase:
 
                 segment_path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
                 on_rollback(partial(self._object_storage_client.delete, path=segment_path))
+
                 task_group.create_task(self._object_storage_client.upload(path=segment_path, file=trimmed))

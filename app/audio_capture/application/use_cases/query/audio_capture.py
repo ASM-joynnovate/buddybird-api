@@ -6,7 +6,6 @@ from app.audio_capture.application.dto.audio_capture import (
     GetAudioCaptureListItemDTO,
 )
 from app.audio_capture.application.dto.audio_segment import GetAudioSegmentDTO
-from app.audio_capture.domain.enum import LabelStatusEnum
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo, IAudioSegmentRepo
 from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
 from core.common.errors import ResourceNotFoundError
@@ -29,7 +28,7 @@ class AudioCaptureQueryUseCase:
         *,
         firebase_anon_uid: str | None,
         word_label: str | None,
-        label_status: LabelStatusEnum,
+        label_option_ids: list[UUID],
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
@@ -39,7 +38,7 @@ class AudioCaptureQueryUseCase:
         captures = await self._audio_capture_repo.get_list(
             firebase_anon_uid=firebase_anon_uid,
             word_label=word_label,
-            label_status=label_status,
+            label_option_ids=label_option_ids,
             has_memo=has_memo,
             date_from=date_from,
             date_to=date_to,
@@ -64,6 +63,7 @@ class AudioCaptureQueryUseCase:
                 segment_count=counts.get(capture.id, (0, 0, 0))[0],
                 labeled_count=counts.get(capture.id, (0, 0, 0))[1],
                 has_memo=counts.get(capture.id, (0, 0, 0))[2] > 0,
+                label_option_ids=[option.id for option in capture.label_options],
             )
             for capture in captures
         ]
@@ -73,7 +73,7 @@ class AudioCaptureQueryUseCase:
         *,
         firebase_anon_uid: str | None,
         word_label: str | None,
-        label_status: LabelStatusEnum,
+        label_option_ids: list[UUID],
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
@@ -81,7 +81,7 @@ class AudioCaptureQueryUseCase:
         return await self._audio_capture_repo.get_count(
             firebase_anon_uid=firebase_anon_uid,
             word_label=word_label,
-            label_status=label_status,
+            label_option_ids=label_option_ids,
             has_memo=has_memo,
             date_from=date_from,
             date_to=date_to,
@@ -128,4 +128,5 @@ class AudioCaptureQueryUseCase:
             created_at=capture.created_at,
             audio_url=audio_url,
             segments=segment_dtos,
+            label_option_ids=[option.id for option in capture.label_options],
         )

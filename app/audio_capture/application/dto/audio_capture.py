@@ -63,6 +63,7 @@ class GetAudioCaptureListItemDTO(GetAudioCaptureDTO):
     segment_count: int = Field(..., description="전체 세그먼트 수")
     labeled_count: int = Field(..., description="라벨링된 세그먼트 수")
     has_memo: bool = Field(..., description="메모가 있는 세그먼트 존재 여부")
+    label_option_ids: list[UUID] = Field(..., description="클립 라벨 옵션 ID 목록")
 
 
 class GetAudioCaptureDetailDTO(GetAudioCaptureDTO):
@@ -72,3 +73,8 @@ class GetAudioCaptureDetailDTO(GetAudioCaptureDTO):
     parrot_birthdate: date | None = Field(None, description="앵무새 생년월일")
     audio_url: str = Field(..., description="원본 오디오 URL")
     segments: list[GetAudioSegmentDTO] = Field(..., description="세그먼트 목록")
+    label_option_ids: list[UUID] = Field(..., description="클립 라벨 옵션 ID 목록")
+
+
+class AssignAudioCaptureLabelsDTO(CustomBaseModel):
+    label_option_ids: list[UUID] = Field(..., description="지정할 라벨 옵션 ID 목록")

@@ -10,7 +10,7 @@ class IAudioSegmentRepo(ABC):
         pass
 
     @abstractmethod
-    async def get_labeled(self) -> list[AudioSegment]:
+    async def get_labeled(self, *, audio_capture_label_option_ids: list[UUID]) -> list[AudioSegment]:
         pass
 
     @abstractmethod
@@ -19,6 +19,10 @@ class IAudioSegmentRepo(ABC):
 
     @abstractmethod
     async def get_by_id(self, *, audio_segment_id: UUID) -> AudioSegment | None:
+        pass
+
+    @abstractmethod
+    async def detach_label_options(self, *, label_option_ids: list[UUID]) -> None:
         pass
 
     @abstractmethod
