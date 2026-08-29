@@ -69,6 +69,7 @@ class CreateAudioSegmentUseCase:
 
         segment_path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
         on_rollback(partial(self._object_storage_client.delete, path=segment_path))
+
         await self._object_storage_client.upload(path=segment_path, file=trimmed)
 
 
@@ -110,6 +111,7 @@ class TrimAudioSegmentUseCase:
 
         segment_path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
         on_rollback(partial(self._object_storage_client.delete, path=segment_path))
+
         await self._object_storage_client.upload(path=segment_path, file=trimmed)
 
 
@@ -211,4 +213,5 @@ class DetectAudioSegmentsUseCase:
 
                 segment_path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
                 on_rollback(partial(self._object_storage_client.delete, path=segment_path))
+
                 task_group.create_task(self._object_storage_client.upload(path=segment_path, file=trimmed))
