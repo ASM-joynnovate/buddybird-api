@@ -49,5 +49,9 @@ class IAudioCaptureRepo(ABC):
         pass
 
     @abstractmethod
+    async def get_by_audio_file_path(self, *, file_path: str, file_name: str) -> AudioCapture | None:
+        pass
+
+    @abstractmethod
     async def save(self, *, audio_capture: AudioCapture) -> None:
         pass

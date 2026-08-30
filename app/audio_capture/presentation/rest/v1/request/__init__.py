@@ -1,4 +1,9 @@
-from .audio_capture import AssignAudioCaptureLabelsRequest, BatchCreateAudioCaptureRequest, GetAudioCaptureListRequest
+from .audio_capture import (
+    AssignAudioCaptureLabelsRequest,
+    BatchCreateAudioCaptureRequest,
+    GetAudioCaptureListRequest,
+    MigrateReviewRequest,
+)
 from .audio_segment import (
     AssignAudioSegmentLabelRequest,
     CreateAudioSegmentRequest,
@@ -20,6 +25,7 @@ __all__ = [
     "CreateLabelCategoryRequest",
     "CreateLabelOptionRequest",
     "GetAudioCaptureListRequest",
+    "MigrateReviewRequest",
     "TrimAudioSegmentRequest",
     "UpdateAudioSegmentMemoRequest",
     "UpdateLabelCategoryRequest",

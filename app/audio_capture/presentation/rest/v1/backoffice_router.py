@@ -4,7 +4,7 @@ from uuid import UUID
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.audio_capture.application.dto.audio_capture import AssignAudioCaptureLabelsDTO
+from app.audio_capture.application.dto.audio_capture import AssignAudioCaptureLabelsDTO, MigrateReviewDTO
 from app.audio_capture.application.dto.audio_segment import (
     AssignAudioSegmentLabelDTO,
     CreateAudioSegmentDTO,
@@ -36,6 +36,7 @@ from app.audio_capture.application.use_cases.command.manage_segments import (
     TrimAudioSegmentUseCase,
     UpdateAudioSegmentMemoUseCase,
 )
+from app.audio_capture.application.use_cases.command.migrate_review import MigrateReviewUseCase
 from app.audio_capture.application.use_cases.query.audio_capture import AudioCaptureQueryUseCase
 from app.audio_capture.application.use_cases.query.export_audio_segment import ExportAudioSegmentsUseCase
 from app.audio_capture.application.use_cases.query.label import LabelQueryUseCase
@@ -56,6 +57,7 @@ from .request import (
     CreateLabelCategoryRequest,
     CreateLabelOptionRequest,
     GetAudioCaptureListRequest,
+    MigrateReviewRequest,
     TrimAudioSegmentRequest,
     UpdateAudioSegmentMemoRequest,
     UpdateLabelCategoryRequest,
@@ -308,6 +310,20 @@ async def assign_audio_capture_labels(
     data = AssignAudioCaptureLabelsDTO(**body.model_dump(exclude_unset=True))
     await use_case.execute(audio_capture_id=audio_capture_id, data=data)
     return BaseResponse(message="오디오 클립 라벨 지정 성공")
+
+
+@router.put("/migrations/reviews", name="리뷰 마이그레이션", response_model=BaseResponse)
+@inject
+async def migrate_review(
+    body: MigrateReviewRequest,
+    use_case: Annotated[
+        MigrateReviewUseCase,
+        Depends(Provide[AppContainer.audio_capture.migrate_review_command]),
+    ],
+):
+    data = MigrateReviewDTO(**body.model_dump(exclude_unset=True))
+    await use_case.execute(data=data)
+    return BaseResponse(message="리뷰 마이그레이션 성공")
 
 
 @router.get("/exports/segments", name="라벨링된 오디오 세그먼트 ZIP 내보내기")

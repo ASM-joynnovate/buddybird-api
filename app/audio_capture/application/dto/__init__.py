@@ -6,6 +6,8 @@ from .audio_capture import (
     GetAudioCaptureDetailDTO,
     GetAudioCaptureDTO,
     GetAudioCaptureListItemDTO,
+    MigrateReviewDTO,
+    MigrateReviewLabelDTO,
 )
 from .audio_segment import (
     AssignAudioSegmentLabelDTO,
@@ -38,6 +40,8 @@ __all__ = [
     "GetAudioSegmentDTO",
     "GetLabelCategoryDTO",
     "GetLabelOptionDTO",
+    "MigrateReviewDTO",
+    "MigrateReviewLabelDTO",
     "TrimAudioSegmentDTO",
     "UpdateAudioSegmentMemoDTO",
     "UpdateLabelCategoryDTO",

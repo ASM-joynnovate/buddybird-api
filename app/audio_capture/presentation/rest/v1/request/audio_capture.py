@@ -69,3 +69,22 @@ class AssignAudioCaptureLabelsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label_option_ids: list[UUID] = Field(..., description="지정할 라벨 옵션 ID 목록", examples=[[]])
+
+
+class MigrateReviewLabelRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: str = Field(..., description="라벨 카테고리 이름", examples=["새 소리"])
+    option: str = Field(..., description="라벨 옵션 이름", examples=["참새"])
+
+
+class MigrateReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    audio_file_id: str = Field(
+        ...,
+        description="S3 object key",
+        examples=["audio_capture/{uid}/{capture_id}/{file_id}/session-xxx.wav"],
+    )
+    label: list[MigrateReviewLabelRequest] = Field(..., description="라벨 목록", examples=[[]])
+    memo: str = Field(..., description="메모 내용", examples=[""])

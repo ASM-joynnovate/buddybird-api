@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from app.audio_capture.domain.entities.label import LabelOption
+from app.audio_capture.domain.enum import LabelCategoryTargetEnum
 
 
 class ILabelOptionRepo(ABC):
@@ -15,6 +16,12 @@ class ILabelOptionRepo(ABC):
 
     @abstractmethod
     async def exists_by_category_id_and_name(self, *, category_id: UUID, name: str) -> bool:
+        pass
+
+    @abstractmethod
+    async def get_by_category_name_and_option_name_and_target(
+        self, *, category_name: str, option_name: str, target: LabelCategoryTargetEnum
+    ) -> LabelOption | None:
         pass
 
     @abstractmethod

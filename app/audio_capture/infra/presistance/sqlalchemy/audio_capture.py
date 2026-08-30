@@ -8,7 +8,13 @@ from app.audio_capture.domain.entities.audio_capture import AudioCapture
 from app.audio_capture.domain.entities.label import LabelOption
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo
 from core.db import session, session_factory
-from core.db.sqlalchemy.models import audio_capture_label_table, audio_segment_table, word_table
+from core.db.sqlalchemy.models import (
+    audio_capture_label_table,
+    audio_capture_table,
+    audio_segment_table,
+    file_table,
+    word_table,
+)
 
 
 class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
@@ -145,6 +151,18 @@ class SQLAlchemyAudioCaptureRepo(IAudioCaptureRepo):
             )
 
             return set(result.scalars().all())
+
+    async def get_by_audio_file_path(self, *, file_path: str, file_name: str) -> AudioCapture | None:
+        stmt = (
+            select(AudioCapture)
+            .join(file_table, audio_capture_table.c.audio_file_id == file_table.c.id)
+            .where(file_table.c.file_path == file_path)
+            .where(file_table.c.file_name == file_name)
+            .where(AudioCapture.is_deleted.is_(False))
+            .options(with_loader_criteria(LabelOption, LabelOption.is_deleted.is_(False)))
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def detach_label_options(self, *, label_option_ids: list[UUID]) -> None:
         if not label_option_ids:

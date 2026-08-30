@@ -78,3 +78,14 @@ class GetAudioCaptureDetailDTO(GetAudioCaptureDTO):
 
 class AssignAudioCaptureLabelsDTO(CustomBaseModel):
     label_option_ids: list[UUID] = Field(..., description="지정할 라벨 옵션 ID 목록")
+
+
+class MigrateReviewLabelDTO(CustomBaseModel):
+    category: str = Field(..., description="라벨 카테고리 이름")
+    option: str = Field(..., description="라벨 옵션 이름")
+
+
+class MigrateReviewDTO(CustomBaseModel):
+    audio_file_id: str = Field(..., description="S3 object key")
+    label: list[MigrateReviewLabelDTO] = Field(..., description="라벨 목록")
+    memo: str = Field(..., description="메모 내용")
