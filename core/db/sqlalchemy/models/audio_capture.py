@@ -22,5 +22,6 @@ audio_capture_table = BaseTable(
     Column("device_platform", Text, nullable=True),
     Column("device_os_version", Text, nullable=True),
     Column("device_model", Text, nullable=True),
+    Column("memo", Text, nullable=True),
     Column("is_deleted", Boolean, nullable=False, default=False),
 )

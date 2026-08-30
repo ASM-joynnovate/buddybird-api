@@ -4,7 +4,10 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 
 from app.audio_capture.domain.command import CreateAudioCaptureCommand
-from app.audio_capture.domain.command.audio_capture import AssignAudioCaptureLabelsCommand
+from app.audio_capture.domain.command.audio_capture import (
+    AssignAudioCaptureLabelsCommand,
+    UpdateAudioCaptureMemoCommand,
+)
 from app.audio_capture.domain.entities.label import LabelOption
 from app.audio_capture.domain.enum import PhaseEnum
 from app.shared_kernel.domain.command.file import CreateFileCommand
@@ -30,6 +33,7 @@ class AudioCapture(AggregateRoot):
     device_platform: str | None
     device_os_version: str | None
     device_model: str | None
+    memo: str | None
     created_at: datetime
     updated_at: datetime | None
     is_deleted: bool
@@ -70,11 +74,15 @@ class AudioCapture(AggregateRoot):
             device_platform=command.device_platform,
             device_os_version=command.device_os_version,
             device_model=command.device_model,
+            memo=None,
             created_at=datetime.now(UTC),
             updated_at=None,
             is_deleted=False,
             label_options=[],
         )
+
+    def update_memo(self, *, command: UpdateAudioCaptureMemoCommand) -> None:
+        self.memo = command.memo
 
     def assign_labels(self, *, command: AssignAudioCaptureLabelsCommand) -> None:
         self.label_options = command.label_options

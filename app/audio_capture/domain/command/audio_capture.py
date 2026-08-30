@@ -30,3 +30,8 @@ class CreateAudioCaptureCommand:
 @dataclass
 class AssignAudioCaptureLabelsCommand:
     label_options: list[LabelOption]
+
+
+@dataclass
+class UpdateAudioCaptureMemoCommand:
+    memo: str | None
