@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from app.shared_kernel.domain.command.file import AssignFileCommand
+from app.shared_kernel.domain.commands import AssignFileCommand
 
 
-@dataclass
+@dataclass(frozen=True)
 class CreateWordCommand:
     label: str
     firebase_anon_uid: str

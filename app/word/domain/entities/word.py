@@ -1,14 +1,14 @@
-import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from uuid import uuid7
 
-from app.shared_kernel.domain.command.file import CreateFileCommand
+from app.shared_kernel.domain.commands import CreateFileCommand
 from app.shared_kernel.domain.entities.file import File
-from app.word.domain.command import CreateWordCommand
+from app.word.domain.commands import CreateWordCommand
+from app.word.domain.constants import ALLOWED_AUDIO_MIME_TYPES, MAX_AUDIO_FILE_SIZE
 from core.common.entity import AggregateRoot
 
 
-@dataclass(eq=False, slots=True)
+@dataclass(eq=False)
 class Word(AggregateRoot):
     label: str
     firebase_anon_uid: str | None
@@ -18,13 +18,11 @@ class Word(AggregateRoot):
     device_platform: str | None
     device_os_version: str | None
     device_model: str | None
-    created_at: datetime
-    updated_at: datetime | None
     is_deleted: bool
 
     @classmethod
     def create(cls, *, command: CreateWordCommand) -> Word:
-        word_id = uuid.uuid7()
+        word_id = uuid7()
 
         file = File.create(
             command=CreateFileCommand(
@@ -34,10 +32,7 @@ class Word(AggregateRoot):
                 file=command.audio_file.file,
             )
         )
-        file.validate(
-            allowed_types=["audio/mpeg", "audio/wav", "audio/x-wav", "audio/aac", "audio/mp4", "audio/x-m4a"],
-            max_size="3MB",
-        )
+        file.validate(allowed_types=ALLOWED_AUDIO_MIME_TYPES, max_size=MAX_AUDIO_FILE_SIZE)
 
         return cls(
             id=word_id,
@@ -49,12 +44,9 @@ class Word(AggregateRoot):
             device_platform=command.device_platform,
             device_os_version=command.device_os_version,
             device_model=command.device_model,
-            created_at=datetime.now(UTC),
-            updated_at=None,
             is_deleted=False,
         )
 
-    def delete(self):
-        if self.audio_file is not None:
-            self.audio_file.delete()
+    def delete(self) -> None:
+        self.audio_file.delete()
         self.is_deleted = True
