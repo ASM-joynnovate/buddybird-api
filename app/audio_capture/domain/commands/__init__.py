@@ -1,4 +1,8 @@
-from .audio_capture import CreateAudioCaptureCommand
+from .audio_capture import (
+    AssignAudioCaptureLabelsCommand,
+    CreateAudioCaptureCommand,
+    UpdateAudioCaptureMemoCommand,
+)
 from .audio_segment import (
     AssignAudioSegmentLabelCommand,
     CreateAudioSegmentCommand,
@@ -13,12 +17,14 @@ from .label import (
 )
 
 __all__ = [
+    "AssignAudioCaptureLabelsCommand",
     "AssignAudioSegmentLabelCommand",
     "CreateAudioCaptureCommand",
     "CreateAudioSegmentCommand",
     "CreateLabelCategoryCommand",
     "CreateLabelOptionCommand",
     "TrimAudioSegmentCommand",
+    "UpdateAudioCaptureMemoCommand",
     "UpdateAudioSegmentMemoCommand",
     "UpdateLabelCategoryCommand",
     "UpdateLabelOptionCommand",

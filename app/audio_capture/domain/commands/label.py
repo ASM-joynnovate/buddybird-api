@@ -1,30 +1,31 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.audio_capture.domain.enum import LabelCategoryTargetEnum
+from app.audio_capture.domain.enums import LabelCategoryTargetEnum
+from core.common.sentinel import MISSING
 
 
-@dataclass
+@dataclass(frozen=True)
 class CreateLabelCategoryCommand:
     name: str
     display_order: int
     target: LabelCategoryTargetEnum
 
 
-@dataclass
+@dataclass(frozen=True)
 class UpdateLabelCategoryCommand:
-    name: str | None
-    display_order: int | None
+    name: str | MISSING
+    display_order: int | MISSING
 
 
-@dataclass
+@dataclass(frozen=True)
 class CreateLabelOptionCommand:
     category_id: UUID
     name: str
     display_order: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class UpdateLabelOptionCommand:
-    name: str | None
-    display_order: int | None
+    name: str | MISSING
+    display_order: int | MISSING

@@ -1,32 +1,31 @@
 from dependency_injector import containers, providers
+from silero_vad import load_silero_vad
 
 from app.audio_capture.application.use_cases.command.assign_audio_capture_labels import AssignAudioCaptureLabelsUseCase
+from app.audio_capture.application.use_cases.command.assign_audio_segment_label import AssignAudioSegmentLabelUseCase
 from app.audio_capture.application.use_cases.command.batch_create_audio_capture import BatchCreateAudioCaptureUseCase
-from app.audio_capture.application.use_cases.command.manage_labels import (
-    CreateLabelCategoryUseCase,
-    CreateLabelOptionUseCase,
-    DeleteLabelCategoryUseCase,
-    DeleteLabelOptionUseCase,
-    UpdateLabelCategoryUseCase,
-    UpdateLabelOptionUseCase,
-)
-from app.audio_capture.application.use_cases.command.manage_segments import (
-    AssignAudioSegmentLabelUseCase,
-    CreateAudioSegmentUseCase,
-    DeleteAudioSegmentUseCase,
-    DetectAudioSegmentsUseCase,
-    TrimAudioSegmentUseCase,
-    UpdateAudioSegmentMemoUseCase,
-)
+from app.audio_capture.application.use_cases.command.create_audio_segment import CreateAudioSegmentUseCase
+from app.audio_capture.application.use_cases.command.create_label_category import CreateLabelCategoryUseCase
+from app.audio_capture.application.use_cases.command.create_label_option import CreateLabelOptionUseCase
+from app.audio_capture.application.use_cases.command.delete_audio_segment import DeleteAudioSegmentUseCase
+from app.audio_capture.application.use_cases.command.delete_label_category import DeleteLabelCategoryUseCase
+from app.audio_capture.application.use_cases.command.delete_label_option import DeleteLabelOptionUseCase
+from app.audio_capture.application.use_cases.command.detect_audio_segments import DetectAudioSegmentsUseCase
 from app.audio_capture.application.use_cases.command.migrate_review import MigrateReviewUseCase
-from app.audio_capture.application.use_cases.query.audio_capture import AudioCaptureQueryUseCase
+from app.audio_capture.application.use_cases.command.trim_audio_segment import TrimAudioSegmentUseCase
+from app.audio_capture.application.use_cases.command.update_audio_segment_memo import UpdateAudioSegmentMemoUseCase
+from app.audio_capture.application.use_cases.command.update_label_category import UpdateLabelCategoryUseCase
+from app.audio_capture.application.use_cases.command.update_label_option import UpdateLabelOptionUseCase
 from app.audio_capture.application.use_cases.query.export_audio_segment import ExportAudioSegmentsUseCase
-from app.audio_capture.application.use_cases.query.label import LabelQueryUseCase
-from app.audio_capture.infra.presistance import (
-    SQLAlchemyAudioCaptureRepo,
-    SQLAlchemyAudioSegmentRepo,
-    SQLAlchemyLabelCategoryRepo,
-    SQLAlchemyLabelOptionRepo,
+from app.audio_capture.application.use_cases.query.get_audio_capture_count import GetAudioCaptureCountUseCase
+from app.audio_capture.application.use_cases.query.get_audio_capture_detail import GetAudioCaptureDetailUseCase
+from app.audio_capture.application.use_cases.query.get_audio_capture_list import GetAudioCaptureListUseCase
+from app.audio_capture.application.use_cases.query.get_label_list import GetLabelListUseCase
+from app.audio_capture.infra.persistence import (
+    AudioCaptureSQLAlchemyRepo,
+    AudioSegmentSQLAlchemyRepo,
+    LabelCategorySQLAlchemyRepo,
+    LabelOptionSQLAlchemyRepo,
 )
 from app.audio_capture.infra.services import SileroVadService, WaveAudioAnalyzer
 
@@ -36,31 +35,41 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
     file_analyzer = providers.Dependency()
 
     audio_analyzer = providers.Singleton(WaveAudioAnalyzer)
-    vad_service = providers.Singleton(SileroVadService)
-    audio_capture_repo = providers.Singleton(SQLAlchemyAudioCaptureRepo)
+    vad_model = providers.Singleton(load_silero_vad)
+    vad_service = providers.Singleton(SileroVadService, model=vad_model)
+    audio_capture_repo = providers.Singleton(AudioCaptureSQLAlchemyRepo)
 
     batch_create_audio_capture_command = providers.Factory(
         BatchCreateAudioCaptureUseCase,
-        audio_capture_repo=audio_capture_repo,
         object_storage_client=object_storage_client,
         file_analyzer=file_analyzer,
         audio_analyzer=audio_analyzer,
+        audio_capture_repo=audio_capture_repo,
     )
 
-    audio_segment_repo = providers.Singleton(SQLAlchemyAudioSegmentRepo)
+    audio_segment_repo = providers.Singleton(AudioSegmentSQLAlchemyRepo)
 
-    audio_capture_query = providers.Factory(
-        AudioCaptureQueryUseCase,
+    get_audio_capture_list_query = providers.Factory(
+        GetAudioCaptureListUseCase,
+        audio_capture_repo=audio_capture_repo,
+        audio_segment_repo=audio_segment_repo,
+    )
+    get_audio_capture_count_query = providers.Factory(
+        GetAudioCaptureCountUseCase,
+        audio_capture_repo=audio_capture_repo,
+    )
+    get_audio_capture_detail_query = providers.Factory(
+        GetAudioCaptureDetailUseCase,
         audio_capture_repo=audio_capture_repo,
         audio_segment_repo=audio_segment_repo,
         object_storage_client=object_storage_client,
     )
 
-    label_category_repo = providers.Singleton(SQLAlchemyLabelCategoryRepo)
-    label_option_repo = providers.Singleton(SQLAlchemyLabelOptionRepo)
+    label_category_repo = providers.Singleton(LabelCategorySQLAlchemyRepo)
+    label_option_repo = providers.Singleton(LabelOptionSQLAlchemyRepo)
 
-    label_query = providers.Factory(
-        LabelQueryUseCase,
+    get_label_list_query = providers.Factory(
+        GetLabelListUseCase,
         label_category_repo=label_category_repo,
     )
     create_label_category_command = providers.Factory(

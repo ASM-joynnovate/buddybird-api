@@ -1,34 +1,31 @@
-import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid7
 
-from app.audio_capture.domain.command.audio_segment import (
+from app.audio_capture.domain.commands import (
     AssignAudioSegmentLabelCommand,
     CreateAudioSegmentCommand,
     TrimAudioSegmentCommand,
     UpdateAudioSegmentMemoCommand,
 )
+from app.audio_capture.domain.constants import ALLOWED_AUDIO_MIME_TYPES, MAX_AUDIO_FILE_SIZE
 from app.audio_capture.domain.value_objects import AudioSegmentRange
-from app.shared_kernel.domain.command.file import CreateFileCommand
+from app.shared_kernel.domain.commands import CreateFileCommand
 from app.shared_kernel.domain.entities.file import File
 from core.common.entity import AggregateRoot
 
 
-@dataclass(eq=False, slots=True)
+@dataclass(eq=False)
 class AudioSegment(AggregateRoot):
     audio_capture_id: UUID
     range: AudioSegmentRange
     audio_file: File
     label_option_id: UUID | None
     memo: str | None
-    created_at: datetime
-    updated_at: datetime | None
     is_deleted: bool
 
     @classmethod
     def create(cls, *, command: CreateAudioSegmentCommand) -> AudioSegment:
-        segment_id = uuid.uuid7()
+        segment_id = uuid7()
 
         file = File.create(
             command=CreateFileCommand(
@@ -38,7 +35,7 @@ class AudioSegment(AggregateRoot):
                 file=command.audio_file.file,
             )
         )
-        file.validate(allowed_types=["audio/wav", "audio/x-wav", "audio/vnd.wave", "audio/wave"], max_size="1MB")
+        file.validate(allowed_types=ALLOWED_AUDIO_MIME_TYPES, max_size=MAX_AUDIO_FILE_SIZE)
 
         return cls(
             id=segment_id,
@@ -47,12 +44,10 @@ class AudioSegment(AggregateRoot):
             audio_file=file,
             label_option_id=None,
             memo=None,
-            created_at=datetime.now(UTC),
-            updated_at=None,
             is_deleted=False,
         )
 
-    def retrim(self, *, command: TrimAudioSegmentCommand) -> File:
+    def retrim(self, *, command: TrimAudioSegmentCommand) -> None:
         old_file = self.audio_file
 
         new_file = File.create(
@@ -63,12 +58,11 @@ class AudioSegment(AggregateRoot):
                 file=command.audio_file.file,
             )
         )
-        new_file.validate(allowed_types=["audio/wav", "audio/x-wav", "audio/vnd.wave", "audio/wave"], max_size="1MB")
+        new_file.validate(allowed_types=ALLOWED_AUDIO_MIME_TYPES, max_size=MAX_AUDIO_FILE_SIZE)
 
         self.range = command.range
         self.audio_file = new_file
         old_file.delete()
-        return old_file
 
     def assign_label(self, *, command: AssignAudioSegmentLabelCommand) -> None:
         self.label_option_id = command.label_option_id

@@ -4,10 +4,9 @@ from uuid import UUID
 
 from pydantic import Field
 
-from app.audio_capture.domain.enum import PhaseEnum
+from app.audio_capture.application.dto.audio_segment import GetAudioSegmentDTO
+from app.audio_capture.domain.enums import PhaseEnum
 from core.common import CustomBaseModel
-
-from .audio_segment import GetAudioSegmentDTO
 
 
 class CreateAudioCaptureItemDTO(CustomBaseModel):
@@ -36,7 +35,7 @@ class BatchCreateAudioCaptureDTO(CustomBaseModel):
     device_model: str | None = Field(None, max_length=30, description="클립을 캡처한 기기의 모델명")
 
 
-class AudioCaptureUploadResultDTO(CustomBaseModel):
+class BatchCreateAudioCaptureResultDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"code", "error_code", "message"}
 
     status: Literal["success", "rejected"] = Field(..., description="항목의 저장 결과")

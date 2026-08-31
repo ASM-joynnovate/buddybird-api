@@ -1,9 +1,9 @@
-from app.audio_capture.application.dto.audio_capture import MigrateReviewDTO
-from app.audio_capture.domain.command.audio_capture import (
+from app.audio_capture.application.dto import MigrateReviewDTO
+from app.audio_capture.domain.commands import (
     AssignAudioCaptureLabelsCommand,
     UpdateAudioCaptureMemoCommand,
 )
-from app.audio_capture.domain.enum import LabelCategoryTargetEnum
+from app.audio_capture.domain.enums import LabelCategoryTargetEnum
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo, ILabelOptionRepo
 from core.common.errors import ResourceNotFoundError
 from core.db import Transactional

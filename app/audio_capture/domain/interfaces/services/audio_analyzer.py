@@ -1,6 +1,9 @@
-class IAudioAnalyzer:
-    def get_duration_ms(self, *, file: bytes) -> int | None:
-        pass
+from abc import ABC, abstractmethod
 
-    def trim(self, *, file: bytes, start_ms: int, end_ms: int) -> bytes:
-        pass
+
+class IAudioAnalyzer(ABC):
+    @abstractmethod
+    def get_duration_ms(self, *, file: bytes) -> int | None: ...
+
+    @abstractmethod
+    def trim(self, *, file: bytes, start_ms: int, end_ms: int) -> bytes: ...

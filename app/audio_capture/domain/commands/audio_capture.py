@@ -1,13 +1,16 @@
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from app.audio_capture.domain.entities.label import LabelOption
-from app.audio_capture.domain.enum import PhaseEnum
-from app.shared_kernel.domain.command.file import AssignFileCommand
+from app.audio_capture.domain.enums import PhaseEnum
+from app.shared_kernel.domain.commands import AssignFileCommand
+
+if TYPE_CHECKING:
+    from app.audio_capture.domain.entities.label import LabelOption
 
 
-@dataclass
+@dataclass(frozen=True)
 class CreateAudioCaptureCommand:
     client_capture_id: str
     client_session_id: str
@@ -27,11 +30,11 @@ class CreateAudioCaptureCommand:
     device_model: str | None
 
 
-@dataclass
+@dataclass(frozen=True)
 class AssignAudioCaptureLabelsCommand:
     label_options: list[LabelOption]
 
 
-@dataclass
+@dataclass(frozen=True)
 class UpdateAudioCaptureMemoCommand:
     memo: str | None

@@ -2,25 +2,23 @@ import io
 import zipfile
 from functools import partial
 
-from app.audio_capture.application.dto.audio_capture import (
-    AudioCaptureUploadResultDTO,
+from app.audio_capture.application.dto import (
     BatchCreateAudioCaptureDTO,
+    BatchCreateAudioCaptureResultDTO,
     CreateAudioCaptureItemDTO,
 )
 from app.audio_capture.application.errors import (
     AudioCaptureArchiveEntryNotFoundError,
     AudioCaptureArchiveInvalidError,
 )
-from app.audio_capture.domain.command import CreateAudioCaptureCommand
+from app.audio_capture.domain.commands import CreateAudioCaptureCommand
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo
 from app.audio_capture.domain.interfaces.services import IAudioAnalyzer
-from app.shared_kernel.domain.command.file import AssignFileCommand
-from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
-from app.shared_kernel.domain.interfaces.services import IFileAnalyzer
+from app.shared_kernel.domain.commands import AssignFileCommand
+from app.shared_kernel.domain.interfaces.services import IFileAnalyzer, IObjectStorageClient
 from core.common.errors import CustomError
-from core.db import Transactional
-from core.db.transactional import on_rollback
+from core.db import Transactional, on_rollback
 
 
 class BatchCreateAudioCaptureUseCase:
@@ -38,7 +36,7 @@ class BatchCreateAudioCaptureUseCase:
         self._audio_capture_repo = audio_capture_repo
 
     @Transactional()
-    async def execute(self, *, data: BatchCreateAudioCaptureDTO) -> dict[str, AudioCaptureUploadResultDTO]:
+    async def execute(self, *, data: BatchCreateAudioCaptureDTO) -> dict[str, BatchCreateAudioCaptureResultDTO]:
         try:
             archive = zipfile.ZipFile(io.BytesIO(data.archive_file))
         except zipfile.BadZipFile as e:
@@ -46,22 +44,22 @@ class BatchCreateAudioCaptureUseCase:
 
         # 이미 저장된(firebase_anon_id, client_capture_id 조합이 동일한) 데이터 불러오기
         saved_client_capture_ids = await self._audio_capture_repo.get_existing_client_capture_ids(
-            firebase_anon_uid=data.firebase_anon_uid,
+            user_id=data.firebase_anon_uid,
             client_capture_ids=[item.client_capture_id for item in data.items],
         )
 
-        results: dict[str, AudioCaptureUploadResultDTO] = {}
+        results: dict[str, BatchCreateAudioCaptureResultDTO] = {}
         with archive:
             for item in data.items:
                 # 저장되어있으면 다시 저장하지 않고 패스
                 if item.client_capture_id in saved_client_capture_ids:
-                    results[item.client_capture_id] = AudioCaptureUploadResultDTO(status="success")
+                    results[item.client_capture_id] = BatchCreateAudioCaptureResultDTO(status="success")
                     continue
 
                 try:
                     await self._save_one(data=data, item=item, archive=archive)
                 except CustomError as e:
-                    results[item.client_capture_id] = AudioCaptureUploadResultDTO(
+                    results[item.client_capture_id] = BatchCreateAudioCaptureResultDTO(
                         status="rejected",
                         code=e.code,
                         error_code=e.error_code,
@@ -70,7 +68,7 @@ class BatchCreateAudioCaptureUseCase:
                     continue
 
                 saved_client_capture_ids.add(item.client_capture_id)
-                results[item.client_capture_id] = AudioCaptureUploadResultDTO(status="success")
+                results[item.client_capture_id] = BatchCreateAudioCaptureResultDTO(status="success")
 
         return results
 
