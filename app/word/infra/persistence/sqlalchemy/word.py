@@ -9,33 +9,33 @@ from core.db import session, session_factory
 
 class WordSQLAlchemyRepo(IWordRepo):
     async def get_by_id(self, *, word_id: UUID) -> Word | None:
-        async with session_factory() as read_session:
-            stmt = await read_session.execute(select(Word).where(Word.id == word_id).where(Word.is_deleted.is_(False)))
+        stmt = select(Word).where(Word.id == word_id)
 
-            return stmt.scalar_one_or_none()
+        result = await session.execute(stmt)
+
+        return result.scalar_one_or_none()
 
     async def get_list(
         self,
         *,
-        limit: int = 100,
-        prev: int | None = None,
-        label: str | None = None,
-        user_id: str | None = None,
+        prev: int,
+        limit: int,
+        label: str | None,
+        user_id: str | None,
     ) -> list[Word]:
         async with session_factory() as read_session:
-            stmt = select(Word).where(Word.is_deleted.is_(False))
+            stmt = select(Word)
 
             if label is not None:
                 stmt = stmt.where(Word.label == label)
             if user_id is not None:
                 stmt = stmt.where(Word.firebase_anon_uid == user_id)
 
-            if prev is not None:
-                stmt = stmt.offset(prev)
-            stmt = stmt.limit(limit)
+            stmt = stmt.order_by(Word.created_at.desc()).offset(prev).limit(limit)
 
             result = await read_session.execute(stmt)
-            return result.scalars().all()
+
+            return list(result.scalars().all())
 
     async def get_count(
         self,
@@ -44,7 +44,7 @@ class WordSQLAlchemyRepo(IWordRepo):
         user_id: str | None,
     ) -> int:
         async with session_factory() as read_session:
-            stmt = select(func.count()).where(Word.is_deleted.is_(False)).where(Word.firebase_anon_uid == user_id)
+            stmt = select(func.count()).select_from(Word)
 
             if label is not None:
                 stmt = stmt.where(Word.label == label)
@@ -52,19 +52,21 @@ class WordSQLAlchemyRepo(IWordRepo):
                 stmt = stmt.where(Word.firebase_anon_uid == user_id)
 
             result = await read_session.execute(stmt)
+
             return result.scalar_one()
 
-    async def exists(self, *, user_id: str, client_word_id: str) -> bool:
+    async def exists_by_user_id_and_client_word_id(self, *, user_id: str, client_word_id: str) -> bool:
         async with session_factory() as read_session:
             stmt = (
-                select(Word)
-                .where(Word.is_deleted.is_(False))
+                select(Word.id)
                 .where(Word.firebase_anon_uid == user_id)
                 .where(Word.client_word_id == client_word_id)
+                .limit(1)
             )
 
             result = await read_session.execute(stmt)
-            return result.scalar_one_or_none()
+
+            return result.scalar_one_or_none() is not None
 
     async def save(self, *, word: Word) -> None:
         session.add(word)
