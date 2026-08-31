@@ -1,6 +1,6 @@
 from pydantic_settings import SettingsConfigDict
 
-from .base import CommonSettings
+from core.config.base import CommonSettings
 
 
 class TestSettings(CommonSettings):

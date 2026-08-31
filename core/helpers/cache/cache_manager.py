@@ -1,23 +1,21 @@
 import inspect
 import logging
+from collections.abc import Callable
 from functools import wraps
+from typing import Any
 
 from opentelemetry import trace
 
-from .base import BaseBackend, BaseKeyMaker
-from .cache_tag import CacheTag
+from core.helpers.cache.base import BaseBackend, BaseKeyMaker
+from core.helpers.cache.cache_tag import CacheTag
 
 
 class CacheManager:
-    def __init__(self):
-        self.backend = None
-        self.key_maker = None
-        self.tracer = trace.get_tracer(__name__)
-        self._logger = logging.getLogger("buddybird.cache")
-
-    def init(self, *, backend: BaseBackend, key_maker: BaseKeyMaker) -> None:
+    def __init__(self, *, backend: BaseBackend, key_maker: BaseKeyMaker):
         self.backend = backend
         self.key_maker = key_maker
+        self.tracer = trace.get_tracer(__name__)
+        self._logger = logging.getLogger(__name__)
 
     def cached(
         self,
@@ -25,15 +23,12 @@ class CacheManager:
         prefix: str | None = None,
         tag: CacheTag | None = None,
         ttl: int = 60,
-    ):
-        def _cached(function):
+    ) -> Callable:
+        def _cached(function) -> Callable:
             @wraps(function)
-            async def __cached(*args, **kwargs):
+            async def __cached(*args, **kwargs) -> Any:
                 with self.tracer.start_as_current_span("cache") as span:
                     span.set_attribute("cache.function", function.__name__)
-                    if not self.backend or not self.key_maker:
-                        raise Exception("backend or key_maker is None")  # noqa: TRY002
-
                     # 실제 호출 시의 인자들을 바인딩
                     bound_args = inspect.signature(function).bind(*args, **kwargs)
                     bound_args.apply_defaults()
@@ -73,6 +68,3 @@ class CacheManager:
 
     async def remove_by_contains(self, *, key: str) -> None:
         await self.backend.delete_include(value=key)
-
-
-Cache = CacheManager()

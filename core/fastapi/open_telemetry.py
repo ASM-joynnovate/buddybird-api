@@ -7,7 +7,7 @@ from opentelemetry.trace import Span, get_tracer_provider
 from core.fastapi import ExtendedFastAPI
 
 
-def client_request_hook(span: Span, scope: dict[str, Any], message: dict[str, Any]):
+def client_request_hook(span: Span, scope: dict[str, Any], message: dict[str, Any]) -> None:
     if span and span.is_recording():
         span.set_attribute("http.method", scope["method"])
         span.set_attribute("http.url", scope["path"])
@@ -16,7 +16,7 @@ def client_request_hook(span: Span, scope: dict[str, Any], message: dict[str, An
             span.set_attribute("http.request.body", message.get("body"))
 
 
-def client_response_hook(span: Span, scope: dict[str, Any], message: dict[str, Any]):
+def client_response_hook(span: Span, scope: dict[str, Any], message: dict[str, Any]) -> None:
     if span and span.is_recording():
         span.set_attribute("http.method", scope["method"])
         span.set_attribute("http.url", scope["path"])

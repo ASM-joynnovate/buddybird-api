@@ -7,7 +7,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class ETagMiddleware:
-    def __init__(self, app: ASGIApp, minimum_size: int = 80) -> None:
+    def __init__(self, app: ASGIApp, minimum_size: int = 80):
         self.app = app
         self.minimum_size = minimum_size
 
@@ -20,7 +20,7 @@ class ETagMiddleware:
 
 
 class ETagResponder:
-    def __init__(self, app: ASGIApp, scope: Scope, minimum_size: int) -> None:
+    def __init__(self, app: ASGIApp, scope: Scope, minimum_size: int):
         self.app = app
         self.scope = scope
         self.minimum_size = minimum_size
