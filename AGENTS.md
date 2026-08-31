@@ -1,5 +1,9 @@
 ## Agent skills
 
+### Code conventions
+
+`docs/agents/code-conventions.md` 참고.
+
 ### Issue tracker
 
 GitHub Issues를 사용한다. 외부 PR은 triage 대상에 포함하지 않는다. `docs/agents/issue-tracker.md` 참고.
