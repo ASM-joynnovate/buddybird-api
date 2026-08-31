@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class CreateFileCommand:
     name: str
     path: str
@@ -9,7 +9,7 @@ class CreateFileCommand:
     file: bytes
 
 
-@dataclass
+@dataclass(frozen=True)
 class AssignFileCommand:
     name: str
     type: str

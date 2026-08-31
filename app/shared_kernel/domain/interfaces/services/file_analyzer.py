@@ -1,6 +1,9 @@
-class IFileAnalyzer:
-    def get_mime_type(self, *, file: bytes) -> str:
-        pass
+from abc import ABC, abstractmethod
 
-    def get_file_size(self, *, file: bytes) -> int:
-        pass
+
+class IFileAnalyzer(ABC):
+    @abstractmethod
+    def get_mime_type(self, *, file: bytes) -> str: ...
+
+    @abstractmethod
+    def get_file_size(self, *, file: bytes) -> int: ...
