@@ -3,4 +3,5 @@ set -e
 files=$(git diff --cached --name-only --diff-filter=ACM -- '*.py')
 [ -z "$files" ] && exit 0
 uv run ruff check --fix $files
+uv run ruff format --check $files
 git add $files

@@ -1,3 +1,3 @@
-SMALL_INT_MAX = 2 ** 15 - 1
-INT_MAX = 2 ** 31 - 1
-BIG_INT_MAX = 2 ** 63 - 1
+SMALL_INT_MAX = 2**15 - 1
+INT_MAX = 2**31 - 1
+BIG_INT_MAX = 2**63 - 1
