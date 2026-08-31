@@ -1,7 +1,10 @@
 from .audio_capture import (
     AssignAudioCaptureLabelsRequest,
     BatchCreateAudioCaptureRequest,
+    CreateAudioCaptureItemRequest,
+    ExportAudioSegmentsRequest,
     GetAudioCaptureListRequest,
+    MigrateReviewLabelRequest,
     MigrateReviewRequest,
 )
 from .audio_segment import (
@@ -21,10 +24,13 @@ __all__ = [
     "AssignAudioCaptureLabelsRequest",
     "AssignAudioSegmentLabelRequest",
     "BatchCreateAudioCaptureRequest",
+    "CreateAudioCaptureItemRequest",
     "CreateAudioSegmentRequest",
     "CreateLabelCategoryRequest",
     "CreateLabelOptionRequest",
+    "ExportAudioSegmentsRequest",
     "GetAudioCaptureListRequest",
+    "MigrateReviewLabelRequest",
     "MigrateReviewRequest",
     "TrimAudioSegmentRequest",
     "UpdateAudioSegmentMemoRequest",
