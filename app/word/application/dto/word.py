@@ -12,7 +12,7 @@ class GetWordDTO(CustomBaseModel):
 
     id: UUID = Field(..., description="ID")
     label: str = Field(..., description="단어명")
-    firebase_anon_uid: str | None = Field(None, description="Firebase Authentication 익명 ID")
+    firebase_anon_uid: str | None = Field(None, max_length=128, description="Firebase Authentication 익명 ID")
     client_word_id: str = Field(..., description="클라이언드 단어 ID")
     device_platform: str | None = Field(None, description="단어를 녹음한 기기의 OS")
     device_os_version: str | None = Field(None, description="단어를 녹음한 기기의 OS 버전")

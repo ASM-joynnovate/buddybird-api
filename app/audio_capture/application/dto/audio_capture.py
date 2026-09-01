@@ -27,7 +27,7 @@ class CreateAudioCaptureItemDTO(CustomBaseModel):
 class BatchCreateAudioCaptureDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"device_platform", "device_os_version", "device_model"}
 
-    firebase_anon_uid: str = Field(..., max_length=30, description="Firebase Authentication 익명 ID")
+    firebase_anon_uid: str = Field(..., max_length=128, description="Firebase Authentication 익명 ID")
     items: list[CreateAudioCaptureItemDTO] = Field(..., description="개별 클립 메타데이터")
     archive_file: bytes = Field(..., description="클립 오디오를 담은 압축 파일")
     device_platform: str | None = Field(None, max_length=10, description="클립을 캡처한 기기의 OS")
@@ -48,7 +48,7 @@ class GetAudioCaptureDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"word_id", "duration_ms"}
 
     id: UUID = Field(..., description="캡처 ID")
-    firebase_anon_uid: str = Field(..., description="Firebase Authentication 익명 ID")
+    firebase_anon_uid: str = Field(..., max_length=128, description="Firebase Authentication 익명 ID")
     client_word_id: str = Field(..., description="클라이언트 단어 ID")
     word_id: UUID | None = Field(None, description="연결된 단어 ID")
     cycle: int = Field(..., description="세션 사이클 번호")
