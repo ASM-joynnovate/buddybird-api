@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.3.1...v0.4.0) (2026-09-01)
+
+
+### Features
+
+* **audio-capture:** add AudioCapture memo API ([5bc7523](https://github.com/ASM-joynnovate/buddybird-api/commit/5bc7523ec72aa0a8fe7b0c8b73d9f10cd7def666))
+* **audio-capture:** add AudioCapture memo API ([3a22ade](https://github.com/ASM-joynnovate/buddybird-api/commit/3a22adecd2ba5043f7ce2b66f6518b27de7fb4ca))
+
 ## [0.3.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.3.0...v0.3.1) (2026-09-01)
 
 
