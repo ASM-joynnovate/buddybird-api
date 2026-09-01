@@ -6,7 +6,7 @@ audio_capture_table = BaseTable(
     "audio_captures",
     metadata,
     Column("id", UUID, primary_key=True),
-    Column("firebase_anon_uid", String(30), nullable=False),
+    Column("firebase_anon_uid", String(128), nullable=False),
     Column("client_capture_id", String(50), nullable=False),
     Column("client_session_id", String(30), nullable=False),
     Column("word_id", UUID, ForeignKey("word_entries.id"), nullable=True, index=True),

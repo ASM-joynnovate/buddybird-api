@@ -56,7 +56,7 @@ class BatchCreateAudioCaptureRequest(BaseRequest):
     null_fields: ClassVar[set] = {"device_platform", "device_os_version", "device_model"}
 
     firebase_anon_uid: str = Field(
-        ..., max_length=30, description="Firebase Authentication UID", examples=["FJTNzziLv9VlWUaOMUUdrWNe3Rm2"]
+        ..., max_length=128, description="Firebase Authentication UID", examples=["FJTNzziLv9VlWUaOMUUdrWNe3Rm2"]
     )
     metadata: Json[list[CreateAudioCaptureItemRequest]] = Field(
         ...,
@@ -107,7 +107,10 @@ class GetAudioCaptureListRequest(PageParams):
     }
 
     firebase_anon_uid: str | None = Field(
-        None, description="Firebase Authentication 익명 ID", examples=["FJTNzziLv9VlWUaOMUUdrWNe3Rm2"]
+        None,
+        max_length=128,
+        description="Firebase Authentication 익명 ID",
+        examples=["FJTNzziLv9VlWUaOMUUdrWNe3Rm2"],
     )
     word_label: str | None = Field(None, description="연결된 단어명", examples=["안녕"])
     label_option_ids: list[UUID] | None = Field(None, description="클립 라벨 옵션 ID 필터", examples=[[]])
@@ -122,7 +125,7 @@ class AssignAudioCaptureLabelsRequest(BaseRequest):
 
 class MigrateReviewLabelRequest(BaseRequest):
     category: str = Field(..., description="라벨 카테고리 이름", examples=["새 소리"])
-    option: str = Field(..., description="라벨 옵션 이름", examples=["참새"])
+    option: str = Field(..., description="라벨 옵션 이름", examples=["안녕"])
 
 
 class MigrateReviewRequest(BaseRequest):
