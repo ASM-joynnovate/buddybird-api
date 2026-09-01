@@ -123,6 +123,12 @@ class AssignAudioCaptureLabelsRequest(BaseRequest):
     label_option_ids: list[UUID] = Field(..., description="지정할 라벨 옵션 ID 목록", examples=[[]])
 
 
+class UpdateAudioCaptureMemoRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"memo"}
+
+    memo: str | None = Field(..., description="메모", examples=["소리가 선명함"])
+
+
 class MigrateReviewLabelRequest(BaseRequest):
     category: str = Field(..., description="라벨 카테고리 이름", examples=["새 소리"])
     option: str = Field(..., description="라벨 옵션 이름", examples=["안녕"])

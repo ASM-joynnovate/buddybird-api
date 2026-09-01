@@ -13,6 +13,7 @@ from app.audio_capture.application.use_cases.command.delete_label_option import 
 from app.audio_capture.application.use_cases.command.detect_audio_segments import DetectAudioSegmentsUseCase
 from app.audio_capture.application.use_cases.command.migrate_reviews import MigrateReviewsUseCase
 from app.audio_capture.application.use_cases.command.trim_audio_segment import TrimAudioSegmentUseCase
+from app.audio_capture.application.use_cases.command.update_audio_capture_memo import UpdateAudioCaptureMemoUseCase
 from app.audio_capture.application.use_cases.command.update_audio_segment_memo import UpdateAudioSegmentMemoUseCase
 from app.audio_capture.application.use_cases.command.update_label_category import UpdateLabelCategoryUseCase
 from app.audio_capture.application.use_cases.command.update_label_option import UpdateLabelOptionUseCase
@@ -130,6 +131,10 @@ class AudioCaptureContainer(containers.DeclarativeContainer):
         audio_capture_repo=audio_capture_repo,
         label_option_repo=label_option_repo,
         label_category_repo=label_category_repo,
+    )
+    update_audio_capture_memo_command = providers.Factory(
+        UpdateAudioCaptureMemoUseCase,
+        audio_capture_repo=audio_capture_repo,
     )
     assign_audio_segment_label_command = providers.Factory(
         AssignAudioSegmentLabelUseCase,
