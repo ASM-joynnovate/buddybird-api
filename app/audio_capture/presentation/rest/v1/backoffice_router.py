@@ -42,7 +42,6 @@ from app.audio_capture.application.use_cases.query.get_audio_capture_detail impo
 from app.audio_capture.application.use_cases.query.get_audio_capture_list import GetAudioCaptureListUseCase
 from app.audio_capture.application.use_cases.query.get_label_list import GetLabelListUseCase
 from app.audio_capture.presentation.rest.v1.dependencies import verify_backoffice_password
-from app.audio_capture.presentation.rest.v1.errors import DuplicateReviewAudioFileIdError
 from app.audio_capture.presentation.rest.v1.request import (
     AssignAudioCaptureLabelsRequest,
     AssignAudioSegmentLabelRequest,
@@ -379,9 +378,6 @@ async def migrate_reviews(
         Depends(Provide[AppContainer.audio_capture.migrate_reviews_command]),
     ],
 ) -> BaseResponse:
-    if len(body.reviews) != len({review.audio_file_id for review in body.reviews}):
-        raise DuplicateReviewAudioFileIdError
-
     data = MigrateReviewsDTO(**body.model_dump(exclude_unset=True))
 
     return BaseResponse(message="리뷰 마이그레이션 성공", data=await use_case.execute(data=data))
