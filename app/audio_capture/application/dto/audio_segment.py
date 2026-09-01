@@ -32,4 +32,6 @@ class AssignAudioSegmentLabelDTO(CustomBaseModel):
 
 
 class UpdateAudioSegmentMemoDTO(CustomBaseModel):
-    memo: str | None = Field(None, description="메모")
+    allow_null_fields: ClassVar[set] = {"memo"}
+
+    memo: str | None = Field(..., description="메모")

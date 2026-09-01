@@ -16,17 +16,17 @@ SENSITIVE_FIELDS = [
     re.compile(r"(password\s*[=:]\s*)[^&\s]+", re.IGNORECASE),
     re.compile(r"(token\s*[=:]\s*)[^&\s]+", re.IGNORECASE),
     re.compile(r"(authorization\s*[=:]\s*)[^&\s]+", re.IGNORECASE),
-    re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"),  # no group
+    re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"),  # 그룹 없음
 ]
 
 
 def sanitize_message(message: str) -> str:
     sanitized = message
     for pattern in SENSITIVE_FIELDS:
-        # ruff: ignore[SIM108]
-        if pattern.groups:  # e.g. (password=)
+        # 비밀번호 형식 예시: password=
+        if pattern.groups:  # noqa: SIM108
             sanitized = pattern.sub(r"\1***", sanitized)
-        else:  # e.g., email
+        else:  # 예: 이메일
             sanitized = pattern.sub("***", sanitized)
     return sanitized
 
@@ -36,7 +36,7 @@ class OTELLogHandler(logging.Handler):
         super().__init__(level)
         self.otel_logger = get_logger_provider().get_logger(__name__)
 
-    def emit(self, record: logging.LogRecord):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             message = self.format(record)
             sanitized_message = sanitize_message(message)

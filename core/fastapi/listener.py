@@ -10,19 +10,19 @@ from core.common.errors.base import CustomError
 from core.config import Env
 from core.fastapi import ExtendedFastAPI
 
-logger = logging.getLogger("buddybird.exception")
+logger = logging.getLogger(__name__)
 
 
-def register_exception_handlers(app: ExtendedFastAPI):
+def register_exception_handlers(app: ExtendedFastAPI) -> None:
     @app.exception_handler(CustomError)
-    async def custom_exception_handler(_: Request, exc: CustomError):
+    async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.code,
             content={"error_code": exc.error_code, "message": exc.message},
         )
 
     @app.exception_handler(ResponseValidationError)
-    async def response_validation_exception_handler(_request: Request, exc: ResponseValidationError):
+    async def response_validation_exception_handler(_: Request, exc: ResponseValidationError) -> JSONResponse:
         logger.error(
             "exception",
             extra={
@@ -34,12 +34,12 @@ def register_exception_handlers(app: ExtendedFastAPI):
             },
         )
 
-        if app.env == Env.prod:
+        if app.env == Env.PROD:
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=jsonable_encoder(
                     {
-                        "error_code": "SERVER__RESPONSE_VALIDATION_ERROR",
+                        "error_code": "COMMON__RESPONSE_VALIDATION_ERROR",
                         "message": "반환값 검증 오류가 발생했습니다. 관리자에게 문의해주세요.",
                     }
                 ),
@@ -47,18 +47,18 @@ def register_exception_handlers(app: ExtendedFastAPI):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=jsonable_encoder(
-                {"error_code": "SERVER__RESPONSE_VALIDATION_ERROR", "message": "반환값 검증 오류가 발생했습니다."}
+                {"error_code": "COMMON__RESPONSE_VALIDATION_ERROR", "message": "반환값 검증 오류가 발생했습니다."}
             ),
         )
 
     @app.exception_handler(RequestValidationError)
-    async def request_validation_exception_handler(_: Request, exc: RequestValidationError):
-        if app.env == Env.prod:
+    async def request_validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+        if app.env == Env.PROD:
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=jsonable_encoder(
                     {
-                        "error_code": "SERVER__REQUEST_VALIDATION_ERROR",
+                        "error_code": "COMMON__REQUEST_VALIDATION_ERROR",
                         "message": "요청값 검증 오류가 발생했습니다.",
                     }
                 ),
@@ -67,7 +67,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=jsonable_encoder(
                 {
-                    "error_code": "SERVER__REQUEST_VALIDATION_ERROR",
+                    "error_code": "COMMON__REQUEST_VALIDATION_ERROR",
                     "message": "요청값 검증 오류가 발생했습니다.",
                     "detail": {"body": exc.body, "errors": exc.errors()},
                 }
@@ -75,15 +75,15 @@ def register_exception_handlers(app: ExtendedFastAPI):
         )
 
     @app.exception_handler(Exception)
-    async def internal_server_error_handler(_request: Request, exc: Exception):
+    async def internal_server_error_handler(_: Request, exc: Exception) -> JSONResponse:
         logger.error("exception", extra={"data": {"exception_class": exc, "message": str(exc)}})
 
-        if app.env == Env.prod:
+        if app.env == Env.PROD:
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=jsonable_encoder(
                     {
-                        "error_code": "SERVER__INTERNAL_SERVER_ERROR",
+                        "error_code": "COMMON__INTERNAL_SERVER_ERROR",
                         "message": "서버 내부 오류가 발생했습니다. 관리자에게 문의해주세요.",
                     }
                 ),
@@ -92,7 +92,7 @@ def register_exception_handlers(app: ExtendedFastAPI):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=jsonable_encoder(
                 {
-                    "error_code": "SERVER__INTERNAL_SERVER_ERROR",
+                    "error_code": "COMMON__INTERNAL_SERVER_ERROR",
                     "message": "서버 내부 오류가 발생했습니다.",
                     "detail": str(exc),
                 }
@@ -100,5 +100,5 @@ def register_exception_handlers(app: ExtendedFastAPI):
         )
 
 
-def register_handlers(app: ExtendedFastAPI):
+def register_handlers(app: ExtendedFastAPI) -> None:
     register_exception_handlers(app)

@@ -1,6 +1,6 @@
 [project]
 name = "buddybird-api"
-version = "0.2.0"
+version = "0.3.1"
 description = "버디버드 API Backend"
 requires-python = ">=3.14"
 dependencies = [
@@ -49,6 +49,7 @@ dev = [
 target-version = "py314"
 line-length = 120
 indent-width = 4
+force-exclude = true
 extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
@@ -82,9 +83,6 @@ select = [
     "W",
 ]
 ignore = [
-    "E111",
-    "E114",
-    "E117",
     "TRY003",
     "W191",
 ]
@@ -109,8 +107,6 @@ classmethod-decorators = ["classmethod", "pydantic.model_validator", "pydantic.f
 
 [tool.ruff.lint.per-file-ignores]
 "migrations/versions/*.py" = ["N999", "ERA001", "E501"]
-"tests/**" = ["S101", "ARG", "PLR2004"]
-"__init__.py" = ["F401"]
 
 [tool.ruff.format]
 indent-style = "space"

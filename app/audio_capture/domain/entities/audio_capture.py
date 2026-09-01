@@ -1,18 +1,21 @@
-import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
-from uuid import UUID
+from datetime import date, datetime
+from uuid import UUID, uuid7
 
-from app.audio_capture.domain.command import CreateAudioCaptureCommand
-from app.audio_capture.domain.command.audio_capture import AssignAudioCaptureLabelsCommand
+from app.audio_capture.domain.commands import (
+    AssignAudioCaptureLabelsCommand,
+    CreateAudioCaptureCommand,
+    UpdateAudioCaptureMemoCommand,
+)
+from app.audio_capture.domain.constants import ALLOWED_AUDIO_MIME_TYPES, MAX_AUDIO_FILE_SIZE
 from app.audio_capture.domain.entities.label import LabelOption
-from app.audio_capture.domain.enum import PhaseEnum
-from app.shared_kernel.domain.command.file import CreateFileCommand
+from app.audio_capture.domain.enums import PhaseEnum
+from app.shared_kernel.domain.commands import CreateFileCommand
 from app.shared_kernel.domain.entities.file import File
 from core.common.entity import AggregateRoot
 
 
-@dataclass(eq=False, slots=True)
+@dataclass(eq=False)
 class AudioCapture(AggregateRoot):
     client_capture_id: str
     client_session_id: str
@@ -30,14 +33,13 @@ class AudioCapture(AggregateRoot):
     device_platform: str | None
     device_os_version: str | None
     device_model: str | None
-    created_at: datetime
-    updated_at: datetime | None
+    memo: str | None
     is_deleted: bool
     label_options: list[LabelOption] = field(default_factory=list)
 
     @classmethod
     def create(cls, *, command: CreateAudioCaptureCommand) -> AudioCapture:
-        audio_capture_id = uuid.uuid7()
+        audio_capture_id = uuid7()
 
         file = File.create(
             command=CreateFileCommand(
@@ -47,10 +49,7 @@ class AudioCapture(AggregateRoot):
                 file=command.audio_file.file,
             )
         )
-        file.validate(
-            allowed_types=["audio/wav", "audio/x-wav", "audio/vnd.wave", "audio/wave"],
-            max_size="1MB",
-        )
+        file.validate(allowed_types=ALLOWED_AUDIO_MIME_TYPES, max_size=MAX_AUDIO_FILE_SIZE)
 
         return cls(
             id=audio_capture_id,
@@ -70,16 +69,17 @@ class AudioCapture(AggregateRoot):
             device_platform=command.device_platform,
             device_os_version=command.device_os_version,
             device_model=command.device_model,
-            created_at=datetime.now(UTC),
-            updated_at=None,
+            memo=None,
             is_deleted=False,
             label_options=[],
         )
 
+    def update_memo(self, *, command: UpdateAudioCaptureMemoCommand) -> None:
+        self.memo = command.memo
+
     def assign_labels(self, *, command: AssignAudioCaptureLabelsCommand) -> None:
         self.label_options = command.label_options
 
-    def delete(self):
-        if self.audio_file is not None:
-            self.audio_file.delete()
+    def delete(self) -> None:
+        self.audio_file.delete()
         self.is_deleted = True

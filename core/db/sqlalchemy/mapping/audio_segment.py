@@ -4,10 +4,10 @@ from core.db.sqlalchemy.mapping.base import mapper_registry
 from core.db.sqlalchemy.models import audio_segment_table
 
 
-def init_audio_segment_mappers():
+def init_audio_segment_mappers() -> None:
     from app.audio_capture.domain.entities.audio_segment import AudioSegment
     from app.audio_capture.domain.value_objects import AudioSegmentRange
-    from app.shared_kernel.domain.entities.file import File as FileEntity
+    from app.shared_kernel.domain.entities.file import File
 
     mapper_registry.map_imperatively(
         AudioSegment,
@@ -20,9 +20,8 @@ def init_audio_segment_mappers():
                 audio_segment_table.c.end_ms,
             ),
             "audio_file": relationship(
-                FileEntity,
-                primaryjoin=audio_segment_table.c.audio_file_id == FileEntity.id,
-                uselist=False,
+                File,
+                primaryjoin=audio_segment_table.c.audio_file_id == File.id,
                 lazy="selectin",
             ),
         },

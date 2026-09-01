@@ -7,47 +7,45 @@ from app.audio_capture.domain.entities.audio_capture import AudioCapture
 
 class IAudioCaptureRepo(ABC):
     @abstractmethod
-    async def get_by_id(self, *, audio_capture_id: UUID) -> AudioCapture | None:
-        pass
+    async def get_by_id(self, *, audio_capture_id: UUID) -> AudioCapture | None: ...
 
     @abstractmethod
     async def get_list(
         self,
         *,
-        firebase_anon_uid: str | None,
+        user_id: str | None,
         word_label: str | None,
-        label_option_ids: list[UUID],
+        label_option_ids: list[UUID] | None,
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
         prev: int,
         limit: int,
-    ) -> list[AudioCapture]:
-        pass
+    ) -> list[AudioCapture]: ...
 
     @abstractmethod
     async def get_count(
         self,
         *,
-        firebase_anon_uid: str | None,
+        user_id: str | None,
         word_label: str | None,
-        label_option_ids: list[UUID],
+        label_option_ids: list[UUID] | None,
         has_memo: bool | None,
         date_from: datetime | None,
         date_to: datetime | None,
-    ) -> int:
-        pass
+    ) -> int: ...
 
     @abstractmethod
-    async def get_existing_client_capture_ids(
-        self, *, firebase_anon_uid: str, client_capture_ids: list[str]
-    ) -> set[str]:
-        pass
+    async def get_existing_client_capture_ids(self, *, user_id: str, client_capture_ids: list[str]) -> set[str]: ...
 
     @abstractmethod
-    async def detach_label_options(self, *, label_option_ids: list[UUID]) -> None:
-        pass
+    async def detach_label_options(self, *, label_option_ids: list[UUID]) -> None: ...
 
     @abstractmethod
-    async def save(self, *, audio_capture: AudioCapture) -> None:
-        pass
+    async def get_by_audio_file_path(self, *, file_path: str, file_name: str) -> AudioCapture | None: ...
+
+    @abstractmethod
+    async def get_by_audio_file_paths(self, *, audio_file_paths: list[tuple[str, str]]) -> list[AudioCapture]: ...
+
+    @abstractmethod
+    async def save(self, *, audio_capture: AudioCapture) -> None: ...

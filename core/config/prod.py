@@ -1,6 +1,6 @@
 from pydantic_settings import SettingsConfigDict
 
-from .base import CommonSettings, LogFormat
+from core.config.base import CommonSettings, LogFormat
 
 
 class ProdSettings(CommonSettings):

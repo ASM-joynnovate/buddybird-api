@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.3.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.3.0...v0.3.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* **database:** fix database migration ([8527589](https://github.com/ASM-joynnovate/buddybird-api/commit/852758954c5e961489f9db46bfd98ae983b2642d))
+* **database:** fix database migration ([8556456](https://github.com/ASM-joynnovate/buddybird-api/commit/8556456d52fb740237a540383b4ad820075e9206))
+
+## [0.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.2.0...v0.3.0) (2026-09-01)
+
+
+### Features
+
+* **app:** standardize API request and error contracts ([4def59d](https://github.com/ASM-joynnovate/buddybird-api/commit/4def59d092202b01b88d3588d3752b28d1182505))
+* **audio_captures:** bulk migrate review ([82f9070](https://github.com/ASM-joynnovate/buddybird-api/commit/82f9070043e3d615cfa7a48c9fb520b533171f1a))
+* **audio-capture:** add memo column to AudioCapture ([682f080](https://github.com/ASM-joynnovate/buddybird-api/commit/682f0801eed2174dd51e19726bff1fd88effe289))
+* **audio-capture:** add review migration endpoint ([7139201](https://github.com/ASM-joynnovate/buddybird-api/commit/7139201e0a8ea46333b2c87d75855b8a73dac44d))
+* **database:** alter firebase_anon_uid limit to 30 in word_entries table ([504e317](https://github.com/ASM-joynnovate/buddybird-api/commit/504e317bb67fcd228e61420f7f56d15580b75b90))
+* **db:** standardize persistence and apply schema constraints ([6a0c31c](https://github.com/ASM-joynnovate/buddybird-api/commit/6a0c31c272013a2e05bf499f6b3eb26356f5ecab))
+* review migration endpoint ([7541457](https://github.com/ASM-joynnovate/buddybird-api/commit/7541457274152e3dc3986a6f670438d033a34c61))
+
+
+### Bug Fixes
+
+* limit firebase_anon_uid to 128 char ([5be6768](https://github.com/ASM-joynnovate/buddybird-api/commit/5be6768eb7aa7d2ffe3fbfbadafde95c8a87c8b0))
+* limit firebase_anon_uid to 128 char ([594909d](https://github.com/ASM-joynnovate/buddybird-api/commit/594909d771adae69d7d66b514fa3344ecfb1624c))
+
+
+### Documentation
+
+* **agent:** document code conventions ([456ed69](https://github.com/ASM-joynnovate/buddybird-api/commit/456ed6964c3dab47fb3079eca955262986c12141))
+
 ## [0.2.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.1.2...v0.2.0) (2026-08-29)
 
 

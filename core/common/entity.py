@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID, uuid7
 
 
-@dataclass
+@dataclass(eq=False)
 class Entity:
     id: UUID = field(kw_only=True, default_factory=uuid7)
 
@@ -12,7 +12,7 @@ class Entity:
             return self.id == other.id
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)
 
 

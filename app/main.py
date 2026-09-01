@@ -13,7 +13,6 @@ from core.fastapi.listener import register_handlers
 from core.fastapi.middlewares import make_middleware
 from core.fastapi.open_telemetry import setup_fastapi_opentelemetry
 from core.fastapi.router import register_routers
-from core.helpers.cache import init_cache
 from core.helpers.logging import setup_logging
 from core.helpers.open_telemetry import setup_opentelemetry
 
@@ -51,9 +50,7 @@ def create_app() -> ExtendedFastAPI:
     register_routers(app_)
     register_handlers(app_)
 
-    init_cache()
-
-    logger = logging.getLogger("buddybird")
+    logger = logging.getLogger(__name__)
     logger.info("Starting application with env: %s", env)
 
     return app_

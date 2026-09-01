@@ -6,7 +6,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 
 class FilteredSpanProcessor(BatchSpanProcessor):
-    EXCLUDED_SPAN_NAMES: ClassVar[list[str]] = ["PING", "src.core.helpers.redis.ping_redis"]
+    EXCLUDED_SPAN_NAMES: ClassVar[list[str]] = ["PING"]
     EXCLUDED_URLS: ClassVar[list[str]] = []
 
     def on_end(self, span: ReadableSpan) -> None:

@@ -1,7 +1,6 @@
 from .audio_capture import IAudioCaptureRepo
 from .audio_segment import IAudioSegmentRepo
-from .label_category import ILabelCategoryRepo
-from .label_option import ILabelOptionRepo
+from .label import ILabelCategoryRepo, ILabelOptionRepo
 
 __all__ = [
     "IAudioCaptureRepo",

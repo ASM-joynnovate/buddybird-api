@@ -1,29 +1,30 @@
+from typing import ClassVar
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from core.common.request import BaseRequest
 
 
-class CreateAudioSegmentRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    start_ms: int = Field(..., ge=0, description="원본 파일 기준 시작 위치 ms")
-    end_ms: int = Field(..., ge=0, description="원본 파일 기준 끝 위치 ms")
+class CreateAudioSegmentRequest(BaseRequest):
+    start_ms: int = Field(..., ge=0, description="원본 파일 기준 시작 위치 ms", examples=[0])
+    end_ms: int = Field(..., ge=0, description="원본 파일 기준 끝 위치 ms", examples=[1000])
 
 
-class TrimAudioSegmentRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    start_ms: int = Field(..., ge=0, description="원본 파일 기준 시작 위치 ms")
-    end_ms: int = Field(..., ge=0, description="원본 파일 기준 끝 위치 ms")
+class TrimAudioSegmentRequest(BaseRequest):
+    start_ms: int = Field(..., ge=0, description="원본 파일 기준 시작 위치 ms", examples=[0])
+    end_ms: int = Field(..., ge=0, description="원본 파일 기준 끝 위치 ms", examples=[1000])
 
 
-class AssignAudioSegmentLabelRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class AssignAudioSegmentLabelRequest(BaseRequest):
+    label_option_id: UUID = Field(
+        ...,
+        description="지정할 라벨 옵션 ID",
+        examples=["0198f4b0-68c0-7000-8000-000000000001"],
+    )
 
-    label_option_id: UUID = Field(..., description="지정할 라벨 옵션 ID")
 
+class UpdateAudioSegmentMemoRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"memo"}
 
-class UpdateAudioSegmentMemoRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    memo: str | None = Field(None, description="메모")
+    memo: str | None = Field(..., description="메모. null이면 메모를 지운다", examples=["소리가 선명함"])

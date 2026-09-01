@@ -1,9 +1,9 @@
-from pydantic import BaseModel, Field, computed_field
+from pydantic import Field, computed_field
 
 from core.common import CustomBaseModel
 
 
-class GetFileDTO(BaseModel):
+class GetFileDTO(CustomBaseModel):
     name: str = Field(..., description="이름", validation_alias="file_name")
     path: str = Field(..., description="경로", validation_alias="file_path")
     content_type: str = Field(..., description="MIME 타입", validation_alias="file_type")
