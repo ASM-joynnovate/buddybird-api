@@ -1,11 +1,15 @@
 from .audio_capture import (
     AssignAudioCaptureLabelsDTO,
-    AudioCaptureUploadResultDTO,
     BatchCreateAudioCaptureDTO,
+    BatchCreateAudioCaptureResultDTO,
     CreateAudioCaptureItemDTO,
     GetAudioCaptureDetailDTO,
     GetAudioCaptureDTO,
     GetAudioCaptureListItemDTO,
+    MigrateReviewDTO,
+    MigrateReviewLabelDTO,
+    MigrateReviewResultDTO,
+    MigrateReviewsDTO,
 )
 from .audio_segment import (
     AssignAudioSegmentLabelDTO,
@@ -26,8 +30,8 @@ from .label import (
 __all__ = [
     "AssignAudioCaptureLabelsDTO",
     "AssignAudioSegmentLabelDTO",
-    "AudioCaptureUploadResultDTO",
     "BatchCreateAudioCaptureDTO",
+    "BatchCreateAudioCaptureResultDTO",
     "CreateAudioCaptureItemDTO",
     "CreateAudioSegmentDTO",
     "CreateLabelCategoryDTO",
@@ -38,6 +42,10 @@ __all__ = [
     "GetAudioSegmentDTO",
     "GetLabelCategoryDTO",
     "GetLabelOptionDTO",
+    "MigrateReviewDTO",
+    "MigrateReviewLabelDTO",
+    "MigrateReviewResultDTO",
+    "MigrateReviewsDTO",
     "TrimAudioSegmentDTO",
     "UpdateAudioSegmentMemoDTO",
     "UpdateLabelCategoryDTO",

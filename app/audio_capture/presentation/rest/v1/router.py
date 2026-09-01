@@ -3,13 +3,12 @@ from typing import Annotated
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, Form
 
-from app.audio_capture.application.dto.audio_capture import BatchCreateAudioCaptureDTO
+from app.audio_capture.application.dto import BatchCreateAudioCaptureDTO, CreateAudioCaptureItemDTO
 from app.audio_capture.application.use_cases.command.batch_create_audio_capture import BatchCreateAudioCaptureUseCase
-from app.audio_capture.presentation.rest.v1.response.audio_capture import BatchCreateAudioCaptureResponse
+from app.audio_capture.presentation.rest.v1.request import BatchCreateAudioCaptureRequest
+from app.audio_capture.presentation.rest.v1.response import BatchCreateAudioCaptureResponse
 from app.container import AppContainer
 from core.common.response import BaseResponse
-
-from .request import BatchCreateAudioCaptureRequest
 
 router = APIRouter()
 
@@ -21,10 +20,10 @@ async def batch_create_audio_capture(
     use_case: Annotated[
         BatchCreateAudioCaptureUseCase, Depends(Provide[AppContainer.audio_capture.batch_create_audio_capture_command])
     ],
-):
+) -> BaseResponse:
     data = BatchCreateAudioCaptureDTO(
         **body.model_dump(exclude={"file", "metadata"}, exclude_unset=True),
-        items=body.metadata,
+        items=[CreateAudioCaptureItemDTO(**item.model_dump(exclude_unset=True)) for item in body.metadata],
         archive_file=await body.file.read(),
     )
 

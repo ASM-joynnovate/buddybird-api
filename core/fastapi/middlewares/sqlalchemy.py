@@ -6,7 +6,7 @@ from core.db.session import reset_session_context, session, set_session_context
 
 
 class SQLAlchemyMiddleware:
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp):
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

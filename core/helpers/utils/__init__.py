@@ -1,3 +1,3 @@
-from .file_size import FileSizeHelper
+from .file_size import bytes_to_human_readable, convert_size_to_bytes
 
-__all__ = ["FileSizeHelper"]
+__all__ = ["bytes_to_human_readable", "convert_size_to_bytes"]

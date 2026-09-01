@@ -5,7 +5,7 @@ from collections import defaultdict
 from uuid import UUID
 
 from app.audio_capture.domain.interfaces.repositories import IAudioSegmentRepo, ILabelCategoryRepo
-from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
+from app.shared_kernel.domain.interfaces.services import IObjectStorageClient
 
 
 class ExportAudioSegmentsUseCase:
@@ -22,7 +22,7 @@ class ExportAudioSegmentsUseCase:
 
     async def execute(self, *, audio_capture_label_option_ids: list[UUID] | None) -> bytes:
         audio_segments = await self._audio_segment_repo.get_labeled(
-            audio_capture_label_option_ids=audio_capture_label_option_ids or []
+            audio_capture_label_option_ids=audio_capture_label_option_ids
         )
         label_categories = await self._label_category_repo.get_list()
 

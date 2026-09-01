@@ -6,19 +6,17 @@ from app.word.domain.entities.word import Word
 
 class IWordRepo(ABC):
     @abstractmethod
-    async def get_by_id(self, *, word_id: UUID) -> Word | None:
-        pass
+    async def get_by_id(self, *, word_id: UUID) -> Word | None: ...
 
     @abstractmethod
     async def get_list(
         self,
         *,
-        limit: int = 100,
-        prev: int | None,
+        prev: int,
+        limit: int,
         label: str | None,
         user_id: str | None,
-    ) -> list[Word]:
-        pass
+    ) -> list[Word]: ...
 
     @abstractmethod
     async def get_count(
@@ -26,13 +24,10 @@ class IWordRepo(ABC):
         *,
         label: str | None,
         user_id: str | None,
-    ) -> int:
-        pass
+    ) -> int: ...
 
     @abstractmethod
-    async def exists(self, *, user_id: str, client_word_id: str) -> bool:
-        pass
+    async def exists_by_user_id_and_client_word_id(self, *, user_id: str, client_word_id: str) -> bool: ...
 
     @abstractmethod
-    async def save(self, *, word: Word) -> None:
-        pass
+    async def save(self, *, word: Word) -> None: ...

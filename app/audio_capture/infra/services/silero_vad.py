@@ -2,7 +2,7 @@ import io
 import wave
 
 import torch
-from silero_vad import get_speech_timestamps, load_silero_vad
+from silero_vad import get_speech_timestamps
 from torchaudio.functional import resample
 
 from app.audio_capture.domain.errors import UnsupportedAudioFormatError
@@ -10,8 +10,8 @@ from app.audio_capture.domain.interfaces.services import IVadService
 
 
 class SileroVadService(IVadService):
-    def __init__(self):
-        self._model = load_silero_vad()
+    def __init__(self, *, model):
+        self._model = model
 
     def detect(self, *, file: bytes) -> list[tuple[int, int]]:
         # WAV 헤더와 PCM 프레임 읽기

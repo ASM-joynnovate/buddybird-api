@@ -1,19 +1,21 @@
 from functools import partial
 
-from app.shared_kernel.domain.command.file import AssignFileCommand
-from app.shared_kernel.domain.interfaces.object_storage import IObjectStorageClient
-from app.shared_kernel.domain.interfaces.services import IFileAnalyzer
-from app.word.application.dto.word import CreateWordDTO
-from app.word.domain.command import CreateWordCommand
+from app.shared_kernel.domain.commands import AssignFileCommand
+from app.shared_kernel.domain.interfaces.services import IFileAnalyzer, IObjectStorageClient
+from app.word.application.dto import CreateWordDTO
+from app.word.domain.commands import CreateWordCommand
 from app.word.domain.entities.word import Word
 from app.word.domain.interfaces.repositories import IWordRepo
-from core.db import Transactional
-from core.db.transactional import on_rollback
+from core.db import Transactional, on_rollback
 
 
 class CreateWordUseCase:
     def __init__(
-        self, *, object_storage_client: IObjectStorageClient, file_analyzer: IFileAnalyzer, word_repo: IWordRepo
+        self,
+        *,
+        object_storage_client: IObjectStorageClient,
+        file_analyzer: IFileAnalyzer,
+        word_repo: IWordRepo,
     ):
         self._object_storage_client = object_storage_client
         self._file_analyzer = file_analyzer
@@ -21,7 +23,7 @@ class CreateWordUseCase:
 
     @Transactional()
     async def execute(self, *, data: CreateWordDTO) -> None:
-        if await self._word_repo.exists(
+        if await self._word_repo.exists_by_user_id_and_client_word_id(
             user_id=data.firebase_anon_uid,
             client_word_id=data.client_word_id,
         ):

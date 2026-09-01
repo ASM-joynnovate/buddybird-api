@@ -1,3 +1,3 @@
-from .word import GetWordDTO
+from .word import CreateWordDTO, GetWordDTO
 
-__all__ = ["GetWordDTO"]
+__all__ = ["CreateWordDTO", "GetWordDTO"]

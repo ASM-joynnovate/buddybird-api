@@ -1,13 +1,14 @@
-from app.audio_capture.application.dto.audio_capture import (
-    AudioCaptureUploadResultDTO,
+from app.audio_capture.application.dto import (
+    BatchCreateAudioCaptureResultDTO,
     GetAudioCaptureDetailDTO,
     GetAudioCaptureListItemDTO,
+    MigrateReviewResultDTO,
 )
 from core.common.response import BaseResponse
 
 
 class BatchCreateAudioCaptureResponse(BaseResponse):
-    data: dict[str, AudioCaptureUploadResultDTO]
+    data: dict[str, BatchCreateAudioCaptureResultDTO]
 
 
 class GetAudioCaptureListResponse(BaseResponse):
@@ -16,3 +17,7 @@ class GetAudioCaptureListResponse(BaseResponse):
 
 class GetAudioCaptureDetailResponse(BaseResponse):
     data: GetAudioCaptureDetailDTO
+
+
+class MigrateReviewsResponse(BaseResponse):
+    data: dict[str, MigrateReviewResultDTO]

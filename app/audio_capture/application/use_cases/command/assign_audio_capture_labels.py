@@ -1,8 +1,8 @@
 from uuid import UUID
 
-from app.audio_capture.application.dto.audio_capture import AssignAudioCaptureLabelsDTO
-from app.audio_capture.domain.command.audio_capture import AssignAudioCaptureLabelsCommand
-from app.audio_capture.domain.enum import LabelCategoryTargetEnum
+from app.audio_capture.application.dto import AssignAudioCaptureLabelsDTO
+from app.audio_capture.domain.commands import AssignAudioCaptureLabelsCommand
+from app.audio_capture.domain.enums import LabelCategoryTargetEnum
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo, ILabelCategoryRepo, ILabelOptionRepo
 from core.common.errors import ResourceNotFoundError
 from core.db import Transactional
@@ -38,6 +38,8 @@ class AssignAudioCaptureLabelsUseCase:
 
         category_ids = list({option.category_id for option in options})
         categories = await self._label_category_repo.get_by_ids(label_category_ids=category_ids)
+        if len(categories) != len(category_ids):
+            raise ResourceNotFoundError
         for category in categories:
             category.ensure_target(target=LabelCategoryTargetEnum.CAPTURE)
 

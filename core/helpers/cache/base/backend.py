@@ -4,17 +4,13 @@ from typing import Any
 
 class BaseBackend(ABC):
     @abstractmethod
-    async def get(self, *, key: str) -> Any:
-        """Get"""
+    async def get(self, *, key: str) -> Any: ...
 
     @abstractmethod
-    async def set(self, *, response: Any, key: str, ttl: int = 60) -> None:
-        """Set"""
+    async def set(self, *, response: Any, key: str, ttl: int = 60) -> None: ...
 
     @abstractmethod
-    async def delete_include(self, *, value: str) -> None:
-        """Delete include"""
+    async def delete_include(self, *, value: str) -> None: ...
 
     @abstractmethod
-    async def delete_startwith(self, *, value: str) -> None:
-        """Delete startwith"""
+    async def delete_startwith(self, *, value: str) -> None: ...
