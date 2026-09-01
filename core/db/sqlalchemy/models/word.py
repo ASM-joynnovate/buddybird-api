@@ -7,7 +7,7 @@ word_table = BaseTable(
     metadata,
     Column("id", UUID, primary_key=True),
     Column("label", String(255), nullable=False),
-    Column("firebase_anon_uid", String(128), nullable=True),
+    Column("firebase_anon_uid", String(30), nullable=True),
     Column("client_word_id", Text, nullable=False),
     Column("is_preset", Boolean, nullable=False, default=False, server_default=false()),
     Column("audio_file_id", UUID, ForeignKey("files.id"), nullable=False, index=True),
