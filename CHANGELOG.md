@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.4.0...v0.5.0) (2026-09-01)
+
+
+### Features
+
+* **audio_capture:** add response for device information ([2fb7b84](https://github.com/ASM-joynnovate/buddybird-api/commit/2fb7b84b9aa8ae0ac8fa52601c9195a029af31e6))
+* **audio_capture:** add response for device information ([fd3cfee](https://github.com/ASM-joynnovate/buddybird-api/commit/fd3cfeef7b7aa79929801dba0b265b2b0adbedc8))
+
 ## [0.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.3.1...v0.4.0) (2026-09-01)
 
 
