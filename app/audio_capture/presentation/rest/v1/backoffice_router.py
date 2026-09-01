@@ -12,6 +12,7 @@ from app.audio_capture.application.dto import (
     CreateLabelOptionDTO,
     MigrateReviewsDTO,
     TrimAudioSegmentDTO,
+    UpdateAudioCaptureMemoDTO,
     UpdateAudioSegmentMemoDTO,
     UpdateLabelCategoryDTO,
     UpdateLabelOptionDTO,
@@ -31,6 +32,7 @@ from app.audio_capture.application.use_cases.command.delete_label_option import 
 from app.audio_capture.application.use_cases.command.detect_audio_segments import DetectAudioSegmentsUseCase
 from app.audio_capture.application.use_cases.command.migrate_reviews import MigrateReviewsUseCase
 from app.audio_capture.application.use_cases.command.trim_audio_segment import TrimAudioSegmentUseCase
+from app.audio_capture.application.use_cases.command.update_audio_capture_memo import UpdateAudioCaptureMemoUseCase
 from app.audio_capture.application.use_cases.command.update_audio_segment_memo import UpdateAudioSegmentMemoUseCase
 from app.audio_capture.application.use_cases.command.update_label_category import UpdateLabelCategoryUseCase
 from app.audio_capture.application.use_cases.command.update_label_option import UpdateLabelOptionUseCase
@@ -51,6 +53,7 @@ from app.audio_capture.presentation.rest.v1.request import (
     GetAudioCaptureListRequest,
     MigrateReviewsRequest,
     TrimAudioSegmentRequest,
+    UpdateAudioCaptureMemoRequest,
     UpdateAudioSegmentMemoRequest,
     UpdateLabelCategoryRequest,
     UpdateLabelOptionRequest,
@@ -345,6 +348,24 @@ async def assign_audio_capture_labels(
 
     return BaseResponse(
         message="오디오 클립 라벨 지정 성공",
+        data=await use_case.execute(audio_capture_id=audio_capture_id, data=data),
+    )
+
+
+@router.put("/captures/{audio_capture_id:uuid}/memo", name="오디오 클립 메모 수정", response_model=BaseResponse)
+@inject
+async def update_audio_capture_memo(
+    audio_capture_id: UUID,
+    body: UpdateAudioCaptureMemoRequest,
+    use_case: Annotated[
+        UpdateAudioCaptureMemoUseCase,
+        Depends(Provide[AppContainer.audio_capture.update_audio_capture_memo_command]),
+    ],
+) -> BaseResponse:
+    data = UpdateAudioCaptureMemoDTO(**body.model_dump(exclude_unset=True))
+
+    return BaseResponse(
+        message="오디오 클립 메모 수정 성공",
         data=await use_case.execute(audio_capture_id=audio_capture_id, data=data),
     )
 

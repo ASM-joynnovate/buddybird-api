@@ -56,6 +56,7 @@ class GetAudioCaptureDetailUseCase:
             duration_ms=capture.duration_ms,
             parrot_species=capture.parrot_species,
             parrot_birthdate=capture.parrot_birthdate,
+            memo=capture.memo,
             created_at=capture.created_at,
             audio_url=audio_url,
             segments=segment_dtos,
