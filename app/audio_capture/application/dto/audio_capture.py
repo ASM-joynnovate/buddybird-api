@@ -66,13 +66,24 @@ class GetAudioCaptureListItemDTO(GetAudioCaptureDTO):
 
 
 class GetAudioCaptureDetailDTO(GetAudioCaptureDTO):
-    allow_null_fields: ClassVar[set] = GetAudioCaptureDTO.allow_null_fields | {"parrot_species", "parrot_birthdate"}
+    allow_null_fields: ClassVar[set] = GetAudioCaptureDTO.allow_null_fields | {
+        "parrot_species",
+        "parrot_birthdate",
+        "memo",
+    }
 
     parrot_species: str | None = Field(None, description="앵무새 종")
     parrot_birthdate: date | None = Field(None, description="앵무새 생년월일")
+    memo: str | None = Field(None, description="메모")
     audio_url: str = Field(..., description="원본 오디오 URL")
     segments: list[GetAudioSegmentDTO] = Field(..., description="세그먼트 목록")
     label_option_ids: list[UUID] = Field(..., description="클립 라벨 옵션 ID 목록")
+
+
+class UpdateAudioCaptureMemoDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"memo"}
+
+    memo: str | None = Field(..., description="메모")
 
 
 class AssignAudioCaptureLabelsDTO(CustomBaseModel):

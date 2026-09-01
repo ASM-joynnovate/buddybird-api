@@ -1,4 +1,5 @@
 from app.audio_capture.application.dto import MigrateReviewResultDTO, MigrateReviewsDTO
+from app.audio_capture.application.errors import DuplicateReviewAudioFileIdError
 from app.audio_capture.domain.commands import (
     AssignAudioCaptureLabelsCommand,
     UpdateAudioCaptureMemoCommand,
@@ -24,6 +25,9 @@ class MigrateReviewsUseCase:
     async def execute(self, *, data: MigrateReviewsDTO) -> dict[str, MigrateReviewResultDTO]:
         if not data.reviews:
             return {}
+
+        if len(data.reviews) != len({review.audio_file_id for review in data.reviews}):
+            raise DuplicateReviewAudioFileIdError
 
         valid_audio_file_paths = []
         for review in data.reviews:

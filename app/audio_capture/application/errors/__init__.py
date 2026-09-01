@@ -1,4 +1,8 @@
-from .audio_capture import AudioCaptureArchiveEntryNotFoundError, AudioCaptureArchiveInvalidError
+from .audio_capture import (
+    AudioCaptureArchiveEntryNotFoundError,
+    AudioCaptureArchiveInvalidError,
+    DuplicateReviewAudioFileIdError,
+)
 from .label import DuplicateLabelCategoryError, DuplicateLabelOptionError
 
 __all__ = [
@@ -6,4 +10,5 @@ __all__ = [
     "AudioCaptureArchiveInvalidError",
     "DuplicateLabelCategoryError",
     "DuplicateLabelOptionError",
+    "DuplicateReviewAudioFileIdError",
 ]
