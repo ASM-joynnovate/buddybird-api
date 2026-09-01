@@ -16,6 +16,11 @@ class ILabelCategoryRepo(ABC):
     async def get_by_ids(self, *, label_category_ids: list[UUID]) -> list[LabelCategory]: ...
 
     @abstractmethod
+    async def get_by_names_and_target(
+        self, *, names: list[str], target: LabelCategoryTargetEnum
+    ) -> list[LabelCategory]: ...
+
+    @abstractmethod
     async def exists_by_name_and_target(self, *, name: str, target: LabelCategoryTargetEnum) -> bool: ...
 
     @abstractmethod

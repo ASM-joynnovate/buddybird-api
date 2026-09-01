@@ -34,6 +34,18 @@ class LabelCategorySQLAlchemyRepo(ILabelCategoryRepo):
 
         return list(result.scalars().all())
 
+    async def get_by_names_and_target(
+        self, *, names: list[str], target: LabelCategoryTargetEnum
+    ) -> list[LabelCategory]:
+        if not names:
+            return []
+
+        stmt = select(LabelCategory).where(LabelCategory.name.in_(names)).where(LabelCategory.target == target)
+
+        result = await session.execute(stmt)
+
+        return list(result.scalars().all())
+
     async def exists_by_name_and_target(self, *, name: str, target: LabelCategoryTargetEnum) -> bool:
         async with session_factory() as read_session:
             stmt = (

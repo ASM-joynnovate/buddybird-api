@@ -10,7 +10,7 @@ from app.audio_capture.application.dto import (
     CreateAudioSegmentDTO,
     CreateLabelCategoryDTO,
     CreateLabelOptionDTO,
-    MigrateReviewDTO,
+    MigrateReviewsDTO,
     TrimAudioSegmentDTO,
     UpdateAudioSegmentMemoDTO,
     UpdateLabelCategoryDTO,
@@ -29,7 +29,7 @@ from app.audio_capture.application.use_cases.command.delete_audio_segment import
 from app.audio_capture.application.use_cases.command.delete_label_category import DeleteLabelCategoryUseCase
 from app.audio_capture.application.use_cases.command.delete_label_option import DeleteLabelOptionUseCase
 from app.audio_capture.application.use_cases.command.detect_audio_segments import DetectAudioSegmentsUseCase
-from app.audio_capture.application.use_cases.command.migrate_review import MigrateReviewUseCase
+from app.audio_capture.application.use_cases.command.migrate_reviews import MigrateReviewsUseCase
 from app.audio_capture.application.use_cases.command.trim_audio_segment import TrimAudioSegmentUseCase
 from app.audio_capture.application.use_cases.command.update_audio_segment_memo import UpdateAudioSegmentMemoUseCase
 from app.audio_capture.application.use_cases.command.update_label_category import UpdateLabelCategoryUseCase
@@ -40,6 +40,7 @@ from app.audio_capture.application.use_cases.query.get_audio_capture_detail impo
 from app.audio_capture.application.use_cases.query.get_audio_capture_list import GetAudioCaptureListUseCase
 from app.audio_capture.application.use_cases.query.get_label_list import GetLabelListUseCase
 from app.audio_capture.presentation.rest.v1.dependencies import verify_backoffice_password
+from app.audio_capture.presentation.rest.v1.errors import DuplicateReviewAudioFileIdError
 from app.audio_capture.presentation.rest.v1.request import (
     AssignAudioCaptureLabelsRequest,
     AssignAudioSegmentLabelRequest,
@@ -48,7 +49,7 @@ from app.audio_capture.presentation.rest.v1.request import (
     CreateLabelOptionRequest,
     ExportAudioSegmentsRequest,
     GetAudioCaptureListRequest,
-    MigrateReviewRequest,
+    MigrateReviewsRequest,
     TrimAudioSegmentRequest,
     UpdateAudioSegmentMemoRequest,
     UpdateLabelCategoryRequest,
@@ -58,6 +59,7 @@ from app.audio_capture.presentation.rest.v1.response import (
     GetAudioCaptureDetailResponse,
     GetAudioCaptureListResponse,
     GetLabelListResponse,
+    MigrateReviewsResponse,
 )
 from app.container import AppContainer
 from core.common.response import BaseResponse
@@ -347,16 +349,19 @@ async def assign_audio_capture_labels(
     )
 
 
-@router.put("/migrations/reviews", name="리뷰 마이그레이션", response_model=BaseResponse)
+@router.put("/migrations/reviews", name="리뷰 마이그레이션", response_model=MigrateReviewsResponse)
 @inject
-async def migrate_review(
-    body: MigrateReviewRequest,
+async def migrate_reviews(
+    body: MigrateReviewsRequest,
     use_case: Annotated[
-        MigrateReviewUseCase,
-        Depends(Provide[AppContainer.audio_capture.migrate_review_command]),
+        MigrateReviewsUseCase,
+        Depends(Provide[AppContainer.audio_capture.migrate_reviews_command]),
     ],
 ) -> BaseResponse:
-    data = MigrateReviewDTO(**body.model_dump(exclude_unset=True))
+    if len(body.reviews) != len({review.audio_file_id for review in body.reviews}):
+        raise DuplicateReviewAudioFileIdError
+
+    data = MigrateReviewsDTO(**body.model_dump(exclude_unset=True))
 
     return BaseResponse(message="리뷰 마이그레이션 성공", data=await use_case.execute(data=data))
 

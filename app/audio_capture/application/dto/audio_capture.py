@@ -88,3 +88,16 @@ class MigrateReviewDTO(CustomBaseModel):
     audio_file_id: str = Field(..., description="S3 object key")
     label: list[MigrateReviewLabelDTO] = Field(..., description="라벨 목록")
     memo: str = Field(..., description="메모 내용")
+
+
+class MigrateReviewsDTO(CustomBaseModel):
+    reviews: list[MigrateReviewDTO] = Field(..., description="리뷰 목록")
+
+
+class MigrateReviewResultDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"code", "error_code", "message"}
+
+    status: Literal["success", "rejected"] = Field(..., description="항목의 마이그레이션 결과")
+    code: int | None = Field(None, description="거부된 항목의 HTTP 상태 코드")
+    error_code: str | None = Field(None, description="거부된 항목의 에러 코드")
+    message: str | None = Field(None, description="거부된 항목의 에러 메시지")

@@ -137,6 +137,10 @@ class MigrateReviewRequest(BaseRequest):
     memo: str = Field(..., description="메모 내용", examples=[""])
 
 
+class MigrateReviewsRequest(BaseRequest):
+    reviews: list[MigrateReviewRequest] = Field(..., description="리뷰 목록", examples=[[]])
+
+
 class ExportAudioSegmentsRequest(BaseRequest):
     null_fields: ClassVar[set] = {"audio_capture_label_option_ids"}
 

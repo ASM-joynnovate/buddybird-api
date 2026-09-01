@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, tuple_
 
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
 from app.audio_capture.domain.entities.audio_segment import AudioSegment
@@ -160,6 +160,20 @@ class AudioCaptureSQLAlchemyRepo(IAudioCaptureRepo):
         result = await session.execute(stmt)
 
         return result.scalar_one_or_none()
+
+    async def get_by_audio_file_paths(self, *, audio_file_paths: list[tuple[str, str]]) -> list[AudioCapture]:
+        if not audio_file_paths:
+            return []
+
+        stmt = (
+            select(AudioCapture)
+            .join(File, AudioCapture.audio_file_id == File.id)
+            .where(tuple_(File.file_path, File.file_name).in_(audio_file_paths))
+        )
+
+        result = await session.execute(stmt)
+
+        return list(result.scalars().all())
 
     async def save(self, *, audio_capture: AudioCapture) -> None:
         session.add(audio_capture)

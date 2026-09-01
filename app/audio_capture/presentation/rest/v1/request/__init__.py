@@ -6,6 +6,7 @@ from .audio_capture import (
     GetAudioCaptureListRequest,
     MigrateReviewLabelRequest,
     MigrateReviewRequest,
+    MigrateReviewsRequest,
 )
 from .audio_segment import (
     AssignAudioSegmentLabelRequest,
@@ -32,6 +33,7 @@ __all__ = [
     "GetAudioCaptureListRequest",
     "MigrateReviewLabelRequest",
     "MigrateReviewRequest",
+    "MigrateReviewsRequest",
     "TrimAudioSegmentRequest",
     "UpdateAudioSegmentMemoRequest",
     "UpdateLabelCategoryRequest",
