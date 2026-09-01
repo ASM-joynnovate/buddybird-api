@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.3.0...v0.3.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* **database:** fix database migration ([8527589](https://github.com/ASM-joynnovate/buddybird-api/commit/852758954c5e961489f9db46bfd98ae983b2642d))
+* **database:** fix database migration ([8556456](https://github.com/ASM-joynnovate/buddybird-api/commit/8556456d52fb740237a540383b4ad820075e9206))
+
 ## [0.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.2.0...v0.3.0) (2026-09-01)
 
 
