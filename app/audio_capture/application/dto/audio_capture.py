@@ -69,11 +69,17 @@ class GetAudioCaptureDetailDTO(GetAudioCaptureDTO):
     allow_null_fields: ClassVar[set] = GetAudioCaptureDTO.allow_null_fields | {
         "parrot_species",
         "parrot_birthdate",
+        "device_platform",
+        "device_os_version",
+        "device_model",
         "memo",
     }
 
     parrot_species: str | None = Field(None, description="앵무새 종")
     parrot_birthdate: date | None = Field(None, description="앵무새 생년월일")
+    device_platform: str | None = Field(None, description="클립을 캡처한 기기의 OS")
+    device_os_version: str | None = Field(None, description="클립을 캡처한 기기의 OS 버전")
+    device_model: str | None = Field(None, description="클립을 캡처한 기기의 모델명")
     memo: str | None = Field(None, description="메모")
     audio_url: str = Field(..., description="원본 오디오 URL")
     segments: list[GetAudioSegmentDTO] = Field(..., description="세그먼트 목록")
