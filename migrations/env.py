@@ -1,7 +1,8 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import Table, engine_from_config, pool
+from sqlalchemy.schema import SchemaItem
 
 import core.db.sqlalchemy.models  # noqa: F401
 from core.config import config as app_settings
@@ -27,6 +28,10 @@ target_metadata = metadata
 # ... etc.
 
 
+def include_object(object_: SchemaItem, *_: object) -> bool:
+    return not (isinstance(object_, Table) and object_.schema == "legacy")
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -43,6 +48,8 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_schemas=False,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -62,12 +69,15 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"options": "-csearch_path=public"},
     )
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_schemas=False,
+            include_object=include_object,
             compare_type=True,
             compare_server_default=True,
         )
