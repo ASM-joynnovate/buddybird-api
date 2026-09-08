@@ -5,7 +5,7 @@ from core.db.sqlalchemy.models import label_category_table, label_option_table
 
 
 def init_label_mappers() -> None:
-    from app.audio_capture.domain.entities.label import LabelCategory, LabelOption
+    from app.legacy.audio_capture.domain.entities.label import LabelCategory, LabelOption
 
     mapper_registry.map_imperatively(
         LabelOption,

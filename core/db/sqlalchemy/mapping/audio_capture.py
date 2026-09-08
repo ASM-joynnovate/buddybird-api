@@ -5,8 +5,8 @@ from core.db.sqlalchemy.models import audio_capture_label_table, audio_capture_t
 
 
 def init_audio_capture_mappers() -> None:
-    from app.audio_capture.domain.entities.audio_capture import AudioCapture
-    from app.audio_capture.domain.entities.label import LabelOption
+    from app.legacy.audio_capture.domain.entities.audio_capture import AudioCapture
+    from app.legacy.audio_capture.domain.entities.label import LabelOption
     from app.shared_kernel.domain.entities.file import File
 
     mapper_registry.map_imperatively(

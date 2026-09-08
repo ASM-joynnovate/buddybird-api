@@ -1,6 +1,6 @@
 from sqlalchemy import UUID, Boolean, Column, ForeignKey, Integer, String, Text, false
 
-from app.audio_capture.domain.enums import LabelCategoryTargetEnum
+from app.legacy.audio_capture.domain.enums import LabelCategoryTargetEnum
 from core.db.sqlalchemy.models.base import BaseTable, metadata
 
 label_category_table = BaseTable(

@@ -5,8 +5,8 @@ from core.db.sqlalchemy.models import word_table
 
 
 def init_word_mappers() -> None:
+    from app.legacy.word.domain.entities.word import Word
     from app.shared_kernel.domain.entities.file import File
-    from app.word.domain.entities.word import Word
 
     mapper_registry.map_imperatively(
         Word,

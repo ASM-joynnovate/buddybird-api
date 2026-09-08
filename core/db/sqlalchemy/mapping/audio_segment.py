@@ -5,8 +5,8 @@ from core.db.sqlalchemy.models import audio_segment_table
 
 
 def init_audio_segment_mappers() -> None:
-    from app.audio_capture.domain.entities.audio_segment import AudioSegment
-    from app.audio_capture.domain.value_objects import AudioSegmentRange
+    from app.legacy.audio_capture.domain.entities.audio_segment import AudioSegment
+    from app.legacy.audio_capture.domain.value_objects import AudioSegmentRange
     from app.shared_kernel.domain.entities.file import File
 
     mapper_registry.map_imperatively(
