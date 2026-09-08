@@ -9,7 +9,7 @@ from app.legacy.audio_capture.domain.interfaces.repositories import IAudioCaptur
 from app.legacy.word.domain.entities.word import Word
 from app.shared_kernel.domain.entities.file import File
 from core.db import session, session_factory
-from core.db.sqlalchemy.models import audio_capture_label_table
+from core.db.sqlalchemy.models.legacy import audio_capture_label_table
 
 
 class AudioCaptureSQLAlchemyRepo(IAudioCaptureRepo):

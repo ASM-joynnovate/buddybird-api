@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
 
 from core.db.sqlalchemy.mapping.base import mapper_registry
-from core.db.sqlalchemy.models import audio_capture_label_table, audio_capture_table
+from core.db.sqlalchemy.models.legacy import audio_capture_label_table, audio_capture_table
 
 
 def init_audio_capture_mappers() -> None:

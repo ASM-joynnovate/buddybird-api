@@ -1,7 +1,7 @@
 from sqlalchemy.orm import composite, relationship
 
 from core.db.sqlalchemy.mapping.base import mapper_registry
-from core.db.sqlalchemy.models import audio_segment_table
+from core.db.sqlalchemy.models.legacy import audio_segment_table
 
 
 def init_audio_segment_mappers() -> None:

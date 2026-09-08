@@ -5,7 +5,7 @@ from sqlalchemy import func, select, update
 from app.legacy.audio_capture.domain.entities.audio_segment import AudioSegment
 from app.legacy.audio_capture.domain.interfaces.repositories import IAudioSegmentRepo
 from core.db import session, session_factory
-from core.db.sqlalchemy.models import audio_capture_label_table
+from core.db.sqlalchemy.models.legacy import audio_capture_label_table
 
 
 class AudioSegmentSQLAlchemyRepo(IAudioSegmentRepo):

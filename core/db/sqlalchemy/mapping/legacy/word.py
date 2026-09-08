@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
 
 from core.db.sqlalchemy.mapping.base import mapper_registry
-from core.db.sqlalchemy.models import word_table
+from core.db.sqlalchemy.models.legacy import word_table
 
 
 def init_word_mappers() -> None:

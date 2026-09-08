@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
 
 from core.db.sqlalchemy.mapping.base import mapper_registry
-from core.db.sqlalchemy.models import label_category_table, label_option_table
+from core.db.sqlalchemy.models.legacy import label_category_table, label_option_table
 
 
 def init_label_mappers() -> None:

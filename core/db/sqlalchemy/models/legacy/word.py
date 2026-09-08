@@ -1,6 +1,7 @@
 from sqlalchemy import UUID, Boolean, Column, ForeignKey, String, Text, false
 
 from core.db.sqlalchemy.models.base import BaseTable, metadata
+from core.db.sqlalchemy.models.file import file_table
 
 word_table = BaseTable(
     "word_entries",
@@ -10,9 +11,10 @@ word_table = BaseTable(
     Column("firebase_anon_uid", Text, nullable=True),
     Column("client_word_id", Text, nullable=False),
     Column("is_preset", Boolean, nullable=False, default=False, server_default=false()),
-    Column("audio_file_id", UUID, ForeignKey("files.id"), nullable=False, index=True),
+    Column("audio_file_id", UUID, ForeignKey(file_table.c.id), nullable=False, index=True),
     Column("device_platform", String(10), nullable=True),
     Column("device_os_version", String(20), nullable=True),
     Column("device_model", String(30), nullable=True),
     Column("is_deleted", Boolean, nullable=False, default=False, server_default=false()),
+    schema="legacy",
 )
