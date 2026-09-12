@@ -59,6 +59,17 @@ class GetAudioCaptureDTO(CustomBaseModel):
 
 
 class GetAudioCaptureListItemDTO(GetAudioCaptureDTO):
+    allow_null_fields: ClassVar[set] = GetAudioCaptureDTO.allow_null_fields | {
+        "parrot_species",
+        "device_platform",
+        "device_os_version",
+        "device_model",
+    }
+
+    parrot_species: str | None = Field(None, description="앵무새 종")
+    device_platform: str | None = Field(None, description="클립을 캡처한 기기의 OS")
+    device_os_version: str | None = Field(None, description="클립을 캡처한 기기의 OS 버전")
+    device_model: str | None = Field(None, description="클립을 캡처한 기기의 모델명")
     segment_count: int = Field(..., description="전체 세그먼트 수")
     labeled_count: int = Field(..., description="라벨링된 세그먼트 수")
     has_memo: bool = Field(..., description="메모가 있는 세그먼트 존재 여부")
