@@ -195,6 +195,10 @@ async def get_list(
     items = await list_use_case.execute(
         firebase_anon_uid=query.firebase_anon_uid,
         word_label=query.word_label,
+        parrot_species=query.parrot_species,
+        device_model=query.device_model,
+        device_platform=query.device_platform,
+        device_os_version=query.device_os_version,
         label_option_ids=query.label_option_ids,
         has_memo=query.has_memo,
         date_from=query.date_from,
@@ -205,6 +209,10 @@ async def get_list(
     total = await count_use_case.execute(
         firebase_anon_uid=query.firebase_anon_uid,
         word_label=query.word_label,
+        parrot_species=query.parrot_species,
+        device_model=query.device_model,
+        device_platform=query.device_platform,
+        device_os_version=query.device_os_version,
         label_option_ids=query.label_option_ids,
         has_memo=query.has_memo,
         date_from=query.date_from,
