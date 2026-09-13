@@ -5,9 +5,9 @@ from sqlalchemy import delete, func, select, tuple_
 
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
 from app.audio_capture.domain.entities.audio_segment import AudioSegment
+from app.audio_capture.domain.entities.word import Word
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo
 from app.shared_kernel.domain.entities.file import File
-from app.word.domain.entities.word import Word
 from core.db import session, session_factory
 from core.db.sqlalchemy.models import audio_capture_label_table
 
@@ -25,6 +25,10 @@ class AudioCaptureSQLAlchemyRepo(IAudioCaptureRepo):
         *,
         user_id: str | None,
         word_label: str | None,
+        parrot_species: str | None,
+        device_model: str | None,
+        device_platform: str | None,
+        device_os_version: str | None,
         label_option_ids: list[UUID] | None,
         has_memo: bool | None,
         date_from: datetime | None,
@@ -56,6 +60,15 @@ class AudioCaptureSQLAlchemyRepo(IAudioCaptureRepo):
             if word_label is not None:
                 stmt = stmt.join(Word, AudioCapture.word_id == Word.id).where(Word.label == word_label)
 
+            if parrot_species is not None:
+                stmt = stmt.where(AudioCapture.parrot_species == parrot_species)
+            if device_model is not None:
+                stmt = stmt.where(AudioCapture.device_model == device_model)
+            if device_platform is not None:
+                stmt = stmt.where(AudioCapture.device_platform == device_platform)
+            if device_os_version is not None:
+                stmt = stmt.where(AudioCapture.device_os_version == device_os_version)
+
             if label_option_ids is not None:
                 label_filter = (
                     select(audio_capture_label_table.c.label_option_id)
@@ -79,6 +92,10 @@ class AudioCaptureSQLAlchemyRepo(IAudioCaptureRepo):
         *,
         user_id: str | None,
         word_label: str | None,
+        parrot_species: str | None,
+        device_model: str | None,
+        device_platform: str | None,
+        device_os_version: str | None,
         label_option_ids: list[UUID] | None,
         has_memo: bool | None,
         date_from: datetime | None,
@@ -107,6 +124,15 @@ class AudioCaptureSQLAlchemyRepo(IAudioCaptureRepo):
 
             if word_label is not None:
                 stmt = stmt.join(Word, AudioCapture.word_id == Word.id).where(Word.label == word_label)
+
+            if parrot_species is not None:
+                stmt = stmt.where(AudioCapture.parrot_species == parrot_species)
+            if device_model is not None:
+                stmt = stmt.where(AudioCapture.device_model == device_model)
+            if device_platform is not None:
+                stmt = stmt.where(AudioCapture.device_platform == device_platform)
+            if device_os_version is not None:
+                stmt = stmt.where(AudioCapture.device_os_version == device_os_version)
 
             if label_option_ids is not None:
                 label_filter = (

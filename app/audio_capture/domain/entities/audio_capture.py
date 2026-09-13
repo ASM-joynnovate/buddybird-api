@@ -9,6 +9,7 @@ from app.audio_capture.domain.commands import (
 )
 from app.audio_capture.domain.constants import ALLOWED_AUDIO_MIME_TYPES, MAX_AUDIO_FILE_SIZE
 from app.audio_capture.domain.entities.label import LabelOption
+from app.audio_capture.domain.entities.word import Word
 from app.audio_capture.domain.enums import PhaseEnum
 from app.shared_kernel.domain.commands import CreateFileCommand
 from app.shared_kernel.domain.entities.file import File
@@ -36,6 +37,7 @@ class AudioCapture(AggregateRoot):
     memo: str | None
     is_deleted: bool
     label_options: list[LabelOption] = field(default_factory=list)
+    word: Word | None = None
 
     @classmethod
     def create(cls, *, command: CreateAudioCaptureCommand) -> AudioCapture:
