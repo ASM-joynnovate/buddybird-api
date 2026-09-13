@@ -27,6 +27,7 @@ from .label import (
     UpdateLabelCategoryDTO,
     UpdateLabelOptionDTO,
 )
+from .word import GetWordDTO, GetWordSummaryDTO
 
 __all__ = [
     "AssignAudioCaptureLabelsDTO",
@@ -43,6 +44,8 @@ __all__ = [
     "GetAudioSegmentDTO",
     "GetLabelCategoryDTO",
     "GetLabelOptionDTO",
+    "GetWordDTO",
+    "GetWordSummaryDTO",
     "MigrateReviewDTO",
     "MigrateReviewLabelDTO",
     "MigrateReviewResultDTO",

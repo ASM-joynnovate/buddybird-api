@@ -5,9 +5,9 @@ from sqlalchemy import delete, func, select, tuple_
 
 from app.audio_capture.domain.entities.audio_capture import AudioCapture
 from app.audio_capture.domain.entities.audio_segment import AudioSegment
+from app.audio_capture.domain.entities.word import Word
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo
 from app.shared_kernel.domain.entities.file import File
-from app.word.domain.entities.word import Word
 from core.db import session, session_factory
 from core.db.sqlalchemy.models import audio_capture_label_table
 

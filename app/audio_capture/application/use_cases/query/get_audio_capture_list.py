@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from app.audio_capture.application.dto import GetAudioCaptureListItemDTO
+from app.audio_capture.application.dto import GetAudioCaptureListItemDTO, GetWordSummaryDTO
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo, IAudioSegmentRepo
 
 
@@ -45,8 +45,11 @@ class GetAudioCaptureListUseCase:
             GetAudioCaptureListItemDTO(
                 id=capture.id,
                 firebase_anon_uid=capture.firebase_anon_uid,
-                client_word_id=capture.client_word_id,
-                word_id=capture.word_id,
+                word=(
+                    GetWordSummaryDTO(id=capture.word.id, label=capture.word.label)
+                    if capture.word is not None
+                    else None
+                ),
                 cycle=capture.cycle,
                 phase=capture.phase,
                 captured_at=capture.captured_at,

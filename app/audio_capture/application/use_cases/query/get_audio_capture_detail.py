@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.audio_capture.application.dto import GetAudioCaptureDetailDTO, GetAudioSegmentDTO
+from app.audio_capture.application.dto import GetAudioCaptureDetailDTO, GetAudioSegmentDTO, GetWordDTO
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo, IAudioSegmentRepo
 from app.shared_kernel.domain.interfaces.services import IObjectStorageClient
 from core.common.errors import ResourceNotFoundError
@@ -48,8 +48,19 @@ class GetAudioCaptureDetailUseCase:
         return GetAudioCaptureDetailDTO(
             id=capture.id,
             firebase_anon_uid=capture.firebase_anon_uid,
-            client_word_id=capture.client_word_id,
-            word_id=capture.word_id,
+            word=(
+                GetWordDTO(
+                    id=capture.word.id,
+                    label=capture.word.label,
+                    firebase_anon_uid=capture.word.firebase_anon_uid,
+                    client_word_id=capture.word.client_word_id,
+                    device_platform=capture.word.device_platform,
+                    device_os_version=capture.word.device_os_version,
+                    device_model=capture.word.device_model,
+                )
+                if capture.word is not None
+                else None
+            ),
             cycle=capture.cycle,
             phase=capture.phase,
             captured_at=capture.captured_at,
