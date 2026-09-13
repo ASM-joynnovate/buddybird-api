@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.audio_capture.application.dto.audio_segment import GetAudioSegmentDTO
+from app.audio_capture.application.dto.word import GetWordDTO, GetWordSummaryDTO
 from app.audio_capture.domain.enums import PhaseEnum
 from core.common import CustomBaseModel
 
@@ -45,12 +46,11 @@ class BatchCreateAudioCaptureResultDTO(CustomBaseModel):
 
 
 class GetAudioCaptureDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"word_id", "duration_ms"}
+    allow_null_fields: ClassVar[set] = {"word", "duration_ms"}
 
     id: UUID = Field(..., description="캡처 ID")
     firebase_anon_uid: str = Field(..., max_length=128, description="Firebase Authentication 익명 ID")
-    client_word_id: str = Field(..., description="클라이언트 단어 ID")
-    word_id: UUID | None = Field(None, description="연결된 단어 ID")
+    word: GetWordSummaryDTO | None = Field(None, description="연결된 단어 정보")
     cycle: int = Field(..., description="세션 사이클 번호")
     phase: PhaseEnum = Field(..., description="캡처 세션 구간")
     captured_at: datetime = Field(..., description="클라이언트 캡처 시각")
@@ -59,6 +59,17 @@ class GetAudioCaptureDTO(CustomBaseModel):
 
 
 class GetAudioCaptureListItemDTO(GetAudioCaptureDTO):
+    allow_null_fields: ClassVar[set] = GetAudioCaptureDTO.allow_null_fields | {
+        "parrot_species",
+        "device_platform",
+        "device_os_version",
+        "device_model",
+    }
+
+    parrot_species: str | None = Field(None, description="앵무새 종")
+    device_platform: str | None = Field(None, description="클립을 캡처한 기기의 OS")
+    device_os_version: str | None = Field(None, description="클립을 캡처한 기기의 OS 버전")
+    device_model: str | None = Field(None, description="클립을 캡처한 기기의 모델명")
     segment_count: int = Field(..., description="전체 세그먼트 수")
     labeled_count: int = Field(..., description="라벨링된 세그먼트 수")
     has_memo: bool = Field(..., description="메모가 있는 세그먼트 존재 여부")
@@ -75,6 +86,7 @@ class GetAudioCaptureDetailDTO(GetAudioCaptureDTO):
         "memo",
     }
 
+    word: GetWordDTO | None = Field(None, description="연결된 단어 상세 정보")
     parrot_species: str | None = Field(None, description="앵무새 종")
     parrot_birthdate: date | None = Field(None, description="앵무새 생년월일")
     device_platform: str | None = Field(None, description="클립을 캡처한 기기의 OS")

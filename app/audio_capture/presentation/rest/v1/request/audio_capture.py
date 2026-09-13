@@ -100,6 +100,10 @@ class GetAudioCaptureListRequest(PageParams):
     null_fields: ClassVar[set] = {
         "firebase_anon_uid",
         "word_label",
+        "parrot_species",
+        "device_model",
+        "device_platform",
+        "device_os_version",
         "label_option_ids",
         "has_memo",
         "date_from",
@@ -113,6 +117,18 @@ class GetAudioCaptureListRequest(PageParams):
         examples=["FJTNzziLv9VlWUaOMUUdrWNe3Rm2"],
     )
     word_label: str | None = Field(None, description="연결된 단어명", examples=["안녕"])
+    parrot_species: str | None = Field(
+        None, max_length=50, description="앵무새 종 완전일치 필터", examples=["왕관앵무"]
+    )
+    device_model: str | None = Field(
+        None, max_length=30, description="클립을 캡처한 기기 모델 완전일치 필터", examples=["iPhone 16"]
+    )
+    device_platform: str | None = Field(
+        None, max_length=10, description="클립을 캡처한 기기 OS 완전일치 필터", examples=["iOS"]
+    )
+    device_os_version: str | None = Field(
+        None, max_length=20, description="클립을 캡처한 기기 OS 버전 완전일치 필터", examples=["18.6"]
+    )
     label_option_ids: list[UUID] | None = Field(None, description="클립 라벨 옵션 ID 필터", examples=[[]])
     has_memo: bool | None = Field(None, description="메모가 있는 세그먼트 존재 여부 필터", examples=[True])
     date_from: datetime | None = Field(None, description="캡처 시각 시작 범위", examples=["2026-08-01T00:00:00Z"])

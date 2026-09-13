@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from app.audio_capture.application.dto import GetAudioCaptureListItemDTO
+from app.audio_capture.application.dto import GetAudioCaptureListItemDTO, GetWordSummaryDTO
 from app.audio_capture.domain.interfaces.repositories import IAudioCaptureRepo, IAudioSegmentRepo
 
 
@@ -20,6 +20,10 @@ class GetAudioCaptureListUseCase:
         *,
         firebase_anon_uid: str | None,
         word_label: str | None,
+        parrot_species: str | None,
+        device_model: str | None,
+        device_platform: str | None,
+        device_os_version: str | None,
         label_option_ids: list[UUID] | None,
         has_memo: bool | None,
         date_from: datetime | None,
@@ -30,6 +34,10 @@ class GetAudioCaptureListUseCase:
         captures = await self._audio_capture_repo.get_list(
             user_id=firebase_anon_uid,
             word_label=word_label,
+            parrot_species=parrot_species,
+            device_model=device_model,
+            device_platform=device_platform,
+            device_os_version=device_os_version,
             label_option_ids=label_option_ids,
             has_memo=has_memo,
             date_from=date_from,
@@ -45,12 +53,19 @@ class GetAudioCaptureListUseCase:
             GetAudioCaptureListItemDTO(
                 id=capture.id,
                 firebase_anon_uid=capture.firebase_anon_uid,
-                client_word_id=capture.client_word_id,
-                word_id=capture.word_id,
+                word=(
+                    GetWordSummaryDTO(id=capture.word.id, label=capture.word.label)
+                    if capture.word is not None
+                    else None
+                ),
                 cycle=capture.cycle,
                 phase=capture.phase,
                 captured_at=capture.captured_at,
                 duration_ms=capture.duration_ms,
+                parrot_species=capture.parrot_species,
+                device_platform=capture.device_platform,
+                device_os_version=capture.device_os_version,
+                device_model=capture.device_model,
                 created_at=capture.created_at,
                 segment_count=counts.get(capture.id, (0, 0, 0))[0],
                 labeled_count=counts.get(capture.id, (0, 0, 0))[1],

@@ -7,6 +7,7 @@ from core.db.sqlalchemy.models import audio_capture_label_table, audio_capture_t
 def init_audio_capture_mappers() -> None:
     from app.audio_capture.domain.entities.audio_capture import AudioCapture
     from app.audio_capture.domain.entities.label import LabelOption
+    from app.audio_capture.domain.entities.word import Word
     from app.shared_kernel.domain.entities.file import File
 
     mapper_registry.map_imperatively(
@@ -17,6 +18,11 @@ def init_audio_capture_mappers() -> None:
             "audio_file": relationship(
                 File,
                 primaryjoin=audio_capture_table.c.audio_file_id == File.id,
+                lazy="selectin",
+            ),
+            "word": relationship(
+                Word,
+                viewonly=True,
                 lazy="selectin",
             ),
             "label_options": relationship(
