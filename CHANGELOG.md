@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.5.0...v0.6.0) (2026-09-13)
+
+
+### Features
+
+* **audio_capture:** add species and device filters to capture list ([331d454](https://github.com/ASM-joynnovate/buddybird-api/commit/331d454229d520183aeddf515443ce1b6b1f61cf))
+* **audio_capture:** add species and device info to capture list ([0d0ba7c](https://github.com/ASM-joynnovate/buddybird-api/commit/0d0ba7cb88739a0b5f6cd7a560d9ce0fd3212d75))
+* **audio_capture:** expand capture responses and filters ([3df7b78](https://github.com/ASM-joynnovate/buddybird-api/commit/3df7b78d9839ba20bbd27b21ee033b69ee23b09a))
+* **audio_capture:** return nested word data in capture responses ([266b98c](https://github.com/ASM-joynnovate/buddybird-api/commit/266b98ca885b6da737f862ca936bb085c596e02d))
+
 ## [0.5.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.4.0...v0.5.0) (2026-09-01)
 
 
