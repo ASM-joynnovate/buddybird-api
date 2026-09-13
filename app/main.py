@@ -1,59 +1,83 @@
 import logging
 import tomllib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi.responses import JSONResponse
+from asgi_correlation_id import CorrelationIdMiddleware
+from fastapi import FastAPI
+from fastapi.middleware import Middleware
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from scalar_fastapi import get_scalar_api_reference
 
-from app.container import AppContainer
-from core.config import config, get_env
-from core.db.sqlalchemy import init_orm_mappers
-from core.fastapi import ExtendedFastAPI
-from core.fastapi.lifespan import lifespan
-from core.fastapi.listener import register_handlers
-from core.fastapi.middlewares import make_middleware
-from core.fastapi.open_telemetry import setup_fastapi_opentelemetry
-from core.fastapi.router import register_routers
-from core.helpers.logging import setup_logging
-from core.helpers.open_telemetry import setup_opentelemetry
+from app.config import config
+from app.db import engine
+from app.errors import register_exception_handlers
+from app.middlewares import ETagMiddleware
+from app.redis import get_redis
+from app.routers import captures, labels
+from app.s3 import get_s3
 
 
-def create_app() -> ExtendedFastAPI:
-    env = get_env()
-    container = AppContainer()
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    logging.basicConfig(level=config.LOG_LEVEL)
 
-    init_orm_mappers()
+    redis_client = get_redis() if config.REDIS_ENABLED else None
 
-    app_ = ExtendedFastAPI(
+    try:
+        yield
+    finally:
+        await engine.dispose()
+
+        if redis_client is not None:
+            await redis_client.aclose()
+
+            get_redis.cache_clear()
+
+        if get_s3.cache_info().currsize:
+            get_s3().close()
+            get_s3.cache_clear()
+
+
+def create_app() -> FastAPI:
+    application = FastAPI(
         title="BuddyBird API",
-        description="""
-버디버드 API
-        """,
-        middleware=make_middleware(),
+        description="\n버디버드 API\n        ",
         version=tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())["project"]["version"],
-        env=env,
-        settings=config,
         lifespan=lifespan,
         docs_url=config.DOCS_URL,
         redoc_url=config.REDOC_URL,
         openapi_url=config.OPENAPI_URL,
         swagger_ui_parameters={"docExpansion": "none"},
-        default_response_class=JSONResponse,
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=config.FRONTEND_CORS_ORIGIN,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            ),
+            Middleware(ETagMiddleware),
+            Middleware(CorrelationIdMiddleware),
+        ],
     )
 
-    app_.container = container
+    register_exception_handlers(application)
 
-    setup_logging(app_)
+    application.include_router(labels.router, prefix="/api/v1/backoffice", tags=["백오피스"])
+    application.include_router(captures.router, prefix="/api/v1/backoffice", tags=["백오피스"])
 
-    setup_opentelemetry(app_)
-    setup_fastapi_opentelemetry(app_)
+    @application.get("/api/healthz", tags=["공통"])
+    async def healthz() -> dict[str, str]:
+        return {"status": "ok"}
 
-    register_routers(app_)
-    register_handlers(app_)
+    @application.get("/api/scalar", include_in_schema=False)
+    async def scalar_html() -> HTMLResponse:
+        return get_scalar_api_reference(openapi_url=application.openapi_url, title=application.title)
 
-    logger = logging.getLogger(__name__)
-    logger.info("Starting application with env: %s", env)
-
-    return app_
+    return application
 
 
 app = create_app()
