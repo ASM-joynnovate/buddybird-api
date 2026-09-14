@@ -30,6 +30,10 @@ class Settings(BaseSettings):
 
     BACKOFFICE_PASSWORD: str
 
+    SUPABASE_URL: str | None = None
+    SUPABASE_ANON_KEY: str | None = None
+    SUPABASE_AUDIENCE: str = "authenticated"
+
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str | None = None
     S3_SECRET_KEY: str | None = None

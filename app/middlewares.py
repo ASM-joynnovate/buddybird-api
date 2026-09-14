@@ -11,7 +11,11 @@ class ETagMiddleware:
         self.minimum_size = minimum_size
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["method"] != "GET":
+        if (
+            scope["type"] != "http"
+            or scope["method"] != "GET"
+            or scope["path"].startswith(("/api/v1/auth/", "/api/v1/users/"))
+        ):
             await self.app(scope, receive, send)
             return
 
@@ -50,3 +54,23 @@ class ETagMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_with_etag)
+
+
+class NoStoreMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not scope["path"].startswith(("/api/v1/auth/", "/api/v1/users/")):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_no_store(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(raw=message["headers"])
+                headers["cache-control"] = "no-store"
+                if "etag" in headers:
+                    del headers["etag"]
+            await send(message)
+
+        await self.app(scope, receive, send_no_store)

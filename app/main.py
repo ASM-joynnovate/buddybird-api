@@ -10,13 +10,15 @@ from fastapi.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from scalar_fastapi import get_scalar_api_reference
+from starlette.middleware.authentication import AuthenticationMiddleware
 
+from app.auth import AuthBackend
 from app.config import config
 from app.db import engine
 from app.errors import register_exception_handlers
-from app.middlewares import ETagMiddleware
+from app.middlewares import ETagMiddleware, NoStoreMiddleware
 from app.redis import get_redis
-from app.routers import captures, labels
+from app.routers import auth, captures, labels, users
 from app.s3 import get_s3
 
 
@@ -59,8 +61,10 @@ def create_app() -> FastAPI:
                 allow_methods=["*"],
                 allow_headers=["*"],
             ),
+            Middleware(NoStoreMiddleware),
             Middleware(ETagMiddleware),
             Middleware(CorrelationIdMiddleware),
+            Middleware(AuthenticationMiddleware, backend=AuthBackend()),
         ],
     )
 
@@ -68,6 +72,8 @@ def create_app() -> FastAPI:
 
     application.include_router(labels.router, prefix="/api/v1/backoffice", tags=["백오피스"])
     application.include_router(captures.router, prefix="/api/v1/backoffice", tags=["백오피스"])
+    application.include_router(auth.router, prefix="/api/v1", tags=["인증"])
+    application.include_router(users.router, prefix="/api/v1", tags=["사용자"])
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:

@@ -13,13 +13,16 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     PrimaryKeyConstraint,
     String,
     Table,
     Text,
+    UniqueConstraint,
     false,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -57,6 +60,28 @@ class File(Base):
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     file_type: Mapped[str] = mapped_column(String(50), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("auth_user_id", name="uq_users_auth_user_id"),
+        UniqueConstraint("photo_file_id", name="uq_users_photo_file_id"),
+        Index(
+            "uq_users_nickname_active",
+            "nickname",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    auth_user_id: Mapped[UUID] = mapped_column(SQL_UUID, nullable=False)
+    email: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nickname: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    photo_file: Mapped[File | None] = relationship(lazy="selectin")
 
 
 class LabelCategory(Base):

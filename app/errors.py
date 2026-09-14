@@ -28,6 +28,42 @@ class ResourceNotFoundError(CustomError):
     message = "요청한 리소스를 찾을 수 없습니다."
 
 
+class AuthenticationError(CustomError):
+    code = 401
+    error_code = "AUTH__INVALID_TOKEN"
+    message = "인증에 실패했습니다."
+
+
+class AuthenticationServiceUnavailableError(CustomError):
+    code = 503
+    error_code = "AUTH__SERVICE_UNAVAILABLE"
+    message = "인증 서비스를 일시적으로 사용할 수 없습니다."
+
+
+class UserSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "USER__SAVE_UNAVAILABLE"
+    message = "사용자 정보를 일시적으로 저장할 수 없습니다."
+
+
+class DuplicateNicknameError(CustomError):
+    code = 409
+    error_code = "USER__DUPLICATE_NICKNAME"
+    message = "이미 사용 중인 닉네임입니다."
+
+
+class InvalidProfilePhotoError(CustomError):
+    code = 400
+    error_code = "USER__INVALID_PROFILE_PHOTO"
+    message = "JPEG 또는 PNG 이미지만 업로드할 수 있습니다."
+
+
+class ProfilePhotoServiceUnavailableError(CustomError):
+    code = 503
+    error_code = "USER__PHOTO_SERVICE_UNAVAILABLE"
+    message = "프로필 사진을 일시적으로 저장할 수 없습니다."
+
+
 class DuplicateLabelCategoryError(CustomError):
     code = 409
     error_code = "AUDIO_CAPTURE__DUPLICATE_LABEL_CATEGORY"
