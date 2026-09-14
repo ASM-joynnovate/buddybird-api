@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Callable
 from functools import wraps
 
@@ -10,8 +9,6 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from app.config import config
 from app.models import Base
-
-logger = logging.getLogger(__name__)
 
 engine = create_async_engine(
     config.DB_URL,
@@ -49,7 +46,6 @@ def transactional(func: Callable) -> Callable:
     )
     async def wrapped(*args, **kwargs):
         db = kwargs["db"]
-        db.info["rollback_actions"] = []
         committed = False
 
         try:
@@ -60,16 +56,7 @@ def transactional(func: Callable) -> Callable:
 
             return result
         finally:
-            actions = db.info.pop("rollback_actions")
-
             if not committed:
-                try:
-                    for action in actions:
-                        try:
-                            await action()
-                        except Exception:
-                            logger.exception("compensation failed")
-                finally:
-                    await db.rollback()
+                await db.rollback()
 
     return wrapped

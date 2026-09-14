@@ -1,17 +1,21 @@
 import asyncio
 import io
+import logging
 import zipfile
 from collections import defaultdict
-from functools import partial
+from contextlib import suppress
 from pathlib import Path
 from uuid import UUID, uuid7
 
 from sqlalchemy import delete, func, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app import audio
-from app.db import transactional
+from app.db import session_factory, transactional
 from app.errors import (
+    AudioSegmentSaveConflictError,
     DuplicateLabelCategoryError,
     DuplicateLabelOptionError,
     DuplicateReviewAudioFileIdError,
@@ -52,6 +56,8 @@ from app.schemas import (
     UpdateLabelCategoryRequest,
     UpdateLabelOptionRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def get_label_list(*, db: AsyncSession) -> list[GetLabelCategoryDTO]:
@@ -314,7 +320,54 @@ def _create_audio_file(*, name: str, path: str, content: bytes) -> File:
     )
 
 
-@transactional
+async def _save_audio_segment(
+    *, db: AsyncSession, storage: S3StorageClient, segment: AudioSegment, content: bytes
+) -> None:
+    file_id = segment.audio_file.id
+    path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
+    uploaded = False
+
+    try:
+        try:
+            await storage.upload(path=path, file=content)
+            uploaded = True
+            await db.flush()
+        except Exception as exc:
+            await db.rollback()
+
+            if uploaded:
+                try:
+                    await storage.delete(path=path)
+                except Exception:
+                    logger.exception("업로드된 오디오 파일 정리 실패")
+
+                if isinstance(exc, StaleDataError):
+                    raise AudioSegmentSaveConflictError from exc
+            raise
+
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+
+            async with session_factory() as check_db:
+                saved = await check_db.scalar(
+                    select(File.id).where(File.id == file_id).execution_options(include_deleted=True)
+                )
+
+            if saved is None:
+                raise
+    except asyncio.CancelledError:
+        with suppress(Exception):
+            await db.rollback()
+        raise
+
+
+@retry(
+    retry=retry_if_exception_type(AudioSegmentSaveConflictError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+)
 async def create_audio_segment(
     *, db: AsyncSession, storage: S3StorageClient, audio_capture_id: UUID, data: CreateAudioSegmentRequest
 ) -> None:
@@ -346,15 +399,14 @@ async def create_audio_segment(
     )
     db.add(segment)
 
-    path = f"{segment.audio_file.file_path}/{segment.audio_file.file_name}"
-    db.info["rollback_actions"].append(partial(storage.delete, path=path))
-
-    await storage.upload(path=path, file=content)
+    await _save_audio_segment(db=db, storage=storage, segment=segment, content=content)
 
 
-# 조회·검증 흐름은 별도 헬퍼로 숨기지 않고 각 업무 함수에서 유지한다.
-# noinspection DuplicatedCode
-@transactional
+@retry(
+    retry=retry_if_exception_type(AudioSegmentSaveConflictError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+)
 async def trim_audio_segment(
     *, db: AsyncSession, storage: S3StorageClient, audio_segment_id: UUID, data: TrimAudioSegmentRequest
 ) -> None:
@@ -380,10 +432,7 @@ async def trim_audio_segment(
     segment.start_ms, segment.end_ms = data.start_ms, data.end_ms
     old_file.is_deleted = True
 
-    path = f"{new_file.file_path}/{new_file.file_name}"
-    db.info["rollback_actions"].append(partial(storage.delete, path=path))
-
-    await storage.upload(path=path, file=content)
+    await _save_audio_segment(db=db, storage=storage, segment=segment, content=content)
 
 
 @transactional
@@ -397,8 +446,6 @@ async def delete_audio_segment(*, db: AsyncSession, audio_segment_id: UUID) -> N
     segment.is_deleted = True
 
 
-# 조회·검증 흐름은 별도 헬퍼로 숨기지 않고 각 업무 함수에서 유지한다.
-# noinspection DuplicatedCode
 @transactional
 async def assign_audio_segment_label(
     *, db: AsyncSession, audio_segment_id: UUID, data: AssignAudioSegmentLabelRequest

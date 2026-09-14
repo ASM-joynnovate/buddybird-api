@@ -88,6 +88,10 @@ class InvalidAudioSegmentRangeError(CustomError):
     message = "세그먼트 끝 위치는 시작 위치보다 커야 합니다."
 
 
+class AudioSegmentSaveConflictError(Exception):
+    pass
+
+
 class InvalidLabelCategoryTargetError(CustomError):
     code = 400
     error_code = "AUDIO_CAPTURE__INVALID_LABEL_CATEGORY_TARGET"
