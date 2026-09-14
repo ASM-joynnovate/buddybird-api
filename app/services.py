@@ -48,6 +48,7 @@ from app.schemas import (
     GetAudioSegmentDTO,
     GetLabelCategoryDTO,
     GetLabelOptionDTO,
+    GetWordDTO,
     MigrateReviewResultDTO,
     MigrateReviewsRequest,
     TrimAudioSegmentRequest,
@@ -197,6 +198,18 @@ async def get_audio_capture_list(
     if query.word_label is not None:
         stmt = stmt.join(Word, AudioCapture.word_id == Word.id).where(Word.label == query.word_label)
 
+    if query.parrot_species is not None:
+        stmt = stmt.where(AudioCapture.parrot_species == query.parrot_species)
+
+    if query.device_model is not None:
+        stmt = stmt.where(AudioCapture.device_model == query.device_model)
+
+    if query.device_platform is not None:
+        stmt = stmt.where(AudioCapture.device_platform == query.device_platform)
+
+    if query.device_os_version is not None:
+        stmt = stmt.where(AudioCapture.device_os_version == query.device_os_version)
+
     if query.label_option_ids is not None:
         stmt = stmt.where(
             select(audio_capture_label_table.c.label_option_id)
@@ -239,6 +252,10 @@ async def get_audio_capture_list(
     return [
         GetAudioCaptureListItemDTO(
             **GetAudioCaptureDTO.model_validate(capture, from_attributes=True).model_dump(),
+            parrot_species=capture.parrot_species,
+            device_platform=capture.device_platform,
+            device_os_version=capture.device_os_version,
+            device_model=capture.device_model,
             segment_count=counts.get(capture.id, (0, 0, 0))[0],
             labeled_count=counts.get(capture.id, (0, 0, 0))[1],
             has_memo=counts.get(capture.id, (0, 0, 0))[2] > 0,
@@ -275,7 +292,8 @@ async def get_audio_capture_detail(
     ]
 
     return GetAudioCaptureDetailDTO(
-        **GetAudioCaptureDTO.model_validate(capture, from_attributes=True).model_dump(),
+        **GetAudioCaptureDTO.model_validate(capture, from_attributes=True).model_dump(exclude={"word"}),
+        word=GetWordDTO.model_validate(capture.word, from_attributes=True) if capture.word is not None else None,
         parrot_species=capture.parrot_species,
         parrot_birthdate=capture.parrot_birthdate,
         device_platform=capture.device_platform,
