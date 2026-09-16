@@ -45,7 +45,7 @@ async def verify_access_token(token: str) -> UUID:
 
 
 async def get_social_identities(*, auth_user_id: UUID, access_token: str) -> list[SocialIdentity]:
-    if config.SUPABASE_AUTH_URL is None or not config.SUPABASE_ANON_KEY:
+    if config.SUPABASE_AUTH_URL is None or not config.SUPABASE_PUBLISHABLE_KEY:
         raise AuthenticationServiceUnavailableError
 
     try:
@@ -53,7 +53,7 @@ async def get_social_identities(*, auth_user_id: UUID, access_token: str) -> lis
             "GET",
             f"{config.SUPABASE_AUTH_URL}/user",
             provider="supabase",
-            headers={"Authorization": f"Bearer {access_token}", "apikey": config.SUPABASE_ANON_KEY},
+            headers={"Authorization": f"Bearer {access_token}", "apikey": config.SUPABASE_PUBLISHABLE_KEY},
         )
     except WithdrawalOperationError:
         raise AuthenticationServiceUnavailableError from None
@@ -103,10 +103,10 @@ async def get_social_identities(*, auth_user_id: UUID, access_token: str) -> lis
 
 
 async def delete_supabase_user(auth_user_id: UUID) -> None:
-    if config.SUPABASE_AUTH_URL is None or not config.SUPABASE_SERVICE_ROLE_KEY:
+    if config.SUPABASE_AUTH_URL is None or not config.SUPABASE_SECRET_KEY:
         raise WithdrawalOperationError("supabase_admin_configuration_missing")
 
-    key = config.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+    key = config.SUPABASE_SECRET_KEY.get_secret_value()
     url = f"{config.SUPABASE_AUTH_URL}/admin/users/{auth_user_id}"
     headers = {"Authorization": f"Bearer {key}", "apikey": key}
 

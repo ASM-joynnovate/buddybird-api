@@ -31,9 +31,9 @@ class Settings(BaseSettings):
     BACKOFFICE_PASSWORD: str
 
     SUPABASE_URL: str | None = None
-    SUPABASE_ANON_KEY: str | None = None
+    SUPABASE_PUBLISHABLE_KEY: str | None = None
     SUPABASE_AUDIENCE: str = "authenticated"
-    SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = None
+    SUPABASE_SECRET_KEY: SecretStr | None = None
 
     OAUTH_CREDENTIALS_KEY: SecretStr | None = None
     GOOGLE_CLIENT_ID: str | None = None
