@@ -1,16 +1,8 @@
-import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from botocore.exceptions import (
-    BotoCoreError,
-    ClientError,
-    NoCredentialsError,
-    ParamValidationError,
-    PartialCredentialsError,
-)
-from sqlalchemy import delete, select
+from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +14,6 @@ from app.oauth.base import SocialIdentity, decrypt_credentials, encrypt_credenti
 from app.oauth.google import revoke_google
 from app.oauth.kakao import unlink_kakao
 from app.oauth.supabase import delete_supabase_user, get_social_identities
-from app.s3 import S3StorageClient, get_s3
 from app.schemas.withdrawals import WithdrawalDTO
 
 logger = logging.getLogger(__name__)
@@ -97,41 +88,20 @@ async def save_withdrawal(*, db: AsyncSession, auth_user_id: UUID, identities: l
     )
 
     user.is_deleted = True
-    user.email = None
-    user.nickname = None
-    user.photo_file = None
+
+    await db.execute(
+        update(File)
+        .where(File.file_path.startswith(f"user/{user.id}/"))
+        .values(is_deleted=True)
+        .execution_options(include_deleted=True)
+    )
 
     return WithdrawalDTO(user_id=user.id)
-
-
-async def delete_personal_data(*, user_id: UUID, db: AsyncSession, storage: S3StorageClient) -> None:
-    prefix = f"user/{user_id}/"
-
-    try:
-        await asyncio.to_thread(storage.delete_prefix, prefix=prefix)
-    except NoCredentialsError, PartialCredentialsError, ParamValidationError:
-        raise WithdrawalOperationError("s3_configuration_invalid") from None
-    except ClientError as exc:
-        error = exc.response.get("Error", {}).get("Code")
-        status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
-        retryable = status >= 500 or error in {"SlowDown", "RequestTimeout", "Throttling"}
-
-        raise WithdrawalOperationError("s3_request_failed", retryable=retryable) from None
-    except BotoCoreError, OSError, TimeoutError:
-        raise WithdrawalOperationError("s3_unavailable", retryable=True) from None
-
-    await db.execute(delete(File).where(File.file_path.startswith(prefix)).execution_options(include_deleted=True))
 
 
 async def process_withdrawal_step(*, withdrawal: UserWithdrawal, user: User, db: AsyncSession) -> None:
     if not user.is_deleted:
         raise WithdrawalOperationError("withdrawal_user_not_deleted")
-
-    if withdrawal.data_deleted_at is None:
-        await delete_personal_data(user_id=user.id, db=db, storage=get_s3())
-        withdrawal.data_deleted_at = datetime.now(UTC)
-
-        return
 
     credential = await db.scalar(
         select(UserOAuthCredential)

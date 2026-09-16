@@ -128,7 +128,6 @@ class UserWithdrawal(Base):
     apple_status: Mapped[str] = mapped_column(Text, nullable=False)
     kakao_status: Mapped[str] = mapped_column(Text, nullable=False)
     kakao_user_ids_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
-    data_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     last_error_code: Mapped[str | None] = mapped_column(Text, nullable=True)

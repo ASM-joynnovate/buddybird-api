@@ -11,7 +11,6 @@ from app.config import config
 from app.db import engine, session_factory
 from app.models import UserWithdrawal
 from app.oauth.base import http_client
-from app.s3 import get_s3
 from app.services.withdrawals import process_user_withdrawal
 
 logger = logging.getLogger(__name__)
@@ -54,9 +53,6 @@ def shutdown_worker(**_) -> None:
         finally:
             runner.close()
             runner = None
-
-    get_s3().close()
-    get_s3.cache_clear()
 
 
 def enqueue_withdrawal(*user_ids: UUID) -> None:
