@@ -1,8 +1,8 @@
 """add user withdrawals
 
-Revision ID: f4737d8f3cb3
+Revision ID: 4176d7f03f86
 Revises: 07c1cf479fff
-Create Date: 2026-09-16 08:34:50.959093
+Create Date: 2026-09-16 15:28:42.488708
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'f4737d8f3cb3'
+revision: str = '4176d7f03f86'
 down_revision: Union[str, Sequence[str], None] = '07c1cf479fff'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -41,7 +41,6 @@ def upgrade() -> None:
     sa.Column('apple_status', sa.Text(), nullable=False),
     sa.Column('kakao_status', sa.Text(), nullable=False),
     sa.Column('kakao_user_ids_ciphertext', sa.Text(), nullable=True),
-    sa.Column('data_deleted_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('next_attempt_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('attempt_count', sa.Integer(), server_default='0', nullable=False),
     sa.Column('last_error_code', sa.Text(), nullable=True),
