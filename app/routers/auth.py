@@ -25,7 +25,7 @@ async def login(
     )
 
 
-@router.post("/withdrawal", name="회원 탈퇴 접수", status_code=202, response_model=WithdrawalResponse)
+@router.delete("/withdrawal", name="회원 탈퇴 접수", status_code=202, response_model=WithdrawalResponse)
 async def withdrawal(context: Authenticated, db: DBSession, background_tasks: BackgroundTasks) -> WithdrawalResponse:
     data = await withdrawals.request_withdrawal(
         db=db, auth_user_id=context.auth_user_id, access_token=context.access_token
