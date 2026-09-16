@@ -1,148 +1,17 @@
-import re
-import unicodedata
 from datetime import date, datetime
-from typing import Any, ClassVar, Literal
+from typing import ClassVar, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from pydantic.experimental.missing_sentinel import MISSING
+from pydantic import Field
 
-from app.models import LabelCategoryTargetEnum, PhaseEnum
-
-CATEGORY_NAME_DESCRIPTION = "카테고리명"
-DISPLAY_ORDER_DESCRIPTION = "노출 순서"
-START_MS_DESCRIPTION = "원본 파일 기준 시작 위치 ms"
-END_MS_DESCRIPTION = "원본 파일 기준 끝 위치 ms"
-
-
-class BaseRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    null_fields: ClassVar[set[str]] = set()
-    empty_str_fields: ClassVar[set[str]] = set()
-
-    @model_validator(mode="before")
-    @classmethod
-    def process_empty_str_or_none(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
-
-        result = dict(data)
-
-        for key, value in data.items():
-            if value == "":
-                if key in cls.empty_str_fields or "*" in cls.empty_str_fields:
-                    continue
-
-                if key in cls.null_fields or "*" in cls.null_fields:
-                    result[key] = None
-                    continue
-
-                raise ValueError(f"필드 '{key}'는 빈 문자열일 수 없습니다.")
-
-            if value is None and key not in cls.null_fields and "*" not in cls.null_fields:
-                raise ValueError(f"필드 '{key}'는 null일 수 없습니다.")
-
-        return result
-
-
-class CustomBaseModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    allow_null_fields: ClassVar[set[str]] = set()
-
-    @model_validator(mode="before")
-    @classmethod
-    def process(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            for key, value in data.items():
-                if value is None and key not in cls.allow_null_fields and "*" not in cls.allow_null_fields:
-                    raise ValueError(f"필드 '{key}'는 null일 수 없습니다.")
-
-        return data
+from app.legacy.models import PhaseEnum
+from app.legacy.schemas.segments import GetAudioSegmentDTO
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
 
 class PageParams(BaseRequest):
     page: int = Field(1, description="페이지 번호", ge=1, examples=[1])
     count_by_page: int = Field(12, description="페이지 당 조회 개수", ge=1, le=100, examples=[10])
-
-
-class BaseResponse(BaseModel):
-    message: str = ""
-    data: Any = None
-    meta: Any = None
-
-
-class CreateLabelCategoryRequest(BaseRequest):
-    name: str = Field(..., min_length=1, max_length=100, description=CATEGORY_NAME_DESCRIPTION, examples=["새 소리"])
-    display_order: int = Field(0, description=DISPLAY_ORDER_DESCRIPTION, examples=[0])
-    target: LabelCategoryTargetEnum = Field(
-        LabelCategoryTargetEnum.SEGMENT, description="라벨 적용 대상", examples=[LabelCategoryTargetEnum.SEGMENT]
-    )
-
-
-class UpdateLabelCategoryRequest(BaseRequest):
-    name: str | MISSING = Field(
-        MISSING, min_length=1, max_length=100, description=CATEGORY_NAME_DESCRIPTION, examples=["새 소리"]
-    )
-    display_order: int | MISSING = Field(MISSING, description=DISPLAY_ORDER_DESCRIPTION, examples=[0])
-
-
-class CreateLabelOptionRequest(BaseRequest):
-    name: str = Field(..., min_length=1, max_length=100, description="옵션명", examples=["짹짹"])
-    display_order: int = Field(0, description=DISPLAY_ORDER_DESCRIPTION, examples=[0])
-
-
-class UpdateLabelOptionRequest(BaseRequest):
-    name: str | MISSING = Field(MISSING, min_length=1, max_length=100, description="옵션명", examples=["짹짹"])
-    display_order: int | MISSING = Field(MISSING, description=DISPLAY_ORDER_DESCRIPTION, examples=[0])
-
-
-class GetLabelOptionDTO(CustomBaseModel):
-    id: UUID = Field(..., description="옵션 ID")
-    name: str = Field(..., description="옵션명")
-    display_order: int = Field(..., description=DISPLAY_ORDER_DESCRIPTION)
-
-
-class GetLabelCategoryDTO(CustomBaseModel):
-    id: UUID = Field(..., description="카테고리 ID")
-    name: str = Field(..., description=CATEGORY_NAME_DESCRIPTION)
-    display_order: int = Field(..., description=DISPLAY_ORDER_DESCRIPTION)
-    target: LabelCategoryTargetEnum = Field(..., description="라벨 적용 대상")
-    options: list[GetLabelOptionDTO] = Field(..., description="하위 옵션 목록")
-
-
-class CreateAudioSegmentRequest(BaseRequest):
-    start_ms: int = Field(..., ge=0, description=START_MS_DESCRIPTION, examples=[0])
-    end_ms: int = Field(..., ge=0, description=END_MS_DESCRIPTION, examples=[1000])
-
-
-class TrimAudioSegmentRequest(BaseRequest):
-    start_ms: int = Field(..., ge=0, description=START_MS_DESCRIPTION, examples=[0])
-    end_ms: int = Field(..., ge=0, description=END_MS_DESCRIPTION, examples=[1000])
-
-
-class AssignAudioSegmentLabelRequest(BaseRequest):
-    label_option_id: UUID = Field(
-        ...,
-        description="지정할 라벨 옵션 ID",
-        examples=["0198f4b0-68c0-7000-8000-000000000001"],
-    )
-
-
-class UpdateAudioSegmentMemoRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"memo"}
-
-    memo: str | None = Field(..., description="메모. null이면 메모를 지운다", examples=["소리가 선명함"])
-
-
-class GetAudioSegmentDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"label_option_id", "memo"}
-
-    id: UUID = Field(..., description="세그먼트 ID")
-    start_ms: int = Field(..., description=START_MS_DESCRIPTION)
-    end_ms: int = Field(..., description=END_MS_DESCRIPTION)
-    label_option_id: UUID | None = Field(None, description="지정된 라벨 옵션 ID")
-    memo: str | None = Field(None, description="메모")
-    audio_url: str = Field(..., description="세그먼트 오디오 URL")
 
 
 class GetAudioCaptureListRequest(PageParams):
@@ -213,16 +82,6 @@ class MigrateReviewRequest(BaseRequest):
 
 class MigrateReviewsRequest(BaseRequest):
     reviews: list[MigrateReviewRequest] = Field(..., description="리뷰 목록", examples=[[]])
-
-
-class ExportAudioSegmentsRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"audio_capture_label_option_ids"}
-
-    audio_capture_label_option_ids: list[UUID] | None = Field(
-        None,
-        description="클립 라벨 옵션 ID 필터",
-        examples=[[]],
-    )
 
 
 class GetWordSummaryDTO(CustomBaseModel):
@@ -307,10 +166,6 @@ class MigrateReviewResultDTO(CustomBaseModel):
     message: str | None = Field(None, description="거부된 항목의 에러 메시지")
 
 
-class GetLabelListResponse(BaseResponse):
-    data: list[GetLabelCategoryDTO]
-
-
 class GetAudioCaptureListResponse(BaseResponse):
     data: list[GetAudioCaptureListItemDTO]
 
@@ -321,46 +176,3 @@ class GetAudioCaptureDetailResponse(BaseResponse):
 
 class MigrateReviewsResponse(BaseResponse):
     data: dict[str, MigrateReviewResultDTO]
-
-
-class LoginDTO(CustomBaseModel):
-    user_id: UUID
-    is_new_user: bool
-
-
-class LoginResponse(BaseResponse):
-    data: LoginDTO
-
-
-class ProfilePhotoDTO(CustomBaseModel):
-    url: str
-
-
-class UserDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"email", "nickname", "photo"}
-
-    id: UUID
-    email: str | None
-    nickname: str | None
-    photo: ProfilePhotoDTO | None
-
-
-class UserResponse(BaseResponse):
-    data: UserDTO
-
-
-class UpdateUserRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"nickname"}
-
-    nickname: str | MISSING | None = MISSING
-
-    @field_validator("nickname")
-    @classmethod
-    def validate_nickname(cls, value: str | MISSING | None) -> str | MISSING | None:
-        if not isinstance(value, str):
-            return value
-
-        value = unicodedata.normalize("NFC", value).strip(" ")
-        if not value or not 2 <= len(value) <= 20 or re.fullmatch(r"[가-힣A-Za-z0-9_ ]+", value) is None:
-            raise ValueError("닉네임은 한글, 영문, 숫자, 밑줄, 공백으로 구성된 2~20자여야 합니다.")
-        return value

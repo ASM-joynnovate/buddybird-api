@@ -1,29 +1,29 @@
 import asyncio
 import io
 import logging
-from contextlib import suppress
 from urllib.parse import urlsplit
-from uuid import UUID, uuid7
+from uuid import uuid7
 
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import session_factory
+from app.db import transactional
 from app.errors import (
+    AuthenticationError,
     DuplicateNicknameError,
     FileSizeExceededError,
     InvalidProfilePhotoError,
     ProfilePhotoServiceUnavailableError,
-    ResourceNotFoundError,
     UserSaveUnavailableError,
 )
 from app.models import File, User
+from app.oauth.base import http_client
 from app.s3 import S3StorageClient
-from app.schemas import ProfilePhotoDTO, UpdateUserRequest, UserDTO
+from app.schemas.users import ProfilePhotoDTO, UpdateUserRequest, UserDTO
 
 logger = logging.getLogger(__name__)
 
@@ -41,37 +41,46 @@ async def download_social_photo(*, url: str, provider: str) -> tuple[bytes, str,
         parsed = urlsplit(url)
         hostname = parsed.hostname or ""
         allowed_hosts = SOCIAL_PHOTO_HOSTS.get(provider, ())
-        if (
+        disallowed = (
             parsed.scheme != "https"
             or hostname not in allowed_hosts
             or parsed.port not in {None, 443}
             or parsed.username is not None
             or parsed.password is not None
             or parsed.fragment
-        ):
+        )
+
+        if disallowed:
             return None
-        async with (
-            asyncio.timeout(10),
-            httpx.AsyncClient(timeout=5, follow_redirects=False) as client,
-            client.stream("GET", url) as response,
-        ):
+
+        async with asyncio.timeout(10), http_client.stream("GET", url) as response:
             response.raise_for_status()
+
             file_type = response.headers.get("content-type", "").partition(";")[0].lower()
             file_name = SOCIAL_PHOTO_TYPES.get(file_type)
+
             if file_name is None or int(response.headers.get("content-length", "0")) > MAX_PHOTO_BYTES:
                 return None
+
             content = bytearray()
+
             async for chunk in response.aiter_bytes(64 * 1024):
                 content.extend(chunk)
+
                 if len(content) > MAX_PHOTO_BYTES:
                     return None
-        return (bytes(content), file_name, file_type) if content else None
     except httpx.HTTPError, OSError, TimeoutError, ValueError:
         return None
+
+    if not content:
+        return None
+
+    return bytes(content), file_name, file_type
 
 
 async def prepare_uploaded_photo(file: UploadFile) -> bytes:
     content = await file.read(MAX_PHOTO_BYTES + 1)
+
     if len(content) > MAX_PHOTO_BYTES:
         raise FileSizeExceededError
 
@@ -79,7 +88,9 @@ async def prepare_uploaded_photo(file: UploadFile) -> bytes:
         with Image.open(io.BytesIO(content)) as source:
             if source.format not in {"JPEG", "PNG"} or source.width * source.height > MAX_PHOTO_PIXELS:
                 raise ValueError
+
             image = ImageOps.exif_transpose(source)
+
             if "A" in image.getbands() or (image.mode == "P" and "transparency" in image.info):
                 image = image.convert("RGBA")
                 background = Image.new("RGB", image.size, "white")
@@ -87,9 +98,11 @@ async def prepare_uploaded_photo(file: UploadFile) -> bytes:
                 image = background
             else:
                 image = image.convert("RGB")
+
             image.thumbnail((512, 512), Image.Resampling.LANCZOS)
             output = io.BytesIO()
             image.save(output, format="JPEG", quality=85)
+
             return output.getvalue()
 
     try:
@@ -98,79 +111,53 @@ async def prepare_uploaded_photo(file: UploadFile) -> bytes:
         raise InvalidProfilePhotoError from exc
 
 
-async def delete_uploaded_photo(*, storage: S3StorageClient, path: str) -> None:
+async def delete_uploaded_photo(*, storage: S3StorageClient, path: str, version_id: str) -> None:
     try:
-        await storage.delete(path=path)
+        await storage.delete(path=path, version_id=version_id)
     except Exception:
         logger.exception("업로드된 프로필 사진 정리 실패")
 
 
-async def rollback_or_unavailable(*, db) -> None:
-    try:
-        await db.rollback()
-    except SQLAlchemyError as exc:
-        raise UserSaveUnavailableError from exc
-
-
-async def get_profile(*, user_id: UUID, db, storage: S3StorageClient) -> UserDTO:
-    user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        raise ResourceNotFoundError
+async def get_profile(*, user: User, storage: S3StorageClient) -> UserDTO:
     photo = None
+
     if user.photo_file is not None:
-        photo = ProfilePhotoDTO(
-            url=storage.generate_presigned_url(path=f"{user.photo_file.file_path}/{user.photo_file.file_name}")
-        )
+        photo = ProfilePhotoDTO(url=storage.generate_presigned_url(path=user.photo_file.object_key))
+
     return UserDTO(id=user.id, email=user.email, nickname=user.nickname, photo=photo)
 
 
-async def update_profile(*, user_id: UUID, data: UpdateUserRequest, db) -> None:
+@transactional(unavailable_error=UserSaveUnavailableError)
+async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserRequest) -> None:
     changes = data.model_dump(exclude_unset=True)
+
     if "nickname" not in changes:
         return
-    user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        raise ResourceNotFoundError
+
+    if user.is_deleted:
+        raise AuthenticationError
+
     user.nickname = changes["nickname"]
+
     try:
         await db.flush()
     except IntegrityError as exc:
-        await rollback_or_unavailable(db=db)
         raise DuplicateNicknameError from exc
-    except SQLAlchemyError as exc:
-        await rollback_or_unavailable(db=db)
-        raise UserSaveUnavailableError from exc
-    try:
-        await db.commit()
-    except SQLAlchemyError as exc:
-        with suppress(SQLAlchemyError):
-            await db.rollback()
-        async with session_factory() as check_db:
-            saved = (
-                await check_db.execute(
-                    select(User.id, User.nickname).where(User.id == user_id).execution_options(use_writer=True)
-                )
-            ).one_or_none()
-        if saved is not None and saved.nickname == changes["nickname"]:
-            return
-        raise UserSaveUnavailableError from exc
 
 
-async def update_photo(*, user_id: UUID, file: UploadFile, db, storage: S3StorageClient) -> None:
+async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User, file: UploadFile) -> None:
     content = await prepare_uploaded_photo(file)
-    user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        raise ResourceNotFoundError
-    old_file = user.photo_file
+
     file_id = uuid7()
-    file_path = f"user/{user_id}/profile/{file_id}"
+    file_path = f"user/{user.id}/profile/{file_id}"
     path = f"{file_path}/profile.jpg"
+
     try:
-        await storage.upload(path=path, file=content)
+        version_id = await storage.upload(path=path, file=content)
     except (BotoCoreError, ClientError, OSError, TimeoutError) as exc:
         raise ProfilePhotoServiceUnavailableError from exc
 
-    new_file = File(
+    photo_file = File(
         id=file_id,
         file_name="profile.jpg",
         file_path=file_path,
@@ -178,57 +165,40 @@ async def update_photo(*, user_id: UUID, file: UploadFile, db, storage: S3Storag
         file_type="image/jpeg",
         is_deleted=False,
     )
-    db.add(new_file)
-    user.photo_file = new_file
+
+    try:
+        await save_profile_photo(db=db, user=user, photo_file=photo_file)
+    except Exception, asyncio.CancelledError:
+        await delete_uploaded_photo(storage=storage, path=path, version_id=version_id)
+
+        raise
+
+
+@transactional(unavailable_error=UserSaveUnavailableError)
+async def save_profile_photo(*, db: AsyncSession, user: User, photo_file: File) -> None:
+    if user.is_deleted:
+        raise AuthenticationError
+
+    old_file = user.photo_file
+
+    db.add(photo_file)
+    user.photo_file = photo_file
+
     if old_file is not None:
         old_file.is_deleted = True
-    try:
-        await db.flush()
-    except SQLAlchemyError as exc:
-        await rollback_or_unavailable(db=db)
-        await delete_uploaded_photo(storage=storage, path=path)
-        raise UserSaveUnavailableError from exc
-    try:
-        await db.commit()
-    except SQLAlchemyError as exc:
-        with suppress(SQLAlchemyError):
-            await db.rollback()
-        async with session_factory() as check_db:
-            saved = (
-                await check_db.execute(
-                    select(User.id, User.photo_file_id).where(User.id == user_id).execution_options(use_writer=True)
-                )
-            ).one_or_none()
-        if saved is not None and saved.photo_file_id == file_id:
-            return
-        raise UserSaveUnavailableError from exc
 
 
-async def delete_photo(*, user_id: UUID, db) -> None:
-    user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        raise ResourceNotFoundError
+@transactional(unavailable_error=UserSaveUnavailableError)
+async def delete_photo(*, db: AsyncSession, user: User) -> None:
+    if user.is_deleted:
+        raise AuthenticationError
+
     old_file = user.photo_file
+
     if old_file is None:
         return
+
     user.photo_file = None
     old_file.is_deleted = True
-    try:
-        await db.flush()
-    except SQLAlchemyError as exc:
-        await rollback_or_unavailable(db=db)
-        raise UserSaveUnavailableError from exc
-    try:
-        await db.commit()
-    except SQLAlchemyError as exc:
-        with suppress(SQLAlchemyError):
-            await db.rollback()
-        async with session_factory() as check_db:
-            saved = (
-                await check_db.execute(
-                    select(User.id, User.photo_file_id).where(User.id == user_id).execution_options(use_writer=True)
-                )
-            ).one_or_none()
-        if saved is not None and saved.photo_file_id is None:
-            return
-        raise UserSaveUnavailableError from exc
+
+    await db.flush()

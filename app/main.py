@@ -12,13 +12,13 @@ from fastapi.responses import HTMLResponse
 from scalar_fastapi import get_scalar_api_reference
 from starlette.middleware.authentication import AuthenticationMiddleware
 
-from app.auth import AuthBackend
 from app.config import config
 from app.db import engine
 from app.errors import register_exception_handlers
-from app.middlewares import ETagMiddleware, NoStoreMiddleware
-from app.redis import get_redis
-from app.routers import auth, captures, labels, users
+from app.legacy.routers import captures, labels
+from app.middlewares import AuthBackend, ETagMiddleware, NoStoreMiddleware
+from app.oauth.base import http_client
+from app.routers import auth, users
 from app.s3 import get_s3
 
 
@@ -26,21 +26,14 @@ from app.s3 import get_s3
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     logging.basicConfig(level=config.LOG_LEVEL)
 
-    redis_client = get_redis() if config.REDIS_ENABLED else None
-
     try:
         yield
     finally:
         await engine.dispose()
+        await http_client.aclose()
 
-        if redis_client is not None:
-            await redis_client.aclose()
-
-            get_redis.cache_clear()
-
-        if get_s3.cache_info().currsize:
-            get_s3().close()
-            get_s3.cache_clear()
+        get_s3().close()
+        get_s3.cache_clear()
 
 
 def create_app() -> FastAPI:

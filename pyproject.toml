@@ -8,6 +8,8 @@ dependencies = [
     "asgi-correlation-id>=5.0.1",
     "asyncpg>=0.31.0",
     "boto3>=1.43.93",
+    "celery[redis]>=5.6.3,<5.7",
+    "cryptography>=46.0.0",
     "fastapi[standard]>=0.141.1",
     "greenlet>=3.5.5",
     "httpx>=0.28.1",
@@ -16,7 +18,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-settings>=2.15.0",
     "pyjwt[crypto]>=2.13.0",
-    "redis>=8.1.0",
+    "redis>=6.4,<6.5",
     "scalar-fastapi>=1.8.2",
     "sqlalchemy>=2.0.52",
     "starlette>=1.6.0",
@@ -92,7 +94,7 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.pep8-naming]
-classmethod-decorators = ["classmethod", "pydantic.model_validator", "pydantic.field_validator"]
+classmethod-decorators = ["classmethod", "pydantic.field_validator"]
 
 [tool.ruff.lint.per-file-ignores]
 "migrations/versions/*.py" = ["N999", "ERA001", "E501"]

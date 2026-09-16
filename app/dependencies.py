@@ -1,15 +1,16 @@
-import secrets
 from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Header, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import AuthContext
 from app.config import config
 from app.db import session_factory
-from app.errors import AuthenticationError, BackofficePasswordInvalidError, BackofficePasswordMissingError
+from app.errors import AuthenticationError
+from app.middlewares import AuthContext
+from app.models import User
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -17,6 +18,9 @@ async def get_db() -> AsyncIterator[AsyncSession]:
     async with session_factory() as db:
         yield db
 
+
+DBSession = Annotated[AsyncSession, Depends(get_db)]
+Storage = Annotated[S3StorageClient, Depends(get_s3)]
 
 bearer = HTTPBearer(auto_error=False, scheme_name="Bearer", bearerFormat="JWT")
 
@@ -28,31 +32,31 @@ async def require_auth_context(
 ) -> AuthContext:
     if x_buddybird_client != "mobile":
         raise AuthenticationError
+
     origin = request.headers.get("Origin")
+
     if origin is not None and origin not in config.FRONTEND_CORS_ORIGIN:
         raise AuthenticationError
+
     if (error := getattr(request.state, "auth_error", None)) is not None:
         raise error
+
     if not isinstance(request.user, AuthContext):
         raise AuthenticationError
+
     return request.user
 
 
-async def require_active_user(context: Annotated[AuthContext, Depends(require_auth_context)]) -> AuthContext:
-    if context.user_id is None or context.is_deleted:
-        raise AuthenticationError
-    return context
-
-
-def verify_backoffice_password(x_backoffice_password: Annotated[str | None, Header()] = None) -> None:
-    if x_backoffice_password is None:
-        raise BackofficePasswordMissingError
-
-    if not secrets.compare_digest(x_backoffice_password, config.BACKOFFICE_PASSWORD):
-        raise BackofficePasswordInvalidError
-
-
-DBSession = Annotated[AsyncSession, Depends(get_db)]
-Storage = Annotated[S3StorageClient, Depends(get_s3)]
 Authenticated = Annotated[AuthContext, Depends(require_auth_context)]
-ActiveUser = Annotated[AuthContext, Depends(require_active_user)]
+
+
+async def require_active_user(context: Authenticated, db: DBSession) -> User:
+    user = await db.scalar(select(User).where(User.auth_user_id == context.auth_user_id))
+
+    if user is None:
+        raise AuthenticationError
+
+    return user
+
+
+ActiveUser = Annotated[User, Depends(require_active_user)]

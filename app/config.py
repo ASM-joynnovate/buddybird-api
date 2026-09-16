@@ -2,7 +2,7 @@ import os
 from typing import ClassVar, Literal
 from urllib.parse import quote_plus
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _env = os.getenv("ENV", "local")
@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     SUPABASE_URL: str | None = None
     SUPABASE_ANON_KEY: str | None = None
     SUPABASE_AUDIENCE: str = "authenticated"
+    SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = None
+
+    OAUTH_CREDENTIALS_KEY: SecretStr | None = None
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: SecretStr | None = None
+    APPLE_CLIENT_IDS: list[str] = Field(default_factory=list)
+    APPLE_TEAM_ID: str | None = None
+    APPLE_KEY_ID: str | None = None
+    APPLE_PRIVATE_KEY: SecretStr | None = None
+    KAKAO_ADMIN_KEY: SecretStr | None = None
 
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str | None = None
@@ -40,7 +50,6 @@ class Settings(BaseSettings):
     S3_REGION: str = "ap-northeast-2"
     S3_BUCKET_NAME: str
 
-    REDIS_ENABLED: bool = _local
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
@@ -61,6 +70,20 @@ class Settings(BaseSettings):
         return (
             f"postgresql+asyncpg://{self.DB_USER}:{quote_plus(self.DB_PASSWORD)}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
+
+    @property
+    def SUPABASE_AUTH_URL(self) -> str | None:  # noqa: N802
+        if not self.SUPABASE_URL:
+            return None
+
+        return f"{self.SUPABASE_URL.rstrip('/')}/auth/v1"
+
+    @property
+    def CELERY_BROKER_URL(self) -> str:  # noqa: N802
+        return (
+            f"redis://{quote_plus(self.REDIS_USERNAME)}:{quote_plus(self.REDIS_PASSWORD)}"
+            f"@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         )
 
 

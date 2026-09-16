@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from enum import StrEnum
 from typing import ClassVar
 from uuid import UUID, uuid7
@@ -9,15 +9,12 @@ from sqlalchemy import (
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    Column,
-    Date,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    PrimaryKeyConstraint,
     String,
-    Table,
     Text,
     UniqueConstraint,
     false,
@@ -25,8 +22,6 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-LEGACY_TABLE_ARGS = {"schema": "legacy"}
 
 
 class Base(DeclarativeBase):
@@ -41,14 +36,17 @@ class Base(DeclarativeBase):
     __mapper_args__: ClassVar[dict] = {"version_id_col": version_id}
 
 
-class PhaseEnum(StrEnum):
-    LEARNING = "LE"
-    RESTING = "RE"
+class OAuthProviderEnum(StrEnum):
+    GOOGLE = "google"
+    APPLE = "apple"
+    KAKAO = "kakao"
 
 
-class LabelCategoryTargetEnum(StrEnum):
-    CAPTURE = "CA"
-    SEGMENT = "SE"
+class WithdrawalStatusEnum(StrEnum):
+    NOT_REQUIRED = "not_required"
+    PENDING = "pending"
+    COMPLETED = "completed"
+    UNCONFIRMED = "unconfirmed"
 
 
 class File(Base):
@@ -60,6 +58,10 @@ class File(Base):
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     file_type: Mapped[str] = mapped_column(String(50), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+
+    @property
+    def object_key(self) -> str:
+        return f"{self.file_path}/{self.file_name}"
 
 
 class User(Base):
@@ -84,111 +86,50 @@ class User(Base):
     photo_file: Mapped[File | None] = relationship(lazy="selectin")
 
 
-class LabelCategory(Base):
-    __tablename__ = "label_categories"
-    __table_args__ = LEGACY_TABLE_ARGS
+class UserOAuthCredential(Base):
+    __tablename__ = "user_oauth_credentials"
+    __table_args__ = (CheckConstraint("provider IN ('google', 'apple')", name="ck_user_oauth_credentials_provider"),)
 
-    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    target: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        default=LabelCategoryTargetEnum.SEGMENT.value,
-        server_default=LabelCategoryTargetEnum.SEGMENT.value,
-    )
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    options: Mapped[list[LabelOption]] = relationship(
-        viewonly=True, lazy="selectin", order_by="LabelOption.display_order"
-    )
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+    identity_id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True)
+    client_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    credentials_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    proof_digest: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
-class LabelOption(Base):
-    __tablename__ = "label_options"
-    __table_args__ = LEGACY_TABLE_ARGS
-
-    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    category_id: Mapped[UUID] = mapped_column(
-        SQL_UUID, ForeignKey("legacy.label_categories.id"), nullable=False, index=True
-    )
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-
-
-class AudioCapture(Base):
-    __tablename__ = "audio_captures"
-    __table_args__ = LEGACY_TABLE_ARGS
-
-    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    firebase_anon_uid: Mapped[str] = mapped_column(Text, nullable=False)
-    client_capture_id: Mapped[str] = mapped_column(Text, nullable=False)
-    client_session_id: Mapped[str] = mapped_column(Text, nullable=False)
-    word_id: Mapped[UUID | None] = mapped_column(
-        SQL_UUID, ForeignKey("legacy.word_entries.id"), nullable=True, index=True
-    )
-    client_word_id: Mapped[str] = mapped_column(Text, nullable=False)
-    cycle: Mapped[int] = mapped_column(Integer, nullable=False)
-    phase: Mapped[str] = mapped_column(Text, nullable=False)
-    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False, index=True)
-    parrot_species: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    parrot_birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
-    app_version: Mapped[str | None] = mapped_column(String(12), nullable=True)
-    device_platform: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    device_os_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    device_model: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    audio_file: Mapped[File] = relationship(lazy="selectin")
-    word: Mapped[Word | None] = relationship(viewonly=True, lazy="selectin")
-    label_options: Mapped[list[LabelOption]] = relationship(
-        secondary=lambda: audio_capture_label_table, lazy="selectin"
+class UserWithdrawal(Base):
+    __tablename__ = "user_withdrawals"
+    __table_args__ = (
+        CheckConstraint(
+            "google_status IN ('not_required', 'pending', 'completed', 'unconfirmed')",
+            name="ck_user_withdrawals_google_status",
+        ),
+        CheckConstraint(
+            "apple_status IN ('not_required', 'pending', 'completed', 'unconfirmed')",
+            name="ck_user_withdrawals_apple_status",
+        ),
+        CheckConstraint(
+            "kakao_status IN ('not_required', 'pending', 'completed')", name="ck_user_withdrawals_kakao_status"
+        ),
+        CheckConstraint("attempt_count >= 0", name="ck_user_withdrawals_attempt_count"),
+        CheckConstraint(
+            "completed_at IS NULL OR next_attempt_at IS NULL", name="ck_user_withdrawals_completed_schedule"
+        ),
+        Index(
+            "ix_user_withdrawals_next_attempt_at",
+            "next_attempt_at",
+            postgresql_where=text("completed_at IS NULL AND next_attempt_at IS NOT NULL"),
+        ),
     )
 
-
-class AudioSegment(Base):
-    __tablename__ = "audio_segments"
-    __table_args__ = LEGACY_TABLE_ARGS
-
-    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    audio_capture_id: Mapped[UUID] = mapped_column(
-        SQL_UUID, ForeignKey("legacy.audio_captures.id"), nullable=False, index=True
-    )
-    start_ms: Mapped[int] = mapped_column(Integer, nullable=False)
-    end_ms: Mapped[int] = mapped_column(Integer, nullable=False)
-    audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False, index=True)
-    label_option_id: Mapped[UUID | None] = mapped_column(
-        SQL_UUID, ForeignKey("legacy.label_options.id"), nullable=True, index=True
-    )
-    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    audio_file: Mapped[File] = relationship(lazy="selectin")
-
-
-class Word(Base):
-    __tablename__ = "word_entries"
-    __table_args__ = LEGACY_TABLE_ARGS
-
-    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    label: Mapped[str] = mapped_column(String(255), nullable=False)
-    firebase_anon_uid: Mapped[str | None] = mapped_column(Text, nullable=True)
-    client_word_id: Mapped[str] = mapped_column(Text, nullable=False)
-    is_preset: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False, index=True)
-    device_platform: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    device_os_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    device_model: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    audio_file: Mapped[File] = relationship(lazy="selectin")
-
-
-audio_capture_label_table = Table(
-    "audio_capture_labels",
-    Base.metadata,
-    Column("audio_capture_id", SQL_UUID, ForeignKey("legacy.audio_captures.id"), nullable=False),
-    Column("label_option_id", SQL_UUID, ForeignKey("legacy.label_options.id"), nullable=False, index=True),
-    PrimaryKeyConstraint("audio_capture_id", "label_option_id"),
-    schema="legacy",
-)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+    google_status: Mapped[str] = mapped_column(Text, nullable=False)
+    apple_status: Mapped[str] = mapped_column(Text, nullable=False)
+    kakao_status: Mapped[str] = mapped_column(Text, nullable=False)
+    kakao_user_ids_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

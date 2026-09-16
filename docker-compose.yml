@@ -1,4 +1,52 @@
 services:
+  api:
+    build: .
+    image: buddybird-api
+    profiles: [app]
+    env_file: .env.local
+    environment:
+      ENV: local
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    image: buddybird-api
+    profiles: [app]
+    env_file: .env.local
+    environment:
+      ENV: local
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    command: [celery, -A, "app.tasks:celery", worker, --pool=prefork, --concurrency=1, --loglevel=INFO]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: .
+    image: buddybird-api
+    container_name: buddybird-beat
+    profiles: [app]
+    env_file: .env.local
+    environment:
+      ENV: local
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    command: [celery, -A, "app.tasks:celery", beat, --loglevel=INFO, --schedule=/tmp/buddybird-celerybeat]
+    depends_on:
+      redis:
+        condition: service_healthy
+
   postgres:
     image: postgres:17-alpine
     container_name: buddybird-postgres
