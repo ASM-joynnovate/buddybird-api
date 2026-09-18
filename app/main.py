@@ -18,7 +18,19 @@ from app.errors import register_exception_handlers
 from app.legacy.routers import captures, labels
 from app.middlewares import AuthBackend, ETagMiddleware, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
-from app.routers import auth, consents, devices, feedback, notices, parrots, sessions, settings, users, words
+from app.routers import (
+    auth,
+    consents,
+    devices,
+    feedback,
+    notices,
+    parrots,
+    sessions,
+    settings,
+    user_consents,
+    users,
+    words,
+)
 from app.s3 import get_s3
 
 
@@ -70,6 +82,7 @@ def create_app() -> FastAPI:
     application.include_router(users.router, prefix="/api/v1", tags=["사용자"])
     application.include_router(settings.router, prefix="/api/v1", tags=["설정"])
     application.include_router(consents.router, prefix="/api/v1", tags=["동의"])
+    application.include_router(user_consents.router, prefix="/api/v1", tags=["동의"])
     application.include_router(devices.router, prefix="/api/v1", tags=["기기"])
     application.include_router(parrots.router, prefix="/api/v1", tags=["앵무새"])
     application.include_router(words.router, prefix="/api/v1", tags=["단어"])

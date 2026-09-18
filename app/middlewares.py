@@ -132,6 +132,7 @@ class IdempotencyMiddleware:
                 (
                     "/api/v1/users/me/settings",
                     "/api/v1/users/me/consents",
+                    "/api/v1/consents",
                     "/api/v1/devices",
                     "/api/v1/parrots",
                     "/api/v1/words",

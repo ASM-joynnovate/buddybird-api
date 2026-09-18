@@ -207,6 +207,18 @@ class InvalidNoticePeriodError(CustomError):
     message = "게시 종료 시각은 게시 시작 시각보다 늦어야 합니다."
 
 
+class ConsentSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "CONSENT__SAVE_UNAVAILABLE"
+    message = "동의 정보를 일시적으로 저장할 수 없습니다."
+
+
+class ConsentAlreadyPublishedError(CustomError):
+    code = 409
+    error_code = "CONSENT__ALREADY_PUBLISHED"
+    message = "게시된 고지문은 수정하거나 삭제할 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

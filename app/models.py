@@ -148,18 +148,33 @@ class UserSetting(Base):
     )
 
 
-class UserConsent(Base):
-    __tablename__ = "user_consents"
+class Consent(Base):
+    __tablename__ = "consents"
     __table_args__ = (
-        UniqueConstraint("user_id", "kind", "notice_version", name="uq_user_consents_user_id_kind_notice_version"),
+        UniqueConstraint("kind", "version", name="uq_consents_kind_version"),
+        Index("ix_consents_kind_published_at", "kind", "published_at"),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    version: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    is_required: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+
+
+class UserConsent(Base):
+    __tablename__ = "user_consents"
+    __table_args__ = (UniqueConstraint("user_id", "consent_id", name="uq_user_consents_user_id_consent_id"),)
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
-    kind: Mapped[str] = mapped_column(Text, nullable=False)
-    notice_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    consent_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Consent.id), nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False)
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consent: Mapped[Consent] = relationship(lazy="selectin")
 
 
 class Device(Base):

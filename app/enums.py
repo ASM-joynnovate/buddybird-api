@@ -14,11 +14,6 @@ class WithdrawalStatusEnum(StrEnum):
     UNCONFIRMED = "unconfirmed"
 
 
-class ConsentKindEnum(StrEnum):
-    AUDIO = "audio"
-    VIDEO = "video"
-
-
 class ConsentStatusEnum(StrEnum):
     GRANTED = "granted"
     DENIED = "denied"

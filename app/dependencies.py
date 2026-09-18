@@ -18,7 +18,7 @@ from app.errors import (
     ResourceNotFoundError,
 )
 from app.middlewares import AuthContext
-from app.models import Device, Notice, NoticeImage, Parrot, Session, User, Word
+from app.models import Consent, Device, Notice, NoticeImage, Parrot, Session, User, Word
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -139,3 +139,7 @@ async def require_backoffice(
 
     if not secrets.compare_digest(x_backoffice_password, config.BACKOFFICE_PASSWORD):
         raise BackofficePasswordInvalidError
+
+
+async def require_consent(db: DBSession, consent_id: UUID) -> Consent:
+    return await get_or_404(db=db, model=Consent, id=consent_id)
