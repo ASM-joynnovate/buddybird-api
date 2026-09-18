@@ -117,6 +117,12 @@ class DeviceSaveUnavailableError(CustomError):
     message = "기기 정보를 일시적으로 저장할 수 없습니다."
 
 
+class ParrotSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "PARROT__SAVE_UNAVAILABLE"
+    message = "앵무새 정보를 일시적으로 저장할 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

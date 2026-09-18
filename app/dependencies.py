@@ -8,10 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
-from app.db import session_factory
-from app.errors import AuthenticationError, DeviceNotRegisteredError
+from app.db import get_or_404, session_factory
+from app.errors import AuthenticationError, DeviceNotRegisteredError, ResourceNotFoundError
 from app.middlewares import AuthContext
-from app.models import Device, User
+from app.models import Device, Parrot, User
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -80,3 +80,12 @@ async def require_device(
 
 
 ActiveDevice = Annotated[Device, Depends(require_device)]
+
+
+async def require_parrot(user: ActiveUser, db: DBSession, parrot_id: UUID) -> Parrot:
+    parrot = await get_or_404(db=db, model=Parrot, id=parrot_id)
+
+    if parrot.user_id != user.id:
+        raise ResourceNotFoundError
+
+    return parrot
