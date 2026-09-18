@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import transactional
+from app.enums import OAuthProviderEnum, PresetLanguageEnum
 from app.errors import (
     AuthenticationError,
     AuthenticationServiceUnavailableError,
@@ -18,7 +19,7 @@ from app.errors import (
     UserSaveUnavailableError,
     WithdrawalOperationError,
 )
-from app.models import File, OAuthProviderEnum, User, UserOAuthCredential
+from app.models import File, PresetWord, User, UserOAuthCredential, UserSetting, Word, WordRecording
 from app.oauth.apple import verify_apple_credential
 from app.oauth.base import SocialIdentity, credential_cipher, decrypt_credentials, encrypt_credentials, match_identity
 from app.oauth.google import verify_google_credential
@@ -136,6 +137,7 @@ async def complete_login(
             credential=credential,
             credential_required=credential_required,
             photo_file=photo_file,
+            language=data.language if data is not None else PresetLanguageEnum.KO,
         )
     except Exception, asyncio.CancelledError:
         if uploaded_path is not None:
@@ -159,11 +161,13 @@ async def save_login(
     credential: UserOAuthCredential | None,
     credential_required: bool,
     photo_file: File | None,
+    language: PresetLanguageEnum,
 ) -> LoginDTO:
-    await db.execute(
+    inserted_id = await db.scalar(
         insert(User)
         .values(id=user_id, auth_user_id=auth_user_id, email=email, is_deleted=False)
         .on_conflict_do_nothing(index_elements=[User.auth_user_id])
+        .returning(User.id)
     )
 
     user = (
@@ -177,7 +181,7 @@ async def save_login(
     if user.is_deleted:
         raise AuthenticationError
 
-    is_new_user = user.id == user_id
+    is_new_user = inserted_id is not None
 
     if is_new_user and credential is None and credential_required:
         raise OAuthCredentialRequiredError
@@ -208,5 +212,20 @@ async def save_login(
 
     if is_new_user and photo_file is not None:
         user.photo_file = photo_file
+
+    if is_new_user:
+        db.add(UserSetting(user_id=user.id))
+
+        presets = (
+            await db.scalars(
+                select(PresetWord).where(PresetWord.language == language.value).order_by(PresetWord.created_at)
+            )
+        ).all()
+
+        for preset in presets:
+            word = Word(id=uuid7(), user_id=user.id, name=preset.name, is_deleted=False)
+
+            db.add(word)
+            db.add(WordRecording(word_id=word.id, file_id=preset.audio_file_id, is_deleted=False))
 
     return LoginDTO(user_id=user.id, is_new_user=is_new_user)
