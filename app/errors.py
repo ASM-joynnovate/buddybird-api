@@ -93,6 +93,12 @@ class FileSizeExceededError(CustomError):
     message = "파일 크기가 허용된 최대 크기를 초과했습니다."
 
 
+class IdempotencyKeyRequiredError(CustomError):
+    code = 400
+    error_code = "COMMON__IDEMPOTENCY_KEY_REQUIRED"
+    message = "Idempotency-Key 헤더에 UUID가 필요합니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

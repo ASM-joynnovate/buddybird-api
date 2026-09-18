@@ -16,7 +16,7 @@ from app.config import config
 from app.db import engine
 from app.errors import register_exception_handlers
 from app.legacy.routers import captures, labels
-from app.middlewares import AuthBackend, ETagMiddleware, NoStoreMiddleware
+from app.middlewares import AuthBackend, ETagMiddleware, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
 from app.routers import auth, users
 from app.s3 import get_s3
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
             Middleware(ETagMiddleware),
             Middleware(CorrelationIdMiddleware),
             Middleware(AuthenticationMiddleware, backend=AuthBackend()),
+            Middleware(IdempotencyMiddleware),
         ],
     )
 

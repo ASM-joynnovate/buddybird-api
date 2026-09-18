@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class BaseRequest(BaseModel):
@@ -31,6 +31,11 @@ class BaseRequest(BaseModel):
                 raise ValueError(f"필드 '{key}'는 null일 수 없습니다.")
 
         return result
+
+
+class PageParams(BaseRequest):
+    page: int = Field(1, ge=1)
+    count_by_page: int = Field(12, ge=1, le=100)
 
 
 class CustomBaseModel(BaseModel):
