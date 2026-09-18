@@ -147,6 +147,30 @@ class InvalidWordRecordingError(CustomError):
     message = "m4a, wav, mp3 오디오만 업로드할 수 있습니다."
 
 
+class SessionSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "SESSION__SAVE_UNAVAILABLE"
+    message = "세션 정보를 일시적으로 저장할 수 없습니다."
+
+
+class SessionAlreadyRunningError(CustomError):
+    code = 409
+    error_code = "SESSION__ALREADY_RUNNING"
+    message = "이 station에서 실행 중인 세션이 이미 있습니다."
+
+
+class SessionNotRunningError(CustomError):
+    code = 409
+    error_code = "SESSION__NOT_RUNNING"
+    message = "실행 중인 세션이 아닙니다."
+
+
+class InvalidSessionSoundError(CustomError):
+    code = 400
+    error_code = "SESSION__INVALID_SOUND"
+    message = "wav 오디오만 업로드할 수 있습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

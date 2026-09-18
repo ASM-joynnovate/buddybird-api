@@ -11,7 +11,7 @@ from app.config import config
 from app.db import get_or_404, session_factory
 from app.errors import AuthenticationError, DeviceNotRegisteredError, ResourceNotFoundError
 from app.middlewares import AuthContext
-from app.models import Device, Parrot, User, Word
+from app.models import Device, Parrot, Session, User, Word
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -98,3 +98,12 @@ async def require_word(user: ActiveUser, db: DBSession, word_id: UUID) -> Word:
         raise ResourceNotFoundError
 
     return word
+
+
+async def require_session(user: ActiveUser, db: DBSession, session_id: UUID) -> Session:
+    session = await get_or_404(db=db, model=Session, id=session_id)
+
+    if session.user_id != user.id:
+        raise ResourceNotFoundError
+
+    return session
