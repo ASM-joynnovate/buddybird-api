@@ -18,7 +18,7 @@ from app.errors import (
     ResourceNotFoundError,
 )
 from app.middlewares import AuthContext
-from app.models import Device, Parrot, Session, User, Word
+from app.models import Device, Notice, NoticeImage, Parrot, Session, User, Word
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -114,6 +114,21 @@ async def require_session(user: ActiveUser, db: DBSession, session_id: UUID) -> 
         raise ResourceNotFoundError
 
     return session
+
+
+async def require_notice(db: DBSession, notice_id: UUID) -> Notice:
+    return await get_or_404(db=db, model=Notice, id=notice_id)
+
+
+async def require_notice_image(
+    notice: Annotated[Notice, Depends(require_notice)], db: DBSession, image_id: UUID
+) -> NoticeImage:
+    image = await get_or_404(db=db, model=NoticeImage, id=image_id)
+
+    if image.notice_id != notice.id:
+        raise ResourceNotFoundError
+
+    return image
 
 
 async def require_backoffice(

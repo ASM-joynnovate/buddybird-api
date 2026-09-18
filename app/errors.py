@@ -189,6 +189,24 @@ class FeedbackSaveUnavailableError(CustomError):
     message = "피드백을 일시적으로 저장할 수 없습니다."
 
 
+class NoticeSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "NOTICE__SAVE_UNAVAILABLE"
+    message = "공지를 일시적으로 저장할 수 없습니다."
+
+
+class NoticeImageServiceUnavailableError(CustomError):
+    code = 503
+    error_code = "NOTICE__IMAGE_SERVICE_UNAVAILABLE"
+    message = "공지 사진을 일시적으로 저장할 수 없습니다."
+
+
+class InvalidNoticePeriodError(CustomError):
+    code = 400
+    error_code = "NOTICE__INVALID_PERIOD"
+    message = "게시 종료 시각은 게시 시작 시각보다 늦어야 합니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

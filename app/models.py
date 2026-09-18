@@ -369,3 +369,41 @@ class Feedback(Base):
     device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
     message: Mapped[str] = mapped_column(String(1000), nullable=False)
     app_version: Mapped[str] = mapped_column(String(12), nullable=False)
+
+
+class Notice(Base):
+    __tablename__ = "notices"
+    __table_args__ = (
+        CheckConstraint("ends_at IS NULL OR ends_at > starts_at", name="ck_notices_period"),
+        Index("ix_notices_starts_at", "starts_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    images: Mapped[list[NoticeImage]] = relationship(lazy="selectin", order_by="NoticeImage.display_order")
+
+
+class NoticeImage(Base):
+    __tablename__ = "notice_images"
+    __table_args__ = (
+        UniqueConstraint("file_id", name="uq_notice_images_file_id"),
+        UniqueConstraint("notice_id", "display_order", name="uq_notice_images_notice_id_display_order"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    notice_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Notice.id), nullable=False)
+    file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
+    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    file: Mapped[File] = relationship(lazy="selectin")
+
+
+class NoticeRead(Base):
+    __tablename__ = "notice_reads"
+
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+    notice_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Notice.id), primary_key=True)
+    read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

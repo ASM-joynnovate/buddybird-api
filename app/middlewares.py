@@ -137,6 +137,7 @@ class IdempotencyMiddleware:
                     "/api/v1/words",
                     "/api/v1/sessions",
                     "/api/v1/feedback",
+                    "/api/v1/notices",
                 )
             )
             or not isinstance(scope.get("user"), AuthContext)
