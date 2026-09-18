@@ -123,6 +123,30 @@ class ParrotSaveUnavailableError(CustomError):
     message = "앵무새 정보를 일시적으로 저장할 수 없습니다."
 
 
+class WordSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "WORD__SAVE_UNAVAILABLE"
+    message = "단어 정보를 일시적으로 저장할 수 없습니다."
+
+
+class WordRecordingLimitError(CustomError):
+    code = 400
+    error_code = "WORD__RECORDING_LIMIT"
+    message = "녹음 샘플은 단어당 최대 5개까지 등록할 수 있습니다."
+
+
+class WordRecordingRequiredError(CustomError):
+    code = 400
+    error_code = "WORD__RECORDING_REQUIRED"
+    message = "녹음 샘플은 단어당 최소 1개가 필요합니다."
+
+
+class InvalidWordRecordingError(CustomError):
+    code = 400
+    error_code = "WORD__INVALID_RECORDING"
+    message = "m4a, wav, mp3 오디오만 업로드할 수 있습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:
