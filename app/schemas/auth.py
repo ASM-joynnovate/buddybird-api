@@ -2,6 +2,7 @@ from uuid import UUID
 
 from pydantic import Field, SecretStr, model_validator
 
+from app.enums import PresetLanguageEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
 
@@ -17,6 +18,7 @@ class AppleLoginRequest(BaseRequest):
 class LoginRequest(BaseRequest):
     google: GoogleLoginRequest | None = None
     apple: AppleLoginRequest | None = None
+    language: PresetLanguageEnum = PresetLanguageEnum.KO
 
     @model_validator(mode="after")
     def validate_provider(self) -> LoginRequest:

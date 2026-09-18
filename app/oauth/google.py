@@ -1,6 +1,6 @@
 from app.config import config
+from app.enums import OAuthProviderEnum, WithdrawalStatusEnum
 from app.errors import OAuthCredentialError, WithdrawalOperationError
-from app.models import OAuthProviderEnum, WithdrawalStatusEnum
 from app.oauth.base import SocialIdentity, match_identity, provider_request, response_object, token_response
 
 

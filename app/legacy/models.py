@@ -93,7 +93,7 @@ class AudioCapture(Base):
     memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     audio_file: Mapped[File] = relationship(lazy="selectin")
-    word: Mapped[Word | None] = relationship(viewonly=True, lazy="selectin")
+    word: Mapped[Word | None] = relationship(lambda: Word, viewonly=True, lazy="selectin")
     label_options: Mapped[list[LabelOption]] = relationship(
         secondary=lambda: audio_capture_label_table, lazy="selectin"
     )

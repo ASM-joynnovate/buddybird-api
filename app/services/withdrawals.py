@@ -7,8 +7,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import session_factory, transactional
+from app.enums import OAuthProviderEnum, WithdrawalStatusEnum
 from app.errors import AuthenticationError, WithdrawalOperationError, WithdrawalSaveUnavailableError
-from app.models import File, OAuthProviderEnum, User, UserOAuthCredential, UserWithdrawal, WithdrawalStatusEnum
+from app.models import File, User, UserOAuthCredential, UserWithdrawal
 from app.oauth.apple import revoke_apple
 from app.oauth.base import SocialIdentity, decrypt_credentials, encrypt_credentials
 from app.oauth.google import revoke_google

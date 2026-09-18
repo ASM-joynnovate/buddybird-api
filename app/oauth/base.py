@@ -10,8 +10,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from jwt import PyJWKClient
 
 from app.config import config
+from app.enums import OAuthProviderEnum
 from app.errors import OAuthCredentialError, WithdrawalOperationError
-from app.models import OAuthProviderEnum
 
 http_client = httpx.AsyncClient(timeout=10, follow_redirects=False)
 

@@ -5,8 +5,8 @@ import jwt
 from jwt.exceptions import InvalidTokenError, PyJWKClientConnectionError, PyJWKClientError, PyJWKSetError
 
 from app.config import config
+from app.enums import OAuthProviderEnum
 from app.errors import OAuthCredentialError, WithdrawalOperationError
-from app.models import OAuthProviderEnum
 from app.oauth.base import SocialIdentity, jwks_client, match_identity, provider_request, token_response
 
 

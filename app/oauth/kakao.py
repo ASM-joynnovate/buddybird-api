@@ -1,6 +1,6 @@
 from app.config import config
+from app.enums import OAuthProviderEnum
 from app.errors import WithdrawalOperationError
-from app.models import OAuthProviderEnum
 from app.oauth.base import provider_request, response_object
 
 
