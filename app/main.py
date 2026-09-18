@@ -24,10 +24,12 @@ from app.routers import (
     devices,
     feedback,
     notices,
+    notifications,
     parrots,
     sessions,
     settings,
     user_consents,
+    user_parrot_sounds,
     users,
     words,
 )
@@ -87,8 +89,10 @@ def create_app() -> FastAPI:
     application.include_router(parrots.router, prefix="/api/v1", tags=["앵무새"])
     application.include_router(words.router, prefix="/api/v1", tags=["단어"])
     application.include_router(sessions.router, prefix="/api/v1", tags=["세션"])
+    application.include_router(user_parrot_sounds.router, prefix="/api/v1", tags=["세션"])
     application.include_router(feedback.router, prefix="/api/v1", tags=["피드백"])
     application.include_router(notices.router, prefix="/api/v1", tags=["공지"])
+    application.include_router(notifications.router, prefix="/api/v1", tags=["알림"])
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:

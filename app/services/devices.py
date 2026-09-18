@@ -10,7 +10,6 @@ from app.models import Device, Session, SessionEvent, User
 from app.schemas.devices import (
     DeviceClientDTO,
     DeviceDTO,
-    DevicePushDTO,
     RegisterDeviceRequest,
     UpdateDeviceRequest,
     UpdatePushTokenRequest,
@@ -18,11 +17,6 @@ from app.schemas.devices import (
 
 
 def build_device_dto(device: Device) -> DeviceDTO:
-    push = None
-
-    if device.push_token is not None:
-        push = DevicePushDTO(token=device.push_token)
-
     return DeviceDTO(
         id=device.id,
         client_device_id=device.client_device_id,
@@ -35,7 +29,7 @@ def build_device_dto(device: Device) -> DeviceDTO:
             model=device.model,
             app_version=device.app_version,
         ),
-        push=push,
+        push_registered=device.push_token is not None,
     )
 
 
@@ -156,6 +150,7 @@ async def update_me(*, db: AsyncSession, device: Device, data: UpdateDeviceReque
 @transactional(unavailable_error=DeviceSaveUnavailableError)
 async def delete_me(*, db: AsyncSession, device: Device) -> None:
     device.is_deleted = True
+    device.push_token = None
 
     if device.role == DeviceRoleEnum.STATION.value:
         await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))

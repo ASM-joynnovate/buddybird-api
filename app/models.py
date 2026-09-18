@@ -141,6 +141,7 @@ class UserSetting(Base):
     sleep_at: Mapped[time] = mapped_column(Time, nullable=False, default=time(20, 0), server_default="20:00")
     wake_at: Mapped[time] = mapped_column(Time, nullable=False, default=time(8, 0), server_default="08:00")
     notify_emergency: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
+    notify_mimicry: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     notify_daily_summary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     notify_streak: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     notify_station_disconnect: Mapped[bool] = mapped_column(
@@ -368,6 +369,7 @@ class Notification(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
     image_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    image_file: Mapped[File | None] = relationship(lazy="selectin")
     sound_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=True)
     report_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

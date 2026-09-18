@@ -18,6 +18,7 @@ def build_settings_dto(setting: UserSetting) -> SettingsDTO:
         sleep=SleepSettingsDTO(sleep_at=setting.sleep_at, wake_at=setting.wake_at),
         notifications=NotificationSettingsDTO(
             emergency=setting.notify_emergency,
+            mimicry=setting.notify_mimicry,
             daily_summary=setting.notify_daily_summary,
             streak=setting.notify_streak,
             station_disconnect=setting.notify_station_disconnect,
@@ -59,6 +60,7 @@ async def update_notifications(*, db: AsyncSession, user: User, data: UpdateNoti
     setting = await get_or_create_settings(db=db, user=user)
 
     setting.notify_emergency = data.emergency
+    setting.notify_mimicry = data.mimicry
     setting.notify_daily_summary = data.daily_summary
     setting.notify_streak = data.streak
     setting.notify_station_disconnect = data.station_disconnect

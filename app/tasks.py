@@ -9,8 +9,10 @@ from sqlalchemy import select
 
 from app.config import config
 from app.db import engine, session_factory
+from app.errors import PushDeliveryRetryError
 from app.models import UserWithdrawal
 from app.oauth.base import http_client
+from app.services.notifications import deliver
 from app.services.withdrawals import process_user_withdrawal
 
 logger = logging.getLogger(__name__)
@@ -100,3 +102,25 @@ def dispatch_withdrawals() -> None:
         raise RuntimeError("prefork worker가 필요합니다.")
 
     runner.run(dispatch_due_withdrawals())
+
+
+def enqueue_notification(notification_id: UUID) -> None:
+    try:
+        send_notification.delay(str(notification_id))
+    except Exception:
+        logger.warning("알림 발송 작업 큐 전달 실패")
+
+
+@celery.task(
+    name="notifications.send",
+    autoretry_for=(PushDeliveryRetryError,),
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    max_retries=5,
+)
+def send_notification(notification_id: str) -> None:
+    if runner is None:
+        raise RuntimeError("prefork worker가 필요합니다.")
+
+    runner.run(deliver(UUID(notification_id)))

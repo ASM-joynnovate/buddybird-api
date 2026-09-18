@@ -16,12 +16,8 @@ class DeviceClientDTO(CustomBaseModel):
     app_version: str
 
 
-class DevicePushDTO(CustomBaseModel):
-    token: str
-
-
 class DeviceDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"timezone", "last_seen_at", "push"}
+    allow_null_fields: ClassVar[set] = {"timezone", "last_seen_at"}
 
     id: UUID
     client_device_id: UUID
@@ -29,7 +25,7 @@ class DeviceDTO(CustomBaseModel):
     timezone: str | None
     last_seen_at: datetime | None
     client: DeviceClientDTO
-    push: DevicePushDTO | None
+    push_registered: bool
 
 
 class DeviceResponse(BaseResponse):

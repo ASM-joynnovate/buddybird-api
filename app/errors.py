@@ -207,6 +207,22 @@ class InvalidNoticePeriodError(CustomError):
     message = "게시 종료 시각은 게시 시작 시각보다 늦어야 합니다."
 
 
+class NotificationReadFailedError(CustomError):
+    code = 503
+    error_code = "NOTIFICATION__READ_FAILED"
+    message = "알림 읽음 처리 실패"
+
+
+class NotificationSendFailedError(CustomError):
+    code = 503
+    error_code = "NOTIFICATION__SEND_FAILED"
+    message = "알림 발송 실패"
+
+
+class PushDeliveryRetryError(Exception):
+    pass
+
+
 class ConsentSaveUnavailableError(CustomError):
     code = 503
     error_code = "CONSENT__SAVE_UNAVAILABLE"

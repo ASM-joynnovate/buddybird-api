@@ -98,7 +98,9 @@ async def delete(*, db: AsyncSession, word: Word) -> None:
 
     for recording in recordings.get(word.id, []):
         recording.is_deleted = True
-        recording.file.is_deleted = True
+
+        if recording.file.file_path.startswith(f"user/{word.user_id}/"):
+            recording.file.is_deleted = True
 
     await db.flush()
 
@@ -179,7 +181,9 @@ async def delete_recording(*, db: AsyncSession, word: Word, recording_id: UUID) 
         raise WordRecordingRequiredError
 
     recording.is_deleted = True
-    recording.file.is_deleted = True
+
+    if recording.file.file_path.startswith(f"user/{word.user_id}/"):
+        recording.file.is_deleted = True
 
     await db.flush()
 

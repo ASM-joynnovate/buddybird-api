@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     APPLE_PRIVATE_KEY: SecretStr | None = None
     KAKAO_ADMIN_KEY: SecretStr | None = None
 
+    FCM_SERVICE_ACCOUNT_JSON: SecretStr | None = None
+
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str | None = None
     S3_SECRET_KEY: str | None = None

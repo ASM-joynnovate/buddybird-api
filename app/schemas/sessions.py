@@ -151,6 +151,7 @@ class SessionSoundDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"judgment"}
 
     id: UUID
+    session_id: UUID
     captured_at: datetime
     audio: SessionSoundAudioDTO
     judgment: SessionSoundJudgmentDTO | None

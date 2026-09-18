@@ -18,7 +18,7 @@ from app.errors import (
     ResourceNotFoundError,
 )
 from app.middlewares import AuthContext
-from app.models import Consent, Device, Notice, NoticeImage, Parrot, Session, User, Word
+from app.models import Consent, Device, Notice, NoticeImage, Notification, Parrot, Session, User, Word
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -114,6 +114,15 @@ async def require_session(user: ActiveUser, db: DBSession, session_id: UUID) -> 
         raise ResourceNotFoundError
 
     return session
+
+
+async def require_notification(user: ActiveUser, db: DBSession, notification_id: UUID) -> Notification:
+    notification = await get_or_404(db=db, model=Notification, id=notification_id)
+
+    if notification.user_id != user.id:
+        raise ResourceNotFoundError
+
+    return notification
 
 
 async def require_notice(db: DBSession, notice_id: UUID) -> Notice:
