@@ -99,6 +99,24 @@ class IdempotencyKeyRequiredError(CustomError):
     message = "Idempotency-Key 헤더에 UUID가 필요합니다."
 
 
+class DeviceNotRegisteredError(CustomError):
+    code = 400
+    error_code = "DEVICE__NOT_REGISTERED"
+    message = "등록되지 않은 기기입니다."
+
+
+class DeviceNotStationError(CustomError):
+    code = 403
+    error_code = "DEVICE__NOT_STATION"
+    message = "station 기기만 요청할 수 있습니다."
+
+
+class DeviceSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "DEVICE__SAVE_UNAVAILABLE"
+    message = "기기 정보를 일시적으로 저장할 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

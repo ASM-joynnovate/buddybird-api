@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, Header, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -8,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import session_factory
-from app.errors import AuthenticationError
+from app.errors import AuthenticationError, DeviceNotRegisteredError
 from app.middlewares import AuthContext
-from app.models import User
+from app.models import Device, User
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -60,3 +61,22 @@ async def require_active_user(context: Authenticated, db: DBSession) -> User:
 
 
 ActiveUser = Annotated[User, Depends(require_active_user)]
+
+
+async def require_device(
+    user: ActiveUser,
+    db: DBSession,
+    x_device_id: Annotated[UUID | None, Header(alias="X-Device-Id")] = None,
+) -> Device:
+    if x_device_id is None:
+        raise DeviceNotRegisteredError
+
+    device = await db.scalar(select(Device).where(Device.user_id == user.id, Device.client_device_id == x_device_id))
+
+    if device is None:
+        raise DeviceNotRegisteredError
+
+    return device
+
+
+ActiveDevice = Annotated[Device, Depends(require_device)]

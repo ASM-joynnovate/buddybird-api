@@ -18,7 +18,7 @@ from app.errors import register_exception_handlers
 from app.legacy.routers import captures, labels
 from app.middlewares import AuthBackend, ETagMiddleware, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
-from app.routers import auth, consents, settings, users
+from app.routers import auth, consents, devices, settings, users
 from app.s3 import get_s3
 
 
@@ -70,6 +70,7 @@ def create_app() -> FastAPI:
     application.include_router(users.router, prefix="/api/v1", tags=["사용자"])
     application.include_router(settings.router, prefix="/api/v1", tags=["설정"])
     application.include_router(consents.router, prefix="/api/v1", tags=["동의"])
+    application.include_router(devices.router, prefix="/api/v1", tags=["기기"])
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:
