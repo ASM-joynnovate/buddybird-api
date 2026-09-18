@@ -1,3 +1,4 @@
+import secrets
 from collections.abc import AsyncIterator
 from typing import Annotated
 from uuid import UUID
@@ -9,7 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import get_or_404, session_factory
-from app.errors import AuthenticationError, DeviceNotRegisteredError, ResourceNotFoundError
+from app.errors import (
+    AuthenticationError,
+    BackofficePasswordInvalidError,
+    BackofficePasswordMissingError,
+    DeviceNotRegisteredError,
+    ResourceNotFoundError,
+)
 from app.middlewares import AuthContext
 from app.models import Device, Parrot, Session, User, Word
 from app.s3 import S3StorageClient, get_s3
@@ -107,3 +114,13 @@ async def require_session(user: ActiveUser, db: DBSession, session_id: UUID) -> 
         raise ResourceNotFoundError
 
     return session
+
+
+async def require_backoffice(
+    x_backoffice_password: Annotated[str | None, Header(alias="X-Backoffice-Password")] = None,
+) -> None:
+    if x_backoffice_password is None:
+        raise BackofficePasswordMissingError
+
+    if not secrets.compare_digest(x_backoffice_password, config.BACKOFFICE_PASSWORD):
+        raise BackofficePasswordInvalidError

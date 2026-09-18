@@ -85,6 +85,7 @@ class NoStoreMiddleware:
                 "/api/v1/parrots",
                 "/api/v1/words",
                 "/api/v1/sessions",
+                "/api/v1/feedback",
             )
         ):
             await self.app(scope, receive, send)
@@ -135,6 +136,7 @@ class IdempotencyMiddleware:
                     "/api/v1/parrots",
                     "/api/v1/words",
                     "/api/v1/sessions",
+                    "/api/v1/feedback",
                 )
             )
             or not isinstance(scope.get("user"), AuthContext)

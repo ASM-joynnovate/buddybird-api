@@ -171,6 +171,24 @@ class InvalidSessionSoundError(CustomError):
     message = "wav 오디오만 업로드할 수 있습니다."
 
 
+class BackofficePasswordMissingError(CustomError):
+    code = 401
+    error_code = "BACKOFFICE__PASSWORD_MISSING"
+    message = "백오피스 비밀번호를 입력해 주세요."
+
+
+class BackofficePasswordInvalidError(CustomError):
+    code = 401
+    error_code = "BACKOFFICE__PASSWORD_INVALID"
+    message = "백오피스 비밀번호가 올바르지 않습니다."
+
+
+class FeedbackSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "FEEDBACK__SAVE_UNAVAILABLE"
+    message = "피드백을 일시적으로 저장할 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

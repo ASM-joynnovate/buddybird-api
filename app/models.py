@@ -358,3 +358,14 @@ class Notification(Base):
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+    __table_args__ = (Index("ix_feedbacks_created_at", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
+    message: Mapped[str] = mapped_column(String(1000), nullable=False)
+    app_version: Mapped[str] = mapped_column(String(12), nullable=False)
