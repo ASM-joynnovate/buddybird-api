@@ -6,6 +6,8 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import sqs
+from app.config import config
 from app.db import session_factory, transactional
 from app.enums import OAuthProviderEnum, WithdrawalStatusEnum
 from app.errors import AuthenticationError, WithdrawalOperationError, WithdrawalSaveUnavailableError
@@ -270,3 +272,37 @@ async def process_user_withdrawal(user_id: UUID) -> None:
             logger.warning("탈퇴 처리 중단: %s", error.error_code)
 
             return
+
+
+async def enqueue_withdrawal(*user_ids: UUID) -> None:
+    for user_id in user_ids:
+        try:
+            await sqs.send(
+                queue_url=config.SQS_WITHDRAWAL_QUEUE_URL,
+                body={"type": "withdrawal.process", "user_id": str(user_id)},
+            )
+        except Exception:
+            logger.warning("탈퇴 작업 큐 전달 실패; DB 기록에서 재전달 예정")
+
+
+async def dispatch_due_withdrawals() -> None:
+    after = None
+    due_at = datetime.now(UTC)
+
+    while True:
+        async with session_factory() as db:
+            query = select(UserWithdrawal.user_id).where(
+                UserWithdrawal.completed_at.is_(None), UserWithdrawal.next_attempt_at <= due_at
+            )
+
+            if after is not None:
+                query = query.where(UserWithdrawal.user_id > after)
+
+            user_ids = list((await db.scalars(query.order_by(UserWithdrawal.user_id).limit(100))).all())
+
+        if not user_ids:
+            return
+
+        await enqueue_withdrawal(*user_ids)
+
+        after = user_ids[-1]

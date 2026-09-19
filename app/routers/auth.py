@@ -4,7 +4,6 @@ from app.dependencies import Authenticated, DBSession, Storage
 from app.schemas.auth import LoginRequest, LoginResponse
 from app.schemas.withdrawals import WithdrawalResponse
 from app.services import auth, withdrawals
-from app.tasks import enqueue_withdrawal
 
 router = APIRouter(prefix="/auth")
 
@@ -30,6 +29,6 @@ async def withdrawal(context: Authenticated, db: DBSession, background_tasks: Ba
     data = await withdrawals.request_withdrawal(
         db=db, auth_user_id=context.auth_user_id, access_token=context.access_token
     )
-    background_tasks.add_task(enqueue_withdrawal, data.user_id)
+    background_tasks.add_task(withdrawals.enqueue_withdrawal, data.user_id)
 
     return WithdrawalResponse(message="탈퇴 요청이 접수되었습니다.", data=data)

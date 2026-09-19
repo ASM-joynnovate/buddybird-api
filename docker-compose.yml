@@ -7,7 +7,6 @@ services:
     environment:
       ENV: local
       DB_HOST: postgres
-      REDIS_HOST: redis
       SQS_ENDPOINT_URL: http://elasticmq:9324
       SQS_UPLOAD_CONFIRMATION_QUEUE_URL: http://elasticmq:9324/000000000000/upload-confirmation
       SQS_NOTIFICATION_QUEUE_URL: http://elasticmq:9324/000000000000/notification
@@ -18,41 +17,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       elasticmq:
         condition: service_started
-
-  worker:
-    build: .
-    image: buddybird-api
-    profiles: [app]
-    env_file: .env.local
-    environment:
-      ENV: local
-      DB_HOST: postgres
-      REDIS_HOST: redis
-    command: [celery, -A, "app.tasks:celery", worker, --pool=prefork, --concurrency=1, --loglevel=INFO]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  beat:
-    build: .
-    image: buddybird-api
-    container_name: buddybird-beat
-    profiles: [app]
-    env_file: .env.local
-    environment:
-      ENV: local
-      DB_HOST: postgres
-      REDIS_HOST: redis
-    command: [celery, -A, "app.tasks:celery", beat, --loglevel=INFO, --schedule=/tmp/buddybird-celerybeat]
-    depends_on:
-      redis:
-        condition: service_healthy
 
   consumer:
     build: .
@@ -91,19 +57,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: buddybird-redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   elasticmq:
     image: softwaremill/elasticmq-native
     container_name: buddybird-elasticmq
@@ -114,4 +67,3 @@ services:
 
 volumes:
   postgres-data:
-  redis-data:

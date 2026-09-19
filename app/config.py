@@ -58,12 +58,6 @@ class Settings(BaseSettings):
     SQS_WITHDRAWAL_QUEUE_URL: str
     SQS_PERIODIC_COMMAND_QUEUE_URL: str
 
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_USERNAME: str = "default"
-    REDIS_PASSWORD: str = ""
-
     FRONTEND_CORS_ORIGIN: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://localhost:3001"] if _local else []
     )
@@ -86,13 +80,6 @@ class Settings(BaseSettings):
             return None
 
         return f"{self.SUPABASE_URL.rstrip('/')}/auth/v1"
-
-    @property
-    def CELERY_BROKER_URL(self) -> str:  # noqa: N802
-        return (
-            f"redis://{quote_plus(self.REDIS_USERNAME)}:{quote_plus(self.REDIS_PASSWORD)}"
-            f"@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
-        )
 
 
 config = Settings()

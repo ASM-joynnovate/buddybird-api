@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import UTC, date, datetime
 from uuid import UUID
@@ -7,6 +6,8 @@ from firebase_admin import exceptions, messaging
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import sqs
+from app.config import config
 from app.db import get_or_404, session_factory, transactional
 from app.enums import DeviceRoleEnum, NotificationKindEnum
 from app.errors import NotificationReadFailedError, NotificationSendFailedError, PushDeliveryRetryError
@@ -103,8 +104,6 @@ async def send(
     sound_id: UUID | None = None,
     report_date: date | None = None,
 ) -> NotificationDTO | None:
-    from app.tasks import enqueue_notification
-
     dto = await create(
         db=db,
         storage=storage,
@@ -119,7 +118,13 @@ async def send(
     )
 
     if dto is not None:
-        await asyncio.to_thread(enqueue_notification, dto.id)
+        try:
+            await sqs.send(
+                queue_url=config.SQS_NOTIFICATION_QUEUE_URL,
+                body={"type": "notification.send", "notification_id": str(dto.id)},
+            )
+        except Exception:
+            logger.warning("알림 발송 작업 큐 전달 실패")
 
     return dto
 
