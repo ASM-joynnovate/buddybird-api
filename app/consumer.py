@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import signal
 from collections.abc import Awaitable, Callable
 from uuid import UUID
 
@@ -67,12 +68,17 @@ async def main() -> None:
     logging.getLogger("botocore").setLevel(logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.INFO)
 
-    await asyncio.gather(
-        consume(queue_url=config.SQS_UPLOAD_CONFIRMATION_QUEUE_URL, handle=confirm_upload),
-        consume(queue_url=config.SQS_NOTIFICATION_QUEUE_URL, handle=send_notification),
-        consume(queue_url=config.SQS_WITHDRAWAL_QUEUE_URL, handle=process_withdrawal),
-        consume(queue_url=config.SQS_PERIODIC_COMMAND_QUEUE_URL, handle=run_periodic_command),
-    )
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, asyncio.current_task().cancel)
+
+    try:
+        await asyncio.gather(
+            consume(queue_url=config.SQS_UPLOAD_CONFIRMATION_QUEUE_URL, handle=confirm_upload),
+            consume(queue_url=config.SQS_NOTIFICATION_QUEUE_URL, handle=send_notification),
+            consume(queue_url=config.SQS_WITHDRAWAL_QUEUE_URL, handle=process_withdrawal),
+            consume(queue_url=config.SQS_PERIODIC_COMMAND_QUEUE_URL, handle=run_periodic_command),
+        )
+    except asyncio.CancelledError:
+        logger.info("종료 신호를 받아 consumer를 종료함")
 
 
 if __name__ == "__main__":
