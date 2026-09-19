@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.0.0...v1.0.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **consumer:** exit cleanly on SIGTERM ([9927b43](https://github.com/ASM-joynnovate/buddybird-api/commit/9927b435b28768b868286fe48c9c848f656dd192))
+* **deploy:** run migration without the consumer container ([54ee365](https://github.com/ASM-joynnovate/buddybird-api/commit/54ee365b68fab303ea93655215e516722090617f))
+
 ## [1.0.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.6.0...v1.0.0) (2026-09-19)
 
 
