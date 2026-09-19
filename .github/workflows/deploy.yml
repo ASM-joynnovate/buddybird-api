@@ -98,34 +98,43 @@ jobs:
         run: |
           aws ecs describe-task-definition --task-definition "$ECS_SERVICE" --query taskDefinition \
             | jq --arg image "$IMAGE" '.containerDefinitions[].image = $image' > task-definition.json
+          jq '.family += "-migration" | .containerDefinitions |= map(select(.name == "api"))' \
+            task-definition.json > migration-task-definition.json
           network=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
             --query 'services[0].networkConfiguration.awsvpcConfiguration')
           echo "subnets=$(echo "$network" | jq -r '.subnets | join(",")')" >> "$GITHUB_OUTPUT"
           echo "security_groups=$(echo "$network" | jq -r '.securityGroups | join(",")')" >> "$GITHUB_OUTPUT"
 
-      - name: run migration and deploy service
-        id: deploy
+      - name: run migration
+        id: migration
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          task-definition: task-definition.json
+          task-definition: migration-task-definition.json
           cluster: ${{ env.ECS_CLUSTER }}
-          service: ${{ env.ECS_SERVICE }}
           run-task: true
           run-task-container-overrides: '[{"name": "api", "command": ["alembic", "upgrade", "head"]}]'
           run-task-subnets: ${{ steps.task.outputs.subnets }}
           run-task-security-groups: ${{ steps.task.outputs.security_groups }}
           run-task-assign-public-IP: ENABLED
           wait-for-task-stopped: true
-          wait-for-service-stability: true
 
       - name: show migration logs
-        if: failure() && steps.deploy.outputs.run-task-arn != ''
+        if: failure() && steps.migration.outputs.run-task-arn != ''
         env:
-          RUN_TASK_ARN: ${{ steps.deploy.outputs.run-task-arn }}
+          RUN_TASK_ARN: ${{ steps.migration.outputs.run-task-arn }}
         run: |
           task_id=$(echo "$RUN_TASK_ARN" | jq -r '.[0] | split("/")[-1]')
           aws logs get-log-events --log-group-name "/ecs/$ECS_SERVICE" --log-stream-name "api/api/$task_id" \
             --start-from-head --query 'events[].message' --output text
+
+      - name: deploy service
+        id: deploy
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: task-definition.json
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          wait-for-service-stability: true
 
       - name: render consumer task definition
         id: consumer-task
