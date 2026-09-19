@@ -26,10 +26,6 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH=/app/.venv/bin:$PATH
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends libmagic1 \
- && rm -rf /var/lib/apt/lists/*
-
 RUN groupadd --system --gid 1001 fastapi \
  && useradd --system --uid 1001 --gid fastapi --create-home fastapi
 
