@@ -81,12 +81,6 @@ class InvalidProfilePhotoError(CustomError):
     message = "JPEG 또는 PNG 이미지만 업로드할 수 있습니다."
 
 
-class ProfilePhotoServiceUnavailableError(CustomError):
-    code = 503
-    error_code = "USER__PHOTO_SERVICE_UNAVAILABLE"
-    message = "프로필 사진을 일시적으로 저장할 수 없습니다."
-
-
 class FileSizeExceededError(CustomError):
     code = 400
     error_code = "COMMON__FILE_SIZE_EXCEEDED"
@@ -193,12 +187,6 @@ class NoticeSaveUnavailableError(CustomError):
     code = 503
     error_code = "NOTICE__SAVE_UNAVAILABLE"
     message = "공지를 일시적으로 저장할 수 없습니다."
-
-
-class NoticeImageServiceUnavailableError(CustomError):
-    code = 503
-    error_code = "NOTICE__IMAGE_SERVICE_UNAVAILABLE"
-    message = "공지 사진을 일시적으로 저장할 수 없습니다."
 
 
 class InvalidNoticePeriodError(CustomError):

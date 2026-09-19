@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends
 
 from app.dependencies import ActiveUser, DBSession, Storage, require_parrot
 from app.models import Parrot
-from app.schemas.base import BaseResponse
+from app.schemas.base import BaseResponse, UploadRequest, UploadResponse
 from app.schemas.parrots import CreateParrotRequest, ParrotListResponse, ParrotResponse, UpdateParrotRequest
 from app.services import parrots
 
@@ -46,16 +46,16 @@ async def delete(parrot: Annotated[Parrot, Depends(require_parrot)], db: DBSessi
     return BaseResponse(message="앵무새 삭제 성공")
 
 
-@router.put("/{parrot_id}/photo", name="앵무새 사진 수정", response_model=ParrotResponse)
+@router.put("/{parrot_id}/photo", name="앵무새 사진 업로드 URL 발급", response_model=UploadResponse)
 async def update_photo(
     parrot: Annotated[Parrot, Depends(require_parrot)],
-    file: Annotated[UploadFile, File(description="앵무새 사진")],
+    body: UploadRequest,
     db: DBSession,
     storage: Storage,
-) -> ParrotResponse:
-    return ParrotResponse(
-        message="앵무새 사진 수정 성공",
-        data=await parrots.update_photo(db=db, storage=storage, parrot=parrot, file=file),
+) -> UploadResponse:
+    return UploadResponse(
+        message="앵무새 사진 업로드 URL 발급 성공",
+        data=await parrots.update_photo(db=db, storage=storage, parrot=parrot, data=body),
     )
 
 

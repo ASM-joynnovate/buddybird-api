@@ -4,6 +4,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 import boto3
+from botocore.config import Config
 
 from app.config import config
 
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
     # noinspection PyPackageRequirements
     from mypy_boto3_s3 import S3Client
     from mypy_boto3_s3.type_defs import DeleteObjectRequestTypeDef
+
+UPLOAD_URL_EXPIRES_IN = 300
 
 
 class S3StorageClient:
@@ -65,6 +68,18 @@ class S3StorageClient:
             ExpiresIn=expires_in,
         )
 
+    def generate_presigned_upload_url(self, *, path: str, file_type: str, file_size: int) -> str:
+        return self._client.generate_presigned_url(
+            ClientMethod="put_object",
+            Params={
+                "Bucket": config.S3_BUCKET_NAME,
+                "Key": path,
+                "ContentType": file_type,
+                "ContentLength": file_size,
+            },
+            ExpiresIn=UPLOAD_URL_EXPIRES_IN,
+        )
+
 
 @lru_cache(maxsize=1)
 def get_s3() -> S3StorageClient:
@@ -75,5 +90,6 @@ def get_s3() -> S3StorageClient:
             aws_access_key_id=config.S3_ACCESS_KEY,
             aws_secret_access_key=config.S3_SECRET_KEY,
             region_name=config.S3_REGION,
+            config=Config(signature_version="s3v4"),
         )
     )

@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, Query
 
 from app.dependencies import ActiveUser, DBSession, Storage, require_backoffice, require_notice, require_notice_image
 from app.models import Notice, NoticeImage
-from app.schemas.base import BaseResponse, PageParams
+from app.schemas.base import BaseResponse, PageParams, UploadRequest, UploadResponse
 from app.schemas.notices import CreateNoticeRequest, NoticeListResponse, NoticeResponse, UpdateNoticeRequest
 from app.services import notices
 
@@ -72,18 +72,19 @@ async def delete(notice: Annotated[Notice, Depends(require_notice)], db: DBSessi
 
 @router.post(
     "/{notice_id}/images",
-    name="공지 사진 추가",
-    response_model=NoticeResponse,
+    name="공지 사진 업로드 URL 발급",
+    response_model=UploadResponse,
     dependencies=[Depends(require_backoffice)],
 )
 async def add_image(
     notice: Annotated[Notice, Depends(require_notice)],
-    file: Annotated[UploadFile, File(description="공지 사진")],
+    body: UploadRequest,
     db: DBSession,
     storage: Storage,
-) -> NoticeResponse:
-    return NoticeResponse(
-        message="공지 사진 추가 성공", data=await notices.add_image(db=db, storage=storage, notice=notice, file=file)
+) -> UploadResponse:
+    return UploadResponse(
+        message="공지 사진 업로드 URL 발급 성공",
+        data=await notices.add_image(db=db, storage=storage, notice=notice, data=body),
     )
 
 

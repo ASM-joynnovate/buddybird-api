@@ -1,11 +1,10 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, Query
 
 from app.dependencies import ActiveDevice, ActiveUser, DBSession, Storage, require_session
 from app.models import Session
-from app.schemas.base import BaseResponse, PageParams
+from app.schemas.base import BaseResponse, PageParams, UploadResponse
 from app.schemas.sessions import (
     AddSessionEventsRequest,
     ChangeSessionLearningRequest,
@@ -16,7 +15,7 @@ from app.schemas.sessions import (
     SessionListResponse,
     SessionResponse,
     SessionSoundListResponse,
-    SessionSoundResponse,
+    SessionSoundUploadRequest,
     StartSessionRequest,
 )
 from app.services import session_sounds, sessions
@@ -114,20 +113,17 @@ async def get_events(session: Annotated[Session, Depends(require_session)], db: 
     )
 
 
-@router.post("/{session_id}/sounds", name="세션 소리 업로드", response_model=SessionSoundResponse)
+@router.post("/{session_id}/sounds", name="세션 소리 업로드 URL 발급", response_model=UploadResponse)
 async def upload_sound(
     session: Annotated[Session, Depends(require_session)],
     device: ActiveDevice,
-    file: Annotated[UploadFile, File(description="감지한 소리")],
-    captured_at: Annotated[datetime, Form(description="감지한 시각")],
+    body: SessionSoundUploadRequest,
     db: DBSession,
     storage: Storage,
-) -> SessionSoundResponse:
-    return SessionSoundResponse(
-        message="세션 소리 업로드 성공",
-        data=await session_sounds.upload(
-            db=db, storage=storage, session=session, device=device, file=file, captured_at=captured_at
-        ),
+) -> UploadResponse:
+    return UploadResponse(
+        message="세션 소리 업로드 URL 발급 성공",
+        data=await session_sounds.upload(db=db, storage=storage, session=session, device=device, data=body),
     )
 
 

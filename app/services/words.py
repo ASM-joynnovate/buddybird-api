@@ -1,13 +1,12 @@
-import asyncio
 from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid7
 
-from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import UploadFile
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
+from app.enums import FileStatusEnum
 from app.errors import (
     FileSizeExceededError,
     InvalidWordRecordingError,
@@ -17,9 +16,9 @@ from app.errors import (
     WordSaveUnavailableError,
 )
 from app.models import File, User, Word, WordRecording
-from app.s3 import S3StorageClient
+from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.words import SaveWordRequest, WordDTO, WordRecordingDTO
-from app.services.users import delete_uploaded_photo
 
 MAX_RECORDING_BYTES = 5 * 1024 * 1024
 MAX_RECORDINGS_PER_WORD = 5
@@ -49,11 +48,13 @@ def build_word_dto(word: Word, recordings: Iterable[WordRecording], storage: S3S
 
 
 async def get_recordings_by_word(*, db: AsyncSession, word_ids: Iterable[UUID]) -> dict[UUID, list[WordRecording]]:
-    recordings = (
-        await db.scalars(
-            select(WordRecording).where(WordRecording.word_id.in_(word_ids)).order_by(WordRecording.created_at)
-        )
-    ).all()
+    stmt = (
+        select(WordRecording)
+        .join(File, File.id == WordRecording.file_id)
+        .where(WordRecording.word_id.in_(word_ids), File.status == FileStatusEnum.UPLOADED.value)
+        .order_by(WordRecording.created_at)
+    )
+    recordings = (await db.scalars(stmt)).all()
     grouped: dict[UUID, list[WordRecording]] = {}
 
     for recording in recordings:
@@ -105,68 +106,64 @@ async def delete(*, db: AsyncSession, word: Word) -> None:
     await db.flush()
 
 
-async def add_recording(*, db: AsyncSession, storage: S3StorageClient, word: Word, file: UploadFile) -> WordDTO:
-    recordings = await get_recordings_by_word(db=db, word_ids=[word.id])
-
-    if len(recordings.get(word.id, [])) >= MAX_RECORDINGS_PER_WORD:
-        raise WordRecordingLimitError
-
-    file_type = (file.content_type or "").partition(";")[0].lower()
-    extension = RECORDING_TYPES.get(file_type)
+@transactional(unavailable_error=WordSaveUnavailableError)
+async def add_recording(*, db: AsyncSession, storage: S3StorageClient, word: Word, data: UploadRequest) -> UploadDTO:
+    extension = RECORDING_TYPES.get(data.content_type)
 
     if extension is None:
         raise InvalidWordRecordingError
 
-    content = await file.read(MAX_RECORDING_BYTES + 1)
-
-    if len(content) > MAX_RECORDING_BYTES:
+    if data.file_size > MAX_RECORDING_BYTES:
         raise FileSizeExceededError
 
-    if not content:
-        raise InvalidWordRecordingError
+    stmt = (
+        select(WordRecording)
+        .join(File, File.id == WordRecording.file_id)
+        .where(
+            WordRecording.word_id == word.id,
+            or_(
+                File.status == FileStatusEnum.UPLOADED.value,
+                and_(
+                    File.status == FileStatusEnum.PENDING.value,
+                    File.created_at > datetime.now(UTC) - timedelta(seconds=UPLOAD_URL_EXPIRES_IN),
+                ),
+            ),
+        )
+    )
+    count = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+
+    if count >= MAX_RECORDINGS_PER_WORD:
+        raise WordRecordingLimitError
 
     file_id = uuid7()
     file_path = f"user/{word.user_id}/word/{word.id}/{file_id}"
     file_name = f"recording.{extension}"
-    path = f"{file_path}/{file_name}"
-
-    try:
-        version_id = await storage.upload(path=path, file=content)
-    except (BotoCoreError, ClientError, OSError, TimeoutError) as exc:
-        raise WordSaveUnavailableError from exc
 
     recording_file = File(
         id=file_id,
         file_name=file_name,
         file_path=file_path,
-        file_size=len(content),
-        file_type=file_type,
+        file_size=data.file_size,
+        file_type=data.content_type,
         is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
     )
-
-    try:
-        await save_recording(db=db, word=word, recording_file=recording_file)
-    except Exception, asyncio.CancelledError:
-        await delete_uploaded_photo(storage=storage, path=path, version_id=version_id)
-
-        raise
-
-    recordings = await get_recordings_by_word(db=db, word_ids=[word.id])
-
-    return build_word_dto(word, recordings.get(word.id, []), storage)
-
-
-@transactional(unavailable_error=WordSaveUnavailableError)
-async def save_recording(*, db: AsyncSession, word: Word, recording_file: File) -> None:
-    recordings = await get_recordings_by_word(db=db, word_ids=[word.id])
-
-    if len(recordings.get(word.id, [])) >= MAX_RECORDINGS_PER_WORD:
-        raise WordRecordingLimitError
 
     db.add(recording_file)
     db.add(WordRecording(word_id=word.id, file=recording_file, is_deleted=False))
 
     await db.flush()
+
+    return UploadDTO(
+        file_id=file_id,
+        url=storage.generate_presigned_upload_url(
+            path=recording_file.object_key,
+            file_type=data.content_type,
+            file_size=data.file_size,
+        ),
+        headers={"Content-Type": data.content_type},
+        expires_in=UPLOAD_URL_EXPIRES_IN,
+    )
 
 
 @transactional(unavailable_error=WordSaveUnavailableError)

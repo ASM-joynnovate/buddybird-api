@@ -5,30 +5,30 @@ from urllib.parse import urlsplit
 from uuid import uuid7
 
 import httpx
-from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
+from app.enums import FileStatusEnum
 from app.errors import (
     AuthenticationError,
     DuplicateNicknameError,
     FileSizeExceededError,
     InvalidProfilePhotoError,
-    ProfilePhotoServiceUnavailableError,
     UserSaveUnavailableError,
 )
 from app.models import File, User
 from app.oauth.base import http_client
-from app.s3 import S3StorageClient
+from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.users import ProfilePhotoDTO, UpdateUserRequest, UserDTO
 
 logger = logging.getLogger(__name__)
 
 MAX_PHOTO_BYTES = 5 * 1024 * 1024
 MAX_PHOTO_PIXELS = 20_000_000
+PHOTO_TYPES = {"image/jpeg", "image/png"}
 SOCIAL_PHOTO_TYPES = {"image/jpeg": "profile.jpg", "image/png": "profile.png", "image/webp": "profile.webp"}
 SOCIAL_PHOTO_HOSTS = {
     "google": {"googleusercontent.com", "lh3.googleusercontent.com"},
@@ -78,12 +78,7 @@ async def download_social_photo(*, url: str, provider: str) -> tuple[bytes, str,
     return bytes(content), file_name, file_type
 
 
-async def prepare_uploaded_photo(file: UploadFile) -> bytes:
-    content = await file.read(MAX_PHOTO_BYTES + 1)
-
-    if len(content) > MAX_PHOTO_BYTES:
-        raise FileSizeExceededError
-
+async def prepare_uploaded_photo(content: bytes) -> bytes:
     def transform() -> bytes:
         with Image.open(io.BytesIO(content)) as source:
             if source.format not in {"JPEG", "PNG"} or source.width * source.height > MAX_PHOTO_PIXELS:
@@ -145,47 +140,43 @@ async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserReques
         raise DuplicateNicknameError from exc
 
 
-async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User, file: UploadFile) -> None:
-    content = await prepare_uploaded_photo(file)
+@transactional(unavailable_error=UserSaveUnavailableError)
+async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User, data: UploadRequest) -> UploadDTO:
+    if user.is_deleted:
+        raise AuthenticationError
+
+    if data.content_type not in PHOTO_TYPES:
+        raise InvalidProfilePhotoError
+
+    if data.file_size > MAX_PHOTO_BYTES:
+        raise FileSizeExceededError
 
     file_id = uuid7()
-    file_path = f"user/{user.id}/profile/{file_id}"
-    path = f"{file_path}/profile.jpg"
-
-    try:
-        version_id = await storage.upload(path=path, file=content)
-    except (BotoCoreError, ClientError, OSError, TimeoutError) as exc:
-        raise ProfilePhotoServiceUnavailableError from exc
 
     photo_file = File(
         id=file_id,
         file_name="profile.jpg",
-        file_path=file_path,
-        file_size=len(content),
+        file_path=f"user/{user.id}/profile/{file_id}",
+        file_size=data.file_size,
         file_type="image/jpeg",
         is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
     )
 
-    try:
-        await save_profile_photo(db=db, user=user, photo_file=photo_file)
-    except Exception, asyncio.CancelledError:
-        await delete_uploaded_photo(storage=storage, path=path, version_id=version_id)
-
-        raise
-
-
-@transactional(unavailable_error=UserSaveUnavailableError)
-async def save_profile_photo(*, db: AsyncSession, user: User, photo_file: File) -> None:
-    if user.is_deleted:
-        raise AuthenticationError
-
-    old_file = user.photo_file
-
     db.add(photo_file)
-    user.photo_file = photo_file
 
-    if old_file is not None:
-        old_file.is_deleted = True
+    await db.flush()
+
+    return UploadDTO(
+        file_id=file_id,
+        url=storage.generate_presigned_upload_url(
+            path=f"upload/{photo_file.object_key}",
+            file_type=data.content_type,
+            file_size=data.file_size,
+        ),
+        headers={"Content-Type": data.content_type},
+        expires_in=UPLOAD_URL_EXPIRES_IN,
+    )
 
 
 @transactional(unavailable_error=UserSaveUnavailableError)

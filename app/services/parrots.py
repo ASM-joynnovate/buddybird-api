@@ -1,17 +1,16 @@
-import asyncio
 from uuid import uuid7
 
-from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.errors import ParrotSaveUnavailableError, ProfilePhotoServiceUnavailableError
+from app.enums import FileStatusEnum
+from app.errors import FileSizeExceededError, InvalidProfilePhotoError, ParrotSaveUnavailableError
 from app.models import File, Parrot, User
-from app.s3 import S3StorageClient
+from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.parrots import CreateParrotRequest, ParrotDTO, ParrotPhotoDTO, UpdateParrotRequest
-from app.services.users import delete_uploaded_photo, prepare_uploaded_photo
+from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
 
 
 def build_parrot_dto(parrot: Parrot, storage: S3StorageClient) -> ParrotDTO:
@@ -67,48 +66,46 @@ async def delete(*, db: AsyncSession, parrot: Parrot) -> None:
     await db.flush()
 
 
-async def update_photo(*, db: AsyncSession, storage: S3StorageClient, parrot: Parrot, file: UploadFile) -> ParrotDTO:
-    content = await prepare_uploaded_photo(file)
+@transactional(unavailable_error=ParrotSaveUnavailableError)
+async def update_photo(
+    *,
+    db: AsyncSession,
+    storage: S3StorageClient,
+    parrot: Parrot,
+    data: UploadRequest,
+) -> UploadDTO:
+    if data.content_type not in PHOTO_TYPES:
+        raise InvalidProfilePhotoError
+
+    if data.file_size > MAX_PHOTO_BYTES:
+        raise FileSizeExceededError
 
     file_id = uuid7()
-    file_path = f"user/{parrot.user_id}/parrot/{parrot.id}/{file_id}"
-    path = f"{file_path}/profile.jpg"
-
-    try:
-        version_id = await storage.upload(path=path, file=content)
-    except (BotoCoreError, ClientError, OSError, TimeoutError) as exc:
-        raise ProfilePhotoServiceUnavailableError from exc
 
     photo_file = File(
         id=file_id,
         file_name="profile.jpg",
-        file_path=file_path,
-        file_size=len(content),
+        file_path=f"user/{parrot.user_id}/parrot/{parrot.id}/{file_id}",
+        file_size=data.file_size,
         file_type="image/jpeg",
         is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
     )
 
-    try:
-        await save_photo(db=db, parrot=parrot, photo_file=photo_file)
-    except Exception, asyncio.CancelledError:
-        await delete_uploaded_photo(storage=storage, path=path, version_id=version_id)
-
-        raise
-
-    return build_parrot_dto(parrot, storage)
-
-
-@transactional(unavailable_error=ParrotSaveUnavailableError)
-async def save_photo(*, db: AsyncSession, parrot: Parrot, photo_file: File) -> None:
-    old_file = parrot.photo_file
-
     db.add(photo_file)
-    parrot.photo_file = photo_file
-
-    if old_file is not None:
-        old_file.is_deleted = True
 
     await db.flush()
+
+    return UploadDTO(
+        file_id=file_id,
+        url=storage.generate_presigned_upload_url(
+            path=f"upload/{photo_file.object_key}",
+            file_type=data.content_type,
+            file_size=data.file_size,
+        ),
+        headers={"Content-Type": data.content_type},
+        expires_in=UPLOAD_URL_EXPIRES_IN,
+    )
 
 
 @transactional(unavailable_error=ParrotSaveUnavailableError)

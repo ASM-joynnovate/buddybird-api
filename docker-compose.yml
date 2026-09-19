@@ -8,6 +8,11 @@ services:
       ENV: local
       DB_HOST: postgres
       REDIS_HOST: redis
+      SQS_ENDPOINT_URL: http://elasticmq:9324
+      SQS_UPLOAD_CONFIRMATION_QUEUE_URL: http://elasticmq:9324/000000000000/upload-confirmation
+      SQS_NOTIFICATION_QUEUE_URL: http://elasticmq:9324/000000000000/notification
+      SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
+      SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
     ports:
       - "8000:8000"
     depends_on:
@@ -15,6 +20,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      elasticmq:
+        condition: service_started
 
   worker:
     build: .
@@ -47,6 +54,26 @@ services:
       redis:
         condition: service_healthy
 
+  consumer:
+    build: .
+    image: buddybird-api
+    profiles: [app]
+    env_file: .env.local
+    environment:
+      ENV: local
+      DB_HOST: postgres
+      SQS_ENDPOINT_URL: http://elasticmq:9324
+      SQS_UPLOAD_CONFIRMATION_QUEUE_URL: http://elasticmq:9324/000000000000/upload-confirmation
+      SQS_NOTIFICATION_QUEUE_URL: http://elasticmq:9324/000000000000/notification
+      SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
+      SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
+    command: [python, -m, app.consumer]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticmq:
+        condition: service_started
+
   postgres:
     image: postgres:17-alpine
     container_name: buddybird-postgres
@@ -76,6 +103,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  elasticmq:
+    image: softwaremill/elasticmq-native
+    container_name: buddybird-elasticmq
+    ports:
+      - "9324:9324"
+    volumes:
+      - ./elasticmq.conf:/opt/elasticmq.conf:ro
 
 volumes:
   postgres-data:

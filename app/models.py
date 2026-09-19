@@ -28,6 +28,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from app.enums import FileStatusEnum
+
 
 class Base(DeclarativeBase):
     metadata = MetaData(
@@ -58,6 +60,9 @@ class File(Base):
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     file_type: Mapped[str] = mapped_column(String(50), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default=FileStatusEnum.UPLOADED.value, server_default=FileStatusEnum.UPLOADED.value
+    )
 
     @property
     def object_key(self) -> str:

@@ -1,4 +1,5 @@
 from typing import Any, ClassVar
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -38,6 +39,11 @@ class PageParams(BaseRequest):
     count_by_page: int = Field(12, ge=1, le=100)
 
 
+class UploadRequest(BaseRequest):
+    content_type: str
+    file_size: int = Field(gt=0)
+
+
 class CustomBaseModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     allow_null_fields: ClassVar[set[str]] = set()
@@ -53,7 +59,18 @@ class CustomBaseModel(BaseModel):
         return data
 
 
+class UploadDTO(CustomBaseModel):
+    file_id: UUID
+    url: str
+    headers: dict[str, str]
+    expires_in: int
+
+
 class BaseResponse(BaseModel):
     message: str = ""
     data: Any = None
     meta: Any = None
+
+
+class UploadResponse(BaseResponse):
+    data: UploadDTO

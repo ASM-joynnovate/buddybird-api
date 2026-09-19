@@ -1,21 +1,22 @@
-import asyncio
 from collections.abc import Sequence
-from datetime import datetime
 from uuid import uuid7
 
-from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
+from app.enums import FileStatusEnum
 from app.errors import FileSizeExceededError, InvalidSessionSoundError, SessionSaveUnavailableError
 from app.models import Device, File, Session, SessionSound, SoundJudgment, User
-from app.s3 import S3StorageClient
-from app.schemas.base import PageParams
-from app.schemas.sessions import SessionSoundAudioDTO, SessionSoundDTO, SessionSoundJudgmentDTO
+from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.schemas.base import PageParams, UploadDTO
+from app.schemas.sessions import (
+    SessionSoundAudioDTO,
+    SessionSoundDTO,
+    SessionSoundJudgmentDTO,
+    SessionSoundUploadRequest,
+)
 from app.services.sessions import verify_station
-from app.services.users import delete_uploaded_photo
 
 MAX_SOUND_BYTES = 5 * 1024 * 1024
 SOUND_TYPES = {"audio/wav", "audio/x-wav"}
@@ -50,7 +51,15 @@ async def build_sound_dtos(
 async def get_list(
     *, db: AsyncSession, storage: S3StorageClient, session: Session, query: PageParams
 ) -> tuple[list[SessionSoundDTO], int]:
-    stmt = select(SessionSound).where(SessionSound.session_id == session.id, SessionSound.is_parrot_sound.is_not(False))
+    stmt = (
+        select(SessionSound)
+        .join(File, File.id == SessionSound.audio_file_id)
+        .where(
+            SessionSound.session_id == session.id,
+            SessionSound.is_parrot_sound.is_not(False),
+            File.status == FileStatusEnum.UPLOADED.value,
+        )
+    )
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
         await db.scalars(
@@ -69,7 +78,12 @@ async def get_user_list(
     stmt = (
         select(SessionSound)
         .join(Session, Session.id == SessionSound.session_id)
-        .where(Session.user_id == user.id, SessionSound.is_parrot_sound.is_not(False))
+        .join(File, File.id == SessionSound.audio_file_id)
+        .where(
+            Session.user_id == user.id,
+            SessionSound.is_parrot_sound.is_not(False),
+            File.status == FileStatusEnum.UPLOADED.value,
+        )
     )
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
@@ -83,67 +97,55 @@ async def get_user_list(
     return await build_sound_dtos(db=db, storage=storage, sounds=sounds), total
 
 
+@transactional(unavailable_error=SessionSaveUnavailableError)
 async def upload(
     *,
     db: AsyncSession,
     storage: S3StorageClient,
     session: Session,
     device: Device,
-    file: UploadFile,
-    captured_at: datetime,
-) -> SessionSoundDTO:
+    data: SessionSoundUploadRequest,
+) -> UploadDTO:
     verify_station(session, device)
 
-    file_type = (file.content_type or "").partition(";")[0].lower()
-
-    if file_type not in SOUND_TYPES:
+    if data.content_type not in SOUND_TYPES:
         raise InvalidSessionSoundError
 
-    content = await file.read(MAX_SOUND_BYTES + 1)
-
-    if len(content) > MAX_SOUND_BYTES:
+    if data.file_size > MAX_SOUND_BYTES:
         raise FileSizeExceededError
-
-    if not content:
-        raise InvalidSessionSoundError
 
     file_id = uuid7()
     file_path = f"user/{session.user_id}/session/{session.id}/sound/{file_id}"
-    path = f"{file_path}/sound.wav"
-
-    try:
-        version_id = await storage.upload(path=path, file=content)
-    except (BotoCoreError, ClientError, OSError, TimeoutError) as exc:
-        raise SessionSaveUnavailableError from exc
 
     audio_file = File(
         id=file_id,
         file_name="sound.wav",
         file_path=file_path,
-        file_size=len(content),
-        file_type=file_type,
+        file_size=data.file_size,
+        file_type=data.content_type,
         is_deleted=False,
-    )
-    sound = SessionSound(session_id=session.id, captured_at=captured_at, audio_file=audio_file, is_deleted=False)
-
-    try:
-        await save_sound(db=db, audio_file=audio_file, sound=sound)
-    except Exception, asyncio.CancelledError:
-        await delete_uploaded_photo(storage=storage, path=path, version_id=version_id)
-
-        raise
-
-    return SessionSoundDTO(
-        id=sound.id,
-        captured_at=sound.captured_at,
-        audio=SessionSoundAudioDTO(url=storage.generate_presigned_url(path=audio_file.object_key)),
-        judgment=None,
+        status=FileStatusEnum.PENDING.value,
     )
 
-
-@transactional(unavailable_error=SessionSaveUnavailableError)
-async def save_sound(*, db: AsyncSession, audio_file: File, sound: SessionSound) -> None:
     db.add(audio_file)
-    db.add(sound)
+    db.add(
+        SessionSound(
+            session_id=session.id,
+            captured_at=data.captured_at,
+            audio_file=audio_file,
+            is_deleted=False,
+        )
+    )
 
     await db.flush()
+
+    return UploadDTO(
+        file_id=file_id,
+        url=storage.generate_presigned_upload_url(
+            path=audio_file.object_key,
+            file_type=data.content_type,
+            file_size=data.file_size,
+        ),
+        headers={"Content-Type": data.content_type},
+        expires_in=UPLOAD_URL_EXPIRES_IN,
+    )

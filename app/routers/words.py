@@ -1,11 +1,11 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends
 
 from app.dependencies import ActiveUser, DBSession, Storage, require_word
 from app.models import Word
-from app.schemas.base import BaseResponse
+from app.schemas.base import BaseResponse, UploadRequest, UploadResponse
 from app.schemas.words import SaveWordRequest, WordListResponse, WordResponse
 from app.services import words
 
@@ -41,15 +41,16 @@ async def delete(word: Annotated[Word, Depends(require_word)], db: DBSession) ->
     return BaseResponse(message="단어 삭제 성공")
 
 
-@router.post("/{word_id}/recordings", name="녹음 샘플 추가", response_model=WordResponse)
+@router.post("/{word_id}/recordings", name="녹음 샘플 업로드 URL 발급", response_model=UploadResponse)
 async def add_recording(
     word: Annotated[Word, Depends(require_word)],
-    file: Annotated[UploadFile, File(description="녹음 샘플")],
+    body: UploadRequest,
     db: DBSession,
     storage: Storage,
-) -> WordResponse:
-    return WordResponse(
-        message="녹음 샘플 추가 성공", data=await words.add_recording(db=db, storage=storage, word=word, file=file)
+) -> UploadResponse:
+    return UploadResponse(
+        message="녹음 샘플 업로드 URL 발급 성공",
+        data=await words.add_recording(db=db, storage=storage, word=word, data=body),
     )
 
 

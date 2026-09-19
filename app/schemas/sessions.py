@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.enums import SessionActorEnum, SessionEventKindEnum, SessionPhaseEnum, SessionStatusEnum
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, UploadRequest
 
 
 class SessionStationDTO(CustomBaseModel):
@@ -157,8 +157,8 @@ class SessionSoundDTO(CustomBaseModel):
     judgment: SessionSoundJudgmentDTO | None
 
 
-class SessionSoundResponse(BaseResponse):
-    data: SessionSoundDTO
+class SessionSoundUploadRequest(UploadRequest):
+    captured_at: datetime
 
 
 class SessionSoundListResponse(BaseResponse):

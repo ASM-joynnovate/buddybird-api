@@ -65,3 +65,9 @@ class SessionEventKindEnum(StrEnum):
     STATION_RECONNECTED = "station_reconnected"
     EMERGENCY_DETECTED = "emergency_detected"
     SESSION_FINISHED = "session_finished"
+
+
+class FileStatusEnum(StrEnum):
+    PENDING = "pending"
+    UPLOADED = "uploaded"
+    REJECTED = "rejected"

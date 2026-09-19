@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     S3_REGION: str = "ap-northeast-2"
     S3_BUCKET_NAME: str
 
+    SQS_ENDPOINT_URL: str | None = None
+    SQS_UPLOAD_CONFIRMATION_QUEUE_URL: str
+    SQS_NOTIFICATION_QUEUE_URL: str
+    SQS_WITHDRAWAL_QUEUE_URL: str
+    SQS_PERIODIC_COMMAND_QUEUE_URL: str
+
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0

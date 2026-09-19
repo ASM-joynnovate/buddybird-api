@@ -1,20 +1,23 @@
-import asyncio
 from datetime import UTC, datetime
 from uuid import uuid7
 
-from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import UploadFile
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.errors import InvalidNoticePeriodError, NoticeImageServiceUnavailableError, NoticeSaveUnavailableError
+from app.enums import FileStatusEnum
+from app.errors import (
+    FileSizeExceededError,
+    InvalidNoticePeriodError,
+    InvalidProfilePhotoError,
+    NoticeSaveUnavailableError,
+)
 from app.models import File, Notice, NoticeImage, NoticeRead, User
-from app.s3 import S3StorageClient
-from app.schemas.base import PageParams
+from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.schemas.base import PageParams, UploadDTO, UploadRequest
 from app.schemas.notices import CreateNoticeRequest, NoticeDTO, NoticeImageDTO, UpdateNoticeRequest
-from app.services.users import delete_uploaded_photo, prepare_uploaded_photo
+from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
 
 
 def build_notice_dto(notice: Notice, read_at: datetime | None, storage: S3StorageClient) -> NoticeDTO:
@@ -126,45 +129,46 @@ async def delete(*, db: AsyncSession, notice: Notice) -> None:
     await db.flush()
 
 
-async def add_image(*, db: AsyncSession, storage: S3StorageClient, notice: Notice, file: UploadFile) -> NoticeDTO:
-    content = await prepare_uploaded_photo(file)
+@transactional(unavailable_error=NoticeSaveUnavailableError)
+async def add_image(
+    *,
+    db: AsyncSession,
+    storage: S3StorageClient,
+    notice: Notice,
+    data: UploadRequest,
+) -> UploadDTO:
+    if data.content_type not in PHOTO_TYPES:
+        raise InvalidProfilePhotoError
+
+    if data.file_size > MAX_PHOTO_BYTES:
+        raise FileSizeExceededError
 
     file_id = uuid7()
-    file_path = f"notice/{notice.id}/{file_id}"
-    path = f"{file_path}/image.jpg"
-
-    try:
-        version_id = await storage.upload(path=path, file=content)
-    except (BotoCoreError, ClientError, OSError, TimeoutError) as exc:
-        raise NoticeImageServiceUnavailableError from exc
 
     image_file = File(
         id=file_id,
         file_name="image.jpg",
-        file_path=file_path,
-        file_size=len(content),
+        file_path=f"notice/{notice.id}/{file_id}",
+        file_size=data.file_size,
         file_type="image/jpeg",
         is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
     )
 
-    try:
-        await save_image(db=db, notice=notice, image_file=image_file)
-    except Exception, asyncio.CancelledError:
-        await delete_uploaded_photo(storage=storage, path=path, version_id=version_id)
-
-        raise
-
-    return build_notice_dto(notice, None, storage)
-
-
-@transactional(unavailable_error=NoticeSaveUnavailableError)
-async def save_image(*, db: AsyncSession, notice: Notice, image_file: File) -> None:
-    display_order = max((image.display_order for image in notice.images), default=-1) + 1
-
     db.add(image_file)
-    notice.images.append(NoticeImage(file=image_file, display_order=display_order))
 
     await db.flush()
+
+    return UploadDTO(
+        file_id=file_id,
+        url=storage.generate_presigned_upload_url(
+            path=f"upload/{image_file.object_key}",
+            file_type=data.content_type,
+            file_size=data.file_size,
+        ),
+        headers={"Content-Type": data.content_type},
+        expires_in=UPLOAD_URL_EXPIRES_IN,
+    )
 
 
 @transactional(unavailable_error=NoticeSaveUnavailableError)
