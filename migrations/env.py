@@ -1,17 +1,17 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import Table, engine_from_config, pool
+from sqlalchemy.schema import SchemaItem
 
-import core.db.sqlalchemy.models  # noqa: F401
-from core.config import config as app_settings
-from core.db.sqlalchemy.models.base import metadata
+from app.config import config as app_settings
+from app.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-sync_url = app_settings.WRITER_DB_URL.replace("+asyncpg", "+psycopg2")
+sync_url = app_settings.DB_URL.replace("+asyncpg", "+psycopg2")
 config.set_main_option("sqlalchemy.url", sync_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
@@ -19,12 +19,16 @@ config.set_main_option("sqlalchemy.url", sync_url.replace("%", "%%"))
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = metadata
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+def include_object(object_: SchemaItem, *_: object) -> bool:
+    return not (isinstance(object_, Table) and object_.schema == "legacy")
 
 
 def run_migrations_offline() -> None:
@@ -43,6 +47,8 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_schemas=False,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -62,12 +68,15 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"options": "-csearch_path=public"},
     )
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_schemas=False,
+            include_object=include_object,
             compare_type=True,
             compare_server_default=True,
         )
