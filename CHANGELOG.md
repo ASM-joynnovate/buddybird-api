@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.0.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.6.0...v1.0.0) (2026-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **backoffice:** remove the VAD endpoint and replace BUDDYBIRD_ENV with ENV.
+
+### Features
+
+* **api:** add idempotency middleware and pagination params ([204b2f4](https://github.com/ASM-joynnovate/buddybird-api/commit/204b2f4e6cac9dc4e3e9b9ff75b16bb11a3d8243))
+* **api:** add v2 API with absence sessions and presigned uploads ([bcc70e7](https://github.com/ASM-joynnovate/buddybird-api/commit/bcc70e7fc124655f941b2ab85803cceca263bcdd))
+* **auth:** add Supabase login and user profile ([#48](https://github.com/ASM-joynnovate/buddybird-api/issues/48)) ([d430b2e](https://github.com/ASM-joynnovate/buddybird-api/commit/d430b2e6f5371845c4cfc4a6d22f77b373478784))
+* **auth:** add withdrawal API and split app into legacy and role-based packages ([6d8cba4](https://github.com/ASM-joynnovate/buddybird-api/commit/6d8cba48167988d09de89573efd592eae81a825b))
+* **auth:** change withdrawal endpoint to DELETE ([efbc8d5](https://github.com/ASM-joynnovate/buddybird-api/commit/efbc8d5aa52176ae15fbb15c5c48c80e8876daeb))
+* **auth:** preserve user data and files on withdrawal ([e955358](https://github.com/ASM-joynnovate/buddybird-api/commit/e9553582d0fb37915d7fdda39da0d9c191660a32))
+* **consent:** add consent documents table and backoffice API ([ba962ef](https://github.com/ASM-joynnovate/buddybird-api/commit/ba962ef2adfa1a823885ece3086b84f95c26f614))
+* **consent:** add user consents API ([1526643](https://github.com/ASM-joynnovate/buddybird-api/commit/1526643a7f4de3ae9396bf3b04f2620f8f524091))
+* **database:** add absence session tables and move enums to app/enums.py ([a88f8de](https://github.com/ASM-joynnovate/buddybird-api/commit/a88f8de0d84d6cac497f33b60c040dd87c6bd2f8))
+* **device:** add device registration API ([87b0b32](https://github.com/ASM-joynnovate/buddybird-api/commit/87b0b32ed1bf9ea0dba702b0a7152599ec5c0ea7))
+* **feedback:** add feedback API ([f13b800](https://github.com/ASM-joynnovate/buddybird-api/commit/f13b8009a0a8d18a982cfd7ca885456494a63526))
+* **notice:** add notice API with images and read state ([1889d2e](https://github.com/ASM-joynnovate/buddybird-api/commit/1889d2e2a726ece1b18b3e293be5145083c772fc))
+* **notification:** add push notification API with FCM delivery ([c13cbea](https://github.com/ASM-joynnovate/buddybird-api/commit/c13cbea31a708edbf40b38ce1575e7a7e63bcc2b))
+* **parrot:** add parrot profile API ([2a02132](https://github.com/ASM-joynnovate/buddybird-api/commit/2a021322ec66b5eaf5015d34418ec119979a56ae))
+* **session:** add absence session API ([6e3ec32](https://github.com/ASM-joynnovate/buddybird-api/commit/6e3ec32c4c519b0f876ac1341d76dcc444685e7a))
+* **settings:** add user settings API ([8b5fc54](https://github.com/ASM-joynnovate/buddybird-api/commit/8b5fc545d82475fcac6fb094880f93322bd43ec1))
+* **upload:** replace multipart uploads with presigned PUT URLs and SQS upload confirmation ([058015e](https://github.com/ASM-joynnovate/buddybird-api/commit/058015eda3aebb8f1bbd153d54d4fba7db78e708))
+* **word:** add word and recording API ([6298d0b](https://github.com/ASM-joynnovate/buddybird-api/commit/6298d0b5c6a2e46f1068cbf5fe644e148a62750e))
+
+
+### Bug Fixes
+
+* **audio-segment:** preserve files on uncertain commits ([c7f3c76](https://github.com/ASM-joynnovate/buddybird-api/commit/c7f3c76b0a7bd8a317e9913a0f0712e67720b761))
+* **auth:** detect new users from the insert result instead of the candidate id ([07b7bd4](https://github.com/ASM-joynnovate/buddybird-api/commit/07b7bd49c40b8113bfc0ca0b9142a07a14f8780c))
+
+
+### Code Refactoring
+
+* **backoffice:** simplify application structure ([10453a6](https://github.com/ASM-joynnovate/buddybird-api/commit/10453a6cc49195dc6f25fc8031c89a3d52f04500))
+
 ## [0.6.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v0.5.0...v0.6.0) (2026-09-13)
 
 
