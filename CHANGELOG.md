@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.0.1...v1.1.0) (2026-09-22)
+
+
+### Features
+
+* **devices:** replace fixed device role with session-based role ([4c9f830](https://github.com/ASM-joynnovate/buddybird-api/commit/4c9f8300e36b2714bf673ab84a883b9d1ccb9d24))
+* **devices:** replace fixed device role with session-based role ([999500e](https://github.com/ASM-joynnovate/buddybird-api/commit/999500e8b66cdf7e7f756cd30d620333028a5a16))
+
 ## [1.0.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.0.0...v1.0.1) (2026-09-19)
 
 
