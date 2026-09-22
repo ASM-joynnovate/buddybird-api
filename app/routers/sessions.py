@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import ActiveDevice, ActiveUser, DBSession, Storage, require_session
+from app.dependencies import ActiveDevice, ActiveUser, DBSession, Storage, require_device, require_session
 from app.models import Session
 from app.schemas.base import BaseResponse, PageParams, UploadResponse
 from app.schemas.sessions import (
@@ -51,37 +51,48 @@ async def get_detail(session: Annotated[Session, Depends(require_session)]) -> S
     return SessionResponse(message="세션 상세 조회 성공", data=sessions.get_detail(session=session))
 
 
-@router.put("/{session_id}/word", name="세션 학습 단어 변경", response_model=SessionResponse)
+@router.put(
+    "/{session_id}/word",
+    name="세션 학습 단어 변경",
+    response_model=SessionResponse,
+    dependencies=[Depends(require_device)],
+)
 async def change_word(
     session: Annotated[Session, Depends(require_session)],
-    device: ActiveDevice,
     body: ChangeSessionWordRequest,
     db: DBSession,
 ) -> SessionResponse:
     return SessionResponse(
         message="세션 학습 단어 변경 성공",
-        data=await sessions.change_word(db=db, session=session, device=device, data=body),
+        data=await sessions.change_word(db=db, session=session, data=body),
     )
 
 
-@router.put("/{session_id}/learning", name="세션 학습 켜기 끄기", response_model=SessionResponse)
+@router.put(
+    "/{session_id}/learning",
+    name="세션 학습 켜기 끄기",
+    response_model=SessionResponse,
+    dependencies=[Depends(require_device)],
+)
 async def change_learning(
     session: Annotated[Session, Depends(require_session)],
-    device: ActiveDevice,
     body: ChangeSessionLearningRequest,
     db: DBSession,
 ) -> SessionResponse:
     return SessionResponse(
         message="세션 학습 설정 변경 성공",
-        data=await sessions.change_learning(db=db, session=session, device=device, data=body),
+        data=await sessions.change_learning(db=db, session=session, data=body),
     )
 
 
-@router.post("/{session_id}/finish", name="세션 종료", response_model=SessionResponse)
-async def finish(
-    session: Annotated[Session, Depends(require_session)], device: ActiveDevice, db: DBSession
-) -> SessionResponse:
-    return SessionResponse(message="세션 종료 성공", data=await sessions.finish(db=db, session=session, device=device))
+@router.post(
+    "/{session_id}/finish",
+    name="세션 종료",
+    response_model=SessionResponse,
+    dependencies=[Depends(require_device)],
+)
+async def finish(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionResponse:
+    return SessionResponse(message="세션 종료 성공", data=await sessions.finish(db=db, session=session))
 
 
 @router.post("/{session_id}/heartbeat", name="세션 heartbeat", response_model=HeartbeatResponse)
@@ -94,14 +105,13 @@ async def record_heartbeat(
     )
 
 
-@router.post("/{session_id}/events", name="세션 이벤트 기록")
+@router.post("/{session_id}/events", name="세션 이벤트 기록", dependencies=[Depends(require_device)])
 async def add_events(
     session: Annotated[Session, Depends(require_session)],
-    device: ActiveDevice,
     body: AddSessionEventsRequest,
     db: DBSession,
 ) -> BaseResponse:
-    await sessions.add_events(db=db, session=session, device=device, data=body)
+    await sessions.add_events(db=db, session=session, data=body)
 
     return BaseResponse(message="세션 이벤트 기록 성공")
 

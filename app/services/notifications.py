@@ -9,10 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import sqs
 from app.config import config
 from app.db import get_or_404, session_factory, transactional
-from app.enums import DeviceRoleEnum, NotificationKindEnum
+from app.enums import NotificationKindEnum, SessionStatusEnum
 from app.errors import NotificationReadFailedError, NotificationSendFailedError, PushDeliveryRetryError
 from app.fcm import send_push
-from app.models import Device, File, Notification, User
+from app.models import Device, File, Notification, Session, User
 from app.s3 import S3StorageClient, get_s3
 from app.schemas.base import PageParams
 from app.schemas.notifications import NotificationDTO, NotificationImageDTO
@@ -172,16 +172,23 @@ async def deliver(notification_id: UUID) -> None:
             logger.warning("알림이 없어 발송을 건너뜀; notification_id=%s", notification_id)
             return
 
-        device = await db.scalar(
-            select(Device).where(
-                Device.user_id == notification.user_id,
-                Device.role == DeviceRoleEnum.VIEWER.value,
-                Device.push_token.is_not(None),
+        devices = (
+            await db.scalars(
+                select(Device).where(
+                    Device.user_id == notification.user_id,
+                    Device.push_token.is_not(None),
+                    Device.id.not_in(
+                        select(Session.station_device_id).where(
+                            Session.user_id == notification.user_id,
+                            Session.status == SessionStatusEnum.RUNNING.value,
+                        )
+                    ),
+                )
             )
-        )
+        ).all()
 
-        if device is None:
-            logger.info("push 토큰이 있는 viewer 기기가 없어 발송을 건너뜀; notification_id=%s", notification_id)
+        if not devices:
+            logger.info("push 토큰이 있는 기기가 없어 발송을 건너뜀; notification_id=%s", notification_id)
             return
 
         image_url = None
@@ -200,24 +207,30 @@ async def deliver(notification_id: UUID) -> None:
         if notification.report_date is not None:
             data["report_date"] = notification.report_date.isoformat()
 
-        try:
-            await send_push(
-                token=device.push_token,
-                title=notification.title,
-                body=notification.body,
-                image_url=image_url,
-                data=data,
-            )
-        except messaging.UnregisteredError, messaging.SenderIdMismatchError:
-            device.push_token = None
+        retry_error = None
 
-            await db.commit()
-        except (
-            exceptions.UnavailableError,
-            exceptions.InternalError,
-            exceptions.ResourceExhaustedError,
-            exceptions.DeadlineExceededError,
-        ) as exc:
-            raise PushDeliveryRetryError from exc
-        except exceptions.FirebaseError:
-            logger.exception("알림 발송 실패; notification_id=%s", notification_id)
+        for device in devices:
+            try:
+                await send_push(
+                    token=device.push_token,
+                    title=notification.title,
+                    body=notification.body,
+                    image_url=image_url,
+                    data=data,
+                )
+            except messaging.UnregisteredError, messaging.SenderIdMismatchError:
+                device.push_token = None
+            except (
+                exceptions.UnavailableError,
+                exceptions.InternalError,
+                exceptions.ResourceExhaustedError,
+                exceptions.DeadlineExceededError,
+            ) as exc:
+                retry_error = exc
+            except exceptions.FirebaseError:
+                logger.exception("알림 발송 실패; notification_id=%s", notification_id)
+
+        await db.commit()
+
+        if retry_error is not None:
+            raise PushDeliveryRetryError from retry_error

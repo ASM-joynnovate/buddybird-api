@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import DeviceRoleEnum, SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
+from app.enums import SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
 from app.errors import DeviceSaveUnavailableError
 from app.models import Device, Session, SessionEvent, User
 from app.schemas.devices import (
@@ -20,7 +20,6 @@ def build_device_dto(device: Device) -> DeviceDTO:
     return DeviceDTO(
         id=device.id,
         client_device_id=device.client_device_id,
-        role=device.role,
         timezone=device.timezone,
         last_seen_at=device.last_seen_at,
         client=DeviceClientDTO(
@@ -52,7 +51,6 @@ async def finish_running_sessions(*, db: AsyncSession, device: Device, now: date
                 session_id=session.id,
                 kind=SessionEventKindEnum.SESSION_FINISHED.value,
                 occurred_at=now,
-                occurred_by=SessionActorEnum.SERVER.value,
             )
         )
 
@@ -71,28 +69,11 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest)
         .where(Device.user_id == user.id, Device.client_device_id == data.client_device_id)
         .execution_options(include_deleted=True)
     )
-    others = (
-        await db.scalars(
-            select(Device).where(
-                Device.user_id == user.id,
-                Device.role == data.role.value,
-                Device.client_device_id != data.client_device_id,
-            )
-        )
-    ).all()
-
-    for other in others:
-        other.is_deleted = True
-
-        await finish_running_sessions(db=db, device=other, now=now)
-
-    await db.flush()
 
     if device is None:
         device = Device(
             user_id=user.id,
             client_device_id=data.client_device_id,
-            role=data.role.value,
             platform=data.platform,
             os_version=data.os_version,
             model=data.model,
@@ -103,10 +84,6 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest)
         )
         db.add(device)
     else:
-        if device.role == DeviceRoleEnum.STATION.value and data.role != DeviceRoleEnum.STATION:
-            await finish_running_sessions(db=db, device=device, now=now)
-
-        device.role = data.role.value
         device.platform = data.platform
         device.os_version = data.os_version
         device.model = data.model
@@ -152,7 +129,6 @@ async def delete_me(*, db: AsyncSession, device: Device) -> None:
     device.is_deleted = True
     device.push_token = None
 
-    if device.role == DeviceRoleEnum.STATION.value:
-        await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
+    await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
 
     await db.flush()

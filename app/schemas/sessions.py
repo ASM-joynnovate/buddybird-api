@@ -129,7 +129,6 @@ class SessionEventDTO(CustomBaseModel):
     id: UUID
     kind: SessionEventKindEnum
     occurred_at: datetime
-    occurred_by: SessionActorEnum
     word: SessionEventWordDTO | None
 
 

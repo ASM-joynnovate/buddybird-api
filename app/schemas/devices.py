@@ -5,7 +5,6 @@ from uuid import UUID
 from pydantic import Field, field_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
-from app.enums import DeviceRoleEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
 
@@ -21,7 +20,6 @@ class DeviceDTO(CustomBaseModel):
 
     id: UUID
     client_device_id: UUID
-    role: DeviceRoleEnum
     timezone: str | None
     last_seen_at: datetime | None
     client: DeviceClientDTO
@@ -40,7 +38,6 @@ class RegisterDeviceRequest(BaseRequest):
     null_fields: ClassVar[set] = {"timezone"}
 
     client_device_id: UUID
-    role: DeviceRoleEnum
     platform: str = Field(..., min_length=1, max_length=10)
     os_version: str = Field(..., min_length=1, max_length=20)
     model: str = Field(..., min_length=1, max_length=30)
