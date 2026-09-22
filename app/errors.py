@@ -150,7 +150,7 @@ class SessionSaveUnavailableError(CustomError):
 class SessionAlreadyRunningError(CustomError):
     code = 409
     error_code = "SESSION__ALREADY_RUNNING"
-    message = "이 station에서 실행 중인 세션이 이미 있습니다."
+    message = "실행 중인 세션이 이미 있습니다."
 
 
 class SessionNotRunningError(CustomError):

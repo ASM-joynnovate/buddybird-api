@@ -185,27 +185,11 @@ class UserConsent(Base):
 
 class Device(Base):
     __tablename__ = "devices"
-    __table_args__ = (
-        UniqueConstraint("user_id", "client_device_id", name="uq_devices_user_id_client_device_id"),
-        CheckConstraint("role IN ('station', 'viewer')", name="ck_devices_role"),
-        Index(
-            "uq_devices_station_active",
-            "user_id",
-            unique=True,
-            postgresql_where=text("role = 'station' AND is_deleted = false"),
-        ),
-        Index(
-            "uq_devices_viewer_active",
-            "user_id",
-            unique=True,
-            postgresql_where=text("role = 'viewer' AND is_deleted = false"),
-        ),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "client_device_id", name="uq_devices_user_id_client_device_id"),)
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
     client_device_id: Mapped[UUID] = mapped_column(SQL_UUID, nullable=False)
-    role: Mapped[str] = mapped_column(Text, nullable=False)
     platform: Mapped[str] = mapped_column(String(10), nullable=False)
     os_version: Mapped[str] = mapped_column(String(20), nullable=False)
     model: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -251,8 +235,8 @@ class Session(Base):
     __table_args__ = (
         CheckConstraint("status IN ('running', 'finished')", name="ck_sessions_status"),
         Index(
-            "uq_sessions_station_running",
-            "station_device_id",
+            "uq_sessions_user_running",
+            "user_id",
             unique=True,
             postgresql_where=text("status = 'running' AND is_deleted = false"),
         ),
@@ -288,7 +272,6 @@ class SessionEvent(Base):
     session_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    occurred_by: Mapped[str] = mapped_column(Text, nullable=False)
     word_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=True)
     emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
 

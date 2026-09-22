@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import DeviceRoleEnum, SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
+from app.enums import SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
 from app.errors import (
     DeviceNotStationError,
     ResourceNotFoundError,
@@ -80,7 +80,7 @@ def verify_running(session: Session) -> None:
 
 
 def verify_station(session: Session, device: Device) -> None:
-    if device.role != DeviceRoleEnum.STATION.value or session.station_device_id != device.id:
+    if session.station_device_id != device.id:
         raise DeviceNotStationError
 
 
@@ -104,9 +104,6 @@ def get_detail(*, session: Session) -> SessionDTO:
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
 async def start(*, db: AsyncSession, user: User, device: Device, data: StartSessionRequest) -> SessionDTO:
-    if device.role != DeviceRoleEnum.STATION.value:
-        raise DeviceNotStationError
-
     if data.word_id is not None:
         await verify_words_owned(db=db, user_id=user.id, word_ids={data.word_id})
 
@@ -135,7 +132,6 @@ async def start(*, db: AsyncSession, user: User, device: Device, data: StartSess
             session_id=session.id,
             kind=SessionEventKindEnum.SESSION_STARTED.value,
             occurred_at=now,
-            occurred_by=SessionActorEnum.STATION.value,
         )
     )
 
@@ -145,9 +141,7 @@ async def start(*, db: AsyncSession, user: User, device: Device, data: StartSess
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def change_word(
-    *, db: AsyncSession, session: Session, device: Device, data: ChangeSessionWordRequest
-) -> SessionDTO:
+async def change_word(*, db: AsyncSession, session: Session, data: ChangeSessionWordRequest) -> SessionDTO:
     verify_running(session)
 
     if data.word_id is not None:
@@ -161,7 +155,6 @@ async def change_word(
             session_id=session.id,
             kind=SessionEventKindEnum.WORD_CHANGED.value,
             occurred_at=datetime.now(UTC),
-            occurred_by=device.role,
             word_id=data.word_id,
         )
     )
@@ -172,9 +165,7 @@ async def change_word(
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def change_learning(
-    *, db: AsyncSession, session: Session, device: Device, data: ChangeSessionLearningRequest
-) -> SessionDTO:
+async def change_learning(*, db: AsyncSession, session: Session, data: ChangeSessionLearningRequest) -> SessionDTO:
     verify_running(session)
 
     session.learning_enabled = data.enabled
@@ -185,7 +176,6 @@ async def change_learning(
             session_id=session.id,
             kind=SessionEventKindEnum.LEARNING_TOGGLED.value,
             occurred_at=datetime.now(UTC),
-            occurred_by=device.role,
         )
     )
 
@@ -195,20 +185,19 @@ async def change_learning(
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def finish(*, db: AsyncSession, session: Session, device: Device) -> SessionDTO:
+async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
     verify_running(session)
 
     now = datetime.now(UTC)
     session.status = SessionStatusEnum.FINISHED.value
     session.ended_at = now
-    session.ended_by = device.role
+    session.ended_by = SessionActorEnum.USER.value
 
     db.add(
         SessionEvent(
             session_id=session.id,
             kind=SessionEventKindEnum.SESSION_FINISHED.value,
             occurred_at=now,
-            occurred_by=device.role,
         )
     )
 
@@ -287,7 +276,7 @@ async def record_heartbeat(
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def add_events(*, db: AsyncSession, session: Session, device: Device, data: AddSessionEventsRequest) -> None:
+async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEventsRequest) -> None:
     await verify_words_owned(
         db=db,
         user_id=session.user_id,
@@ -300,7 +289,6 @@ async def add_events(*, db: AsyncSession, session: Session, device: Device, data
                 session_id=session.id,
                 kind=event.kind.value,
                 occurred_at=event.occurred_at,
-                occurred_by=device.role,
                 word_id=event.word_id,
             )
         )
@@ -320,7 +308,6 @@ async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEvent
             id=event.id,
             kind=event.kind,
             occurred_at=event.occurred_at,
-            occurred_by=event.occurred_by,
             word=SessionEventWordDTO(id=event.word_id) if event.word_id is not None else None,
         )
         for event in events

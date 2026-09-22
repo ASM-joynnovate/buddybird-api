@@ -19,11 +19,6 @@ class ConsentStatusEnum(StrEnum):
     DENIED = "denied"
 
 
-class DeviceRoleEnum(StrEnum):
-    STATION = "station"
-    VIEWER = "viewer"
-
-
 class PresetLanguageEnum(StrEnum):
     KO = "ko"
     EN = "en"
@@ -42,8 +37,7 @@ class SessionPhaseEnum(StrEnum):
 
 
 class SessionActorEnum(StrEnum):
-    STATION = "station"
-    VIEWER = "viewer"
+    USER = "user"
     SERVER = "server"
 
 
