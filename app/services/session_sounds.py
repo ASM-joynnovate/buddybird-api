@@ -3,6 +3,7 @@ from uuid import uuid7
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import contains_eager
 
 from app.db import transactional
 from app.enums import FileStatusEnum
@@ -63,7 +64,8 @@ async def get_list(
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
         await db.scalars(
-            stmt.order_by(SessionSound.captured_at.desc())
+            stmt.options(contains_eager(SessionSound.audio_file))
+            .order_by(SessionSound.captured_at.desc())
             .offset((query.page - 1) * query.count_by_page)
             .limit(query.count_by_page)
         )
@@ -88,7 +90,8 @@ async def get_user_list(
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
         await db.scalars(
-            stmt.order_by(SessionSound.captured_at.desc())
+            stmt.options(contains_eager(SessionSound.audio_file))
+            .order_by(SessionSound.captured_at.desc())
             .offset((query.page - 1) * query.count_by_page)
             .limit(query.count_by_page)
         )
