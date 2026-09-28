@@ -40,16 +40,8 @@ async def create(*, db: AsyncSession, user: User, storage: S3StorageClient, data
 
 @transactional(unavailable_error=ParrotSaveUnavailableError)
 async def update(*, db: AsyncSession, storage: S3StorageClient, parrot: Parrot, data: UpdateParrotRequest) -> ParrotDTO:
-    changes = data.model_dump(exclude_unset=True)
-
-    if "name" in changes:
-        parrot.name = changes["name"]
-
-    if "species" in changes:
-        parrot.species = changes["species"]
-
-    if "birthdate" in changes:
-        parrot.birthdate = changes["birthdate"]
+    for name, value in data.model_dump(exclude_unset=True).items():
+        setattr(parrot, name, value)
 
     await db.flush()
 

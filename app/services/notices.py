@@ -97,19 +97,8 @@ async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreateNoti
 
 @transactional(unavailable_error=NoticeSaveUnavailableError)
 async def update(*, db: AsyncSession, storage: S3StorageClient, notice: Notice, data: UpdateNoticeRequest) -> NoticeDTO:
-    changes = data.model_dump(exclude_unset=True)
-
-    if "title" in changes:
-        notice.title = changes["title"]
-
-    if "body" in changes:
-        notice.body = changes["body"]
-
-    if "starts_at" in changes:
-        notice.starts_at = changes["starts_at"]
-
-    if "ends_at" in changes:
-        notice.ends_at = changes["ends_at"]
+    for name, value in data.model_dump(exclude_unset=True).items():
+        setattr(notice, name, value)
 
     if notice.ends_at is not None and notice.ends_at <= notice.starts_at:
         raise InvalidNoticePeriodError

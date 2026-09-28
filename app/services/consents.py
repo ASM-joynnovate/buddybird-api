@@ -76,19 +76,8 @@ async def update(*, db: AsyncSession, consent: Consent, data: UpdateConsentReque
     if consent.published_at <= datetime.now(UTC):
         raise ConsentAlreadyPublishedError
 
-    changes = data.model_dump(exclude_unset=True)
-
-    if "title" in changes:
-        consent.title = changes["title"]
-
-    if "body" in changes:
-        consent.body = changes["body"]
-
-    if "is_required" in changes:
-        consent.is_required = changes["is_required"]
-
-    if "published_at" in changes:
-        consent.published_at = changes["published_at"]
+    for name, value in data.model_dump(exclude_unset=True).items():
+        setattr(consent, name, value)
 
     await db.flush()
 

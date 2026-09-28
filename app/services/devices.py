@@ -108,16 +108,8 @@ async def update_push_token(*, db: AsyncSession, device: Device, data: UpdatePus
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)
 async def update_me(*, db: AsyncSession, device: Device, data: UpdateDeviceRequest) -> DeviceDTO:
-    changes = data.model_dump(exclude_unset=True)
-
-    if "app_version" in changes:
-        device.app_version = changes["app_version"]
-
-    if "os_version" in changes:
-        device.os_version = changes["os_version"]
-
-    if "timezone" in changes:
-        device.timezone = changes["timezone"]
+    for name, value in data.model_dump(exclude_unset=True).items():
+        setattr(device, name, value)
 
     await db.flush()
 
