@@ -1,6 +1,5 @@
 import asyncio
 from contextlib import suppress
-from functools import lru_cache
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -90,15 +89,17 @@ class S3StorageClient:
         )
 
 
-@lru_cache(maxsize=1)
-def get_s3() -> S3StorageClient:
-    return S3StorageClient(
-        client=boto3.client(
-            "s3",
-            endpoint_url=config.S3_ENDPOINT_URL,
-            aws_access_key_id=config.S3_ACCESS_KEY,
-            aws_secret_access_key=config.S3_SECRET_KEY,
-            region_name=config.S3_REGION,
-            config=Config(signature_version="s3v4"),
-        )
+s3 = S3StorageClient(
+    client=boto3.client(
+        "s3",
+        endpoint_url=config.S3_ENDPOINT_URL,
+        aws_access_key_id=config.S3_ACCESS_KEY,
+        aws_secret_access_key=config.S3_SECRET_KEY,
+        region_name=config.S3_REGION,
+        config=Config(signature_version="s3v4"),
     )
+)
+
+
+async def get_s3() -> S3StorageClient:
+    return s3

@@ -13,7 +13,7 @@ from app.enums import NotificationKindEnum, SessionStatusEnum
 from app.errors import NotificationReadFailedError, NotificationSendFailedError, PushDeliveryRetryError
 from app.fcm import send_push
 from app.models import Device, File, Notification, Session, User
-from app.s3 import S3StorageClient, get_s3
+from app.s3 import S3StorageClient, s3
 from app.schemas.base import PageParams
 from app.schemas.notifications import NotificationDTO, NotificationImageDTO
 from app.services.settings import get_or_create_settings
@@ -194,7 +194,7 @@ async def deliver(notification_id: UUID) -> None:
         image_url = None
 
         if notification.image_file is not None:
-            image_url = get_s3().generate_presigned_url(path=notification.image_file.object_key)
+            image_url = s3.generate_presigned_url(path=notification.image_file.object_key)
 
         data = {"kind": notification.kind, "notification_id": str(notification.id)}
 

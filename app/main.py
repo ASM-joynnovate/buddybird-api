@@ -32,7 +32,7 @@ from app.routers import (
     users,
     words,
 )
-from app.s3 import get_s3
+from app.s3 import s3
 
 
 @asynccontextmanager
@@ -45,8 +45,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await engine.dispose()
         await http_client.aclose()
 
-        get_s3().close()
-        get_s3.cache_clear()
+        s3.close()
 
 
 def create_app() -> FastAPI:
