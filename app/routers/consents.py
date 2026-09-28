@@ -11,12 +11,12 @@ from app.services import consents
 router = APIRouter(prefix="/consents")
 
 
-@router.get("", name="고지문 목록 조회", response_model=ConsentListResponse)
+@router.get("", name="고지문 목록 조회")
 async def get_list(user: ActiveUser, db: DBSession) -> ConsentListResponse:
     return ConsentListResponse(message="고지문 목록 조회 성공", data=await consents.get_list(db=db, user=user))
 
 
-@router.get("/{consent_id}", name="고지문 상세 조회", response_model=ConsentResponse)
+@router.get("/{consent_id}", name="고지문 상세 조회")
 async def get_detail(
     user: ActiveUser, consent: Annotated[Consent, Depends(require_consent)], db: DBSession
 ) -> ConsentResponse:
@@ -25,14 +25,12 @@ async def get_detail(
     )
 
 
-@router.post("", name="고지문 생성", response_model=ConsentResponse, dependencies=[Depends(require_backoffice)])
+@router.post("", name="고지문 생성", dependencies=[Depends(require_backoffice)])
 async def create(body: CreateConsentRequest, db: DBSession) -> ConsentResponse:
     return ConsentResponse(message="고지문 생성 성공", data=await consents.create(db=db, data=body))
 
 
-@router.patch(
-    "/{consent_id}", name="고지문 수정", response_model=ConsentResponse, dependencies=[Depends(require_backoffice)]
-)
+@router.patch("/{consent_id}", name="고지문 수정", dependencies=[Depends(require_backoffice)])
 async def update(
     consent: Annotated[Consent, Depends(require_consent)], body: UpdateConsentRequest, db: DBSession
 ) -> ConsentResponse:

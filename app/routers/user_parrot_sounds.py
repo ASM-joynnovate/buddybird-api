@@ -10,7 +10,7 @@ from app.services import session_sounds
 router = APIRouter(prefix="/users/me/parrot-sounds")
 
 
-@router.get("", name="내 앵무새 발성 목록 조회", response_model=SessionSoundListResponse)
+@router.get("", name="내 앵무새 발성 목록 조회")
 async def get_list(
     user: ActiveUser, query: Annotated[PageParams, Query()], db: DBSession, storage: Storage
 ) -> SessionSoundListResponse:

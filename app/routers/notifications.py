@@ -17,7 +17,7 @@ from app.services import notifications
 router = APIRouter(prefix="/notifications")
 
 
-@router.get("", name="알림 목록 조회", response_model=NotificationListResponse)
+@router.get("", name="알림 목록 조회")
 async def get_list(
     user: ActiveUser, query: Annotated[PageParams, Query()], db: DBSession, storage: Storage
 ) -> NotificationListResponse:
@@ -42,7 +42,7 @@ async def mark_all_read(user: ActiveUser, db: DBSession) -> BaseResponse:
     return BaseResponse(message="알림 전체 읽음 처리 성공")
 
 
-@router.post("/{notification_id}/read", name="알림 읽음 처리", response_model=NotificationResponse)
+@router.post("/{notification_id}/read", name="알림 읽음 처리")
 async def mark_read(
     notification: Annotated[Notification, Depends(require_notification)], db: DBSession, storage: Storage
 ) -> NotificationResponse:
@@ -52,7 +52,7 @@ async def mark_read(
     )
 
 
-@router.post("", name="알림 발송", response_model=NotificationSendResponse, dependencies=[Depends(require_backoffice)])
+@router.post("", name="알림 발송", dependencies=[Depends(require_backoffice)])
 async def send(body: SendNotificationRequest, db: DBSession, storage: Storage) -> NotificationSendResponse:
     user = await get_or_404(db=db, model=User, id=body.user_id)
     dto = await notifications.send(db=db, storage=storage, user=user, kind=body.kind, title=body.title, body=body.body)

@@ -8,7 +8,7 @@ from app.services import auth, withdrawals
 router = APIRouter(prefix="/auth")
 
 
-@router.post("/login", name="로그인 완료", response_model=LoginResponse)
+@router.post("/login", name="로그인 완료")
 async def login(
     context: Authenticated, db: DBSession, storage: Storage, body: LoginRequest | None = None
 ) -> LoginResponse:
@@ -24,7 +24,7 @@ async def login(
     )
 
 
-@router.delete("/withdrawal", name="회원 탈퇴 접수", status_code=202, response_model=WithdrawalResponse)
+@router.delete("/withdrawal", name="회원 탈퇴 접수", status_code=202)
 async def withdrawal(context: Authenticated, db: DBSession, background_tasks: BackgroundTasks) -> WithdrawalResponse:
     data = await withdrawals.request_withdrawal(
         db=db, auth_user_id=context.auth_user_id, access_token=context.access_token

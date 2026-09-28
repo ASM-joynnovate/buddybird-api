@@ -8,7 +8,7 @@ from app.services import users
 router = APIRouter(prefix="/users")
 
 
-@router.get("/me", name="내 프로필 조회", response_model=UserResponse)
+@router.get("/me", name="내 프로필 조회")
 async def get_me(user: ActiveUser, storage: Storage) -> UserResponse:
     return UserResponse(message="사용자 조회 성공", data=await users.get_profile(user=user, storage=storage))
 
@@ -20,7 +20,7 @@ async def update_me(user: ActiveUser, body: UpdateUserRequest, db: DBSession) ->
     return BaseResponse(message="사용자 수정 성공")
 
 
-@router.put("/me/photo", name="내 프로필 사진 업로드 URL 발급", response_model=UploadResponse)
+@router.put("/me/photo", name="내 프로필 사진 업로드 URL 발급")
 async def update_photo(user: ActiveUser, body: UploadRequest, db: DBSession, storage: Storage) -> UploadResponse:
     return UploadResponse(
         message="프로필 사진 업로드 URL 발급 성공",

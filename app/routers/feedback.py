@@ -10,7 +10,7 @@ from app.services import feedback
 router = APIRouter(prefix="/feedback")
 
 
-@router.post("", name="피드백 제출", response_model=FeedbackResponse)
+@router.post("", name="피드백 제출")
 async def create(
     user: ActiveUser, device: ActiveDevice, body: CreateFeedbackRequest, db: DBSession
 ) -> FeedbackResponse:
@@ -19,9 +19,7 @@ async def create(
     )
 
 
-@router.get(
-    "", name="피드백 목록 조회", response_model=FeedbackListResponse, dependencies=[Depends(require_backoffice)]
-)
+@router.get("", name="피드백 목록 조회", dependencies=[Depends(require_backoffice)])
 async def get_list(query: Annotated[PageParams, Query()], db: DBSession) -> FeedbackListResponse:
     items, total = await feedback.get_list(db=db, query=query)
 
