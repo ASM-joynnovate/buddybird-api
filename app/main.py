@@ -1,8 +1,6 @@
 import logging
-import tomllib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
@@ -12,6 +10,7 @@ from fastapi.responses import HTMLResponse
 from scalar_fastapi import get_scalar_api_reference
 from starlette.middleware.authentication import AuthenticationMiddleware
 
+from app import sentry
 from app.config import config
 from app.db import engine
 from app.errors import register_exception_handlers
@@ -51,10 +50,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    sentry.init()
+
     application = FastAPI(
         title="BuddyBird API",
         description="\n버디버드 API\n        ",
-        version=tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())["project"]["version"],
+        version=config.VERSION,
         lifespan=lifespan,
         docs_url=config.DOCS_URL,
         redoc_url=config.REDOC_URL,

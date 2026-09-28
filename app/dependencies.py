@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 from uuid import UUID
 
+import sentry_sdk
 from fastapi import Depends, Header, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -63,6 +64,9 @@ async def require_active_user(context: Authenticated, db: DBSession) -> User:
 
     if user is None:
         raise AuthenticationError
+
+    sentry_sdk.set_user({"id": str(user.id)})
+    sentry_sdk.set_attribute("user.id", str(user.id))
 
     return user
 

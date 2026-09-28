@@ -19,6 +19,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pyjwt[crypto]>=2.13.0",
     "scalar-fastapi>=1.8.2",
+    "sentry-sdk>=2.69.2",
     "sqlalchemy>=2.0.52",
     "starlette>=1.6.0",
     "tenacity>=9.1.4",
