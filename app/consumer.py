@@ -5,8 +5,10 @@ import signal
 from collections.abc import Awaitable, Callable
 from uuid import UUID
 
+import sentry_sdk
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app import sentry
 from app.config import config
 from app.services import uploads
 from app.services.notifications import deliver
@@ -25,6 +27,9 @@ async def send_notification(body: dict) -> None:
 
 
 async def process_withdrawal(body: dict) -> None:
+    sentry_sdk.set_user({"id": body["user_id"]})
+    sentry_sdk.set_attribute("user.id", body["user_id"])
+
     await process_user_withdrawal(UUID(body["user_id"]))
 
 
@@ -52,18 +57,29 @@ async def consume(*, queue_url: str, handle: Callable[[dict], Awaitable[None]]) 
             continue
 
         for message in response.get("Messages", []):
-            try:
-                await handle(json.loads(message["Body"]))
-                await asyncio.to_thread(
-                    sqs.delete_message,
-                    QueueUrl=queue_url,
-                    ReceiptHandle=message["ReceiptHandle"],
+            with sentry_sdk.isolation_scope(), sentry_sdk.start_transaction(op="queue.process", name=handle.__name__):
+                sentry_sdk.set_attributes(
+                    {
+                        "messaging.system": "aws_sqs",
+                        "messaging.destination.name": queue_url.rsplit("/", 1)[-1],
+                        "messaging.message.id": message["MessageId"],
+                    }
                 )
-            except Exception:
-                logger.exception("메시지 처리 실패; queue_url=%s message_id=%s", queue_url, message["MessageId"])
+
+                try:
+                    await handle(json.loads(message["Body"]))
+                    await asyncio.to_thread(
+                        sqs.delete_message,
+                        QueueUrl=queue_url,
+                        ReceiptHandle=message["ReceiptHandle"],
+                    )
+                except Exception:
+                    logger.exception("메시지 처리 실패; queue_url=%s message_id=%s", queue_url, message["MessageId"])
 
 
 async def main() -> None:
+    sentry.init()
+
     logging.basicConfig(level=config.LOG_LEVEL)
     logging.getLogger("botocore").setLevel(logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.INFO)

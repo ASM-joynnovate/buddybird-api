@@ -1,4 +1,6 @@
 import os
+import tomllib
+from pathlib import Path
 from typing import ClassVar, Literal
 from urllib.parse import quote_plus
 
@@ -8,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _env = os.getenv("ENV", "local")
 _local = _env not in {"prod", "dev", "test"}
 _env_file = ".env.local" if _local else f".env.{_env}"
+_pyproject = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())
 
 
 class Settings(BaseSettings):
@@ -19,6 +22,7 @@ class Settings(BaseSettings):
     )
 
     ENV: ClassVar[str] = _env
+    VERSION: ClassVar[str] = _pyproject["project"]["version"]
 
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
@@ -64,6 +68,9 @@ class Settings(BaseSettings):
     OPENAPI_URL: str | None = None if _env == "prod" else "/api/openapi.json"
     DOCS_URL: str | None = None if _env == "prod" else "/api/docs"
     REDOC_URL: str | None = None if _env == "prod" else "/api/redoc"
+
+    SENTRY_DSN: str | None = None
+    SENTRY_TRACES_SAMPLE_RATE: float = 1.0
 
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "DEBUG" if _local or _env == "dev" else "INFO"
 

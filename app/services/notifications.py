@@ -208,6 +208,7 @@ async def deliver(notification_id: UUID) -> None:
             data["report_date"] = notification.report_date.isoformat()
 
         retry_error = None
+        sent_count = 0
 
         for device in devices:
             try:
@@ -218,6 +219,7 @@ async def deliver(notification_id: UUID) -> None:
                     image_url=image_url,
                     data=data,
                 )
+                sent_count += 1
             except messaging.UnregisteredError, messaging.SenderIdMismatchError:
                 device.push_token = None
             except (
@@ -231,6 +233,17 @@ async def deliver(notification_id: UUID) -> None:
                 logger.exception("알림 발송 실패; notification_id=%s", notification_id)
 
         await db.commit()
+
+        logger.info(
+            "알림 발송 결과",
+            extra={
+                "buddybird.notification.id": str(notification.id),
+                "buddybird.notification.kind": notification.kind,
+                "buddybird.push.device_count": len(devices),
+                "buddybird.push.sent_count": sent_count,
+                "buddybird.push.token_removed_count": sum(device.push_token is None for device in devices),
+            },
+        )
 
         if retry_error is not None:
             raise PushDeliveryRetryError from retry_error
