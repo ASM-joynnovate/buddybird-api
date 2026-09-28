@@ -15,7 +15,7 @@ from app.config import config
 from app.db import engine
 from app.errors import register_exception_handlers
 from app.legacy.routers import captures, labels
-from app.middlewares import AuthBackend, ETagMiddleware, IdempotencyMiddleware, NoStoreMiddleware
+from app.middlewares import AuthBackend, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
 from app.routers import (
     auth,
@@ -70,7 +70,6 @@ def create_app() -> FastAPI:
                 allow_headers=["*"],
             ),
             Middleware(NoStoreMiddleware),
-            Middleware(ETagMiddleware),
             Middleware(CorrelationIdMiddleware),
             Middleware(AuthenticationMiddleware, backend=AuthBackend()),
             Middleware(IdempotencyMiddleware),
