@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import transactional
 from app.enums import FileStatusEnum
 from app.errors import (
-    AuthenticationError,
     DuplicateNicknameError,
     FileSizeExceededError,
     InvalidProfilePhotoError,
@@ -129,9 +128,6 @@ async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserReques
     if "nickname" not in changes:
         return
 
-    if user.is_deleted:
-        raise AuthenticationError
-
     user.nickname = changes["nickname"]
 
     try:
@@ -142,9 +138,6 @@ async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserReques
 
 @transactional(unavailable_error=UserSaveUnavailableError)
 async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User, data: UploadRequest) -> UploadDTO:
-    if user.is_deleted:
-        raise AuthenticationError
-
     if data.content_type not in PHOTO_TYPES:
         raise InvalidProfilePhotoError
 
@@ -181,9 +174,6 @@ async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User
 
 @transactional(unavailable_error=UserSaveUnavailableError)
 async def delete_photo(*, db: AsyncSession, user: User) -> None:
-    if user.is_deleted:
-        raise AuthenticationError
-
     old_file = user.photo_file
 
     if old_file is None:
