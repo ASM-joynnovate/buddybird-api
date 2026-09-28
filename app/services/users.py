@@ -19,7 +19,7 @@ from app.errors import (
 )
 from app.models import File, User
 from app.oauth.base import http_client
-from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.s3 import S3StorageClient
 from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.users import ProfilePhotoDTO, UpdateUserRequest, UserDTO
 
@@ -160,15 +160,11 @@ async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User
 
     await db.flush()
 
-    return UploadDTO(
+    return storage.generate_presigned_upload(
         file_id=file_id,
-        url=storage.generate_presigned_upload_url(
-            path=f"upload/{photo_file.object_key}",
-            file_type=data.content_type,
-            file_size=data.file_size,
-        ),
-        headers={"Content-Type": data.content_type},
-        expires_in=UPLOAD_URL_EXPIRES_IN,
+        path=f"upload/{photo_file.object_key}",
+        content_type=data.content_type,
+        file_size=data.file_size,
     )
 
 

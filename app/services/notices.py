@@ -14,7 +14,7 @@ from app.errors import (
     NoticeSaveUnavailableError,
 )
 from app.models import File, Notice, NoticeImage, NoticeRead, User
-from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.s3 import S3StorageClient
 from app.schemas.base import PageParams, UploadDTO, UploadRequest
 from app.schemas.notices import CreateNoticeRequest, NoticeDTO, NoticeImageDTO, UpdateNoticeRequest
 from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
@@ -148,15 +148,11 @@ async def add_image(
 
     await db.flush()
 
-    return UploadDTO(
+    return storage.generate_presigned_upload(
         file_id=file_id,
-        url=storage.generate_presigned_upload_url(
-            path=f"upload/{image_file.object_key}",
-            file_type=data.content_type,
-            file_size=data.file_size,
-        ),
-        headers={"Content-Type": data.content_type},
-        expires_in=UPLOAD_URL_EXPIRES_IN,
+        path=f"upload/{image_file.object_key}",
+        content_type=data.content_type,
+        file_size=data.file_size,
     )
 
 

@@ -7,7 +7,7 @@ from app.db import transactional
 from app.enums import FileStatusEnum
 from app.errors import FileSizeExceededError, InvalidProfilePhotoError, ParrotSaveUnavailableError
 from app.models import File, Parrot, User
-from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.s3 import S3StorageClient
 from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.parrots import CreateParrotRequest, ParrotDTO, ParrotPhotoDTO, UpdateParrotRequest
 from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
@@ -88,15 +88,11 @@ async def update_photo(
 
     await db.flush()
 
-    return UploadDTO(
+    return storage.generate_presigned_upload(
         file_id=file_id,
-        url=storage.generate_presigned_upload_url(
-            path=f"upload/{photo_file.object_key}",
-            file_type=data.content_type,
-            file_size=data.file_size,
-        ),
-        headers={"Content-Type": data.content_type},
-        expires_in=UPLOAD_URL_EXPIRES_IN,
+        path=f"upload/{photo_file.object_key}",
+        content_type=data.content_type,
+        file_size=data.file_size,
     )
 
 
