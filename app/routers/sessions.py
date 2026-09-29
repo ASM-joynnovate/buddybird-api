@@ -23,30 +23,25 @@ from app.services import session_sounds, sessions
 router = APIRouter(prefix="/sessions")
 
 
-@router.post("", name="세션 시작", response_model=SessionResponse)
+@router.post("", name="세션 시작")
 async def start(user: ActiveUser, device: ActiveDevice, body: StartSessionRequest, db: DBSession) -> SessionResponse:
     return SessionResponse(
         message="세션 시작 성공", data=await sessions.start(db=db, user=user, device=device, data=body)
     )
 
 
-@router.get("", name="세션 목록 조회", response_model=SessionListResponse)
+@router.get("", name="세션 목록 조회")
 async def get_list(user: ActiveUser, query: Annotated[PageParams, Query()], db: DBSession) -> SessionListResponse:
     items, total = await sessions.get_list(db=db, user=user, query=query)
 
     return SessionListResponse(
         message="세션 목록 조회 성공",
         data=items,
-        meta={
-            "current_page": query.page,
-            "total_page_count": (total + query.count_by_page - 1) // query.count_by_page,
-            "is_first": query.page == 1,
-            "is_last": query.page * query.count_by_page >= total,
-        },
+        meta=query.meta(total),
     )
 
 
-@router.get("/{session_id}", name="세션 상세 조회", response_model=SessionResponse)
+@router.get("/{session_id}", name="세션 상세 조회")
 async def get_detail(session: Annotated[Session, Depends(require_session)]) -> SessionResponse:
     return SessionResponse(message="세션 상세 조회 성공", data=sessions.get_detail(session=session))
 
@@ -54,7 +49,6 @@ async def get_detail(session: Annotated[Session, Depends(require_session)]) -> S
 @router.put(
     "/{session_id}/word",
     name="세션 학습 단어 변경",
-    response_model=SessionResponse,
     dependencies=[Depends(require_device)],
 )
 async def change_word(
@@ -71,7 +65,6 @@ async def change_word(
 @router.put(
     "/{session_id}/learning",
     name="세션 학습 켜기 끄기",
-    response_model=SessionResponse,
     dependencies=[Depends(require_device)],
 )
 async def change_learning(
@@ -88,14 +81,13 @@ async def change_learning(
 @router.post(
     "/{session_id}/finish",
     name="세션 종료",
-    response_model=SessionResponse,
     dependencies=[Depends(require_device)],
 )
 async def finish(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionResponse:
     return SessionResponse(message="세션 종료 성공", data=await sessions.finish(db=db, session=session))
 
 
-@router.post("/{session_id}/heartbeat", name="세션 heartbeat", response_model=HeartbeatResponse)
+@router.post("/{session_id}/heartbeat", name="세션 heartbeat")
 async def record_heartbeat(
     session: Annotated[Session, Depends(require_session)], device: ActiveDevice, body: HeartbeatRequest, db: DBSession
 ) -> HeartbeatResponse:
@@ -116,14 +108,14 @@ async def add_events(
     return BaseResponse(message="세션 이벤트 기록 성공")
 
 
-@router.get("/{session_id}/events", name="세션 이벤트 조회", response_model=SessionEventListResponse)
+@router.get("/{session_id}/events", name="세션 이벤트 조회")
 async def get_events(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionEventListResponse:
     return SessionEventListResponse(
         message="세션 이벤트 조회 성공", data=await sessions.get_events(db=db, session=session)
     )
 
 
-@router.post("/{session_id}/sounds", name="세션 소리 업로드 URL 발급", response_model=UploadResponse)
+@router.post("/{session_id}/sounds", name="세션 소리 업로드 URL 발급")
 async def upload_sound(
     session: Annotated[Session, Depends(require_session)],
     device: ActiveDevice,
@@ -137,7 +129,7 @@ async def upload_sound(
     )
 
 
-@router.get("/{session_id}/sounds", name="세션 소리 목록 조회", response_model=SessionSoundListResponse)
+@router.get("/{session_id}/sounds", name="세션 소리 목록 조회")
 async def get_sounds(
     session: Annotated[Session, Depends(require_session)],
     query: Annotated[PageParams, Query()],
@@ -149,10 +141,5 @@ async def get_sounds(
     return SessionSoundListResponse(
         message="세션 소리 목록 조회 성공",
         data=items,
-        meta={
-            "current_page": query.page,
-            "total_page_count": (total + query.count_by_page - 1) // query.count_by_page,
-            "is_first": query.page == 1,
-            "is_last": query.page * query.count_by_page >= total,
-        },
+        meta=query.meta(total),
     )

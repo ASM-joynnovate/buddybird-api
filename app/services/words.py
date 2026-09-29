@@ -4,6 +4,7 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import contains_eager
 
 from app.db import transactional
 from app.enums import FileStatusEnum
@@ -51,6 +52,7 @@ async def get_recordings_by_word(*, db: AsyncSession, word_ids: Iterable[UUID]) 
     stmt = (
         select(WordRecording)
         .join(File, File.id == WordRecording.file_id)
+        .options(contains_eager(WordRecording.file))
         .where(WordRecording.word_id.in_(word_ids), File.status == FileStatusEnum.UPLOADED.value)
         .order_by(WordRecording.created_at)
     )
@@ -154,15 +156,11 @@ async def add_recording(*, db: AsyncSession, storage: S3StorageClient, word: Wor
 
     await db.flush()
 
-    return UploadDTO(
+    return storage.generate_presigned_upload(
         file_id=file_id,
-        url=storage.generate_presigned_upload_url(
-            path=recording_file.object_key,
-            file_type=data.content_type,
-            file_size=data.file_size,
-        ),
-        headers={"Content-Type": data.content_type},
-        expires_in=UPLOAD_URL_EXPIRES_IN,
+        path=recording_file.object_key,
+        content_type=data.content_type,
+        file_size=data.file_size,
     )
 
 

@@ -15,7 +15,7 @@ from app.config import config
 from app.db import engine
 from app.errors import register_exception_handlers
 from app.legacy.routers import captures, labels
-from app.middlewares import AuthBackend, ETagMiddleware, IdempotencyMiddleware, NoStoreMiddleware
+from app.middlewares import AuthBackend, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
 from app.routers import (
     auth,
@@ -32,7 +32,7 @@ from app.routers import (
     users,
     words,
 )
-from app.s3 import get_s3
+from app.s3 import s3
 
 
 @asynccontextmanager
@@ -45,8 +45,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await engine.dispose()
         await http_client.aclose()
 
-        get_s3().close()
-        get_s3.cache_clear()
+        s3.close()
 
 
 def create_app() -> FastAPI:
@@ -70,7 +69,6 @@ def create_app() -> FastAPI:
                 allow_headers=["*"],
             ),
             Middleware(NoStoreMiddleware),
-            Middleware(ETagMiddleware),
             Middleware(CorrelationIdMiddleware),
             Middleware(AuthenticationMiddleware, backend=AuthBackend()),
             Middleware(IdempotencyMiddleware),

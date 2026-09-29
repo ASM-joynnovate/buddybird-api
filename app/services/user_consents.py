@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import contains_eager
 
 from app.db import get_or_404, transactional
 from app.errors import ConsentSaveUnavailableError, ResourceNotFoundError
@@ -24,6 +25,7 @@ async def get_list(*, db: AsyncSession, user: User) -> list[UserConsentDTO]:
     stmt = (
         select(UserConsent)
         .join(Consent, Consent.id == UserConsent.consent_id)
+        .options(contains_eager(UserConsent.consent))
         .where(UserConsent.user_id == user.id)
         .order_by(Consent.kind, Consent.version)
     )

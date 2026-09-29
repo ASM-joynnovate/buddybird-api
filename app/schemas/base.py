@@ -38,6 +38,14 @@ class PageParams(BaseRequest):
     page: int = Field(1, ge=1)
     count_by_page: int = Field(12, ge=1, le=100)
 
+    def meta(self, total: int) -> dict[str, int | bool]:
+        return {
+            "current_page": self.page,
+            "total_page_count": (total + self.count_by_page - 1) // self.count_by_page,
+            "is_first": self.page == 1,
+            "is_last": self.page * self.count_by_page >= total,
+        }
+
 
 class UploadRequest(BaseRequest):
     content_type: str

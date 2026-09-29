@@ -8,7 +8,7 @@ from app.db import session_factory, transactional
 from app.enums import FileStatusEnum
 from app.errors import InvalidProfilePhotoError
 from app.models import File, Notice, NoticeImage, Parrot, User
-from app.s3 import get_s3
+from app.s3 import s3
 from app.services.users import prepare_uploaded_photo
 
 logger = logging.getLogger(__name__)
@@ -27,21 +27,20 @@ async def process(*, key: str, size: int) -> None:
             return
 
         if key != path:
-            storage = get_s3()
-            content = await storage.download(path=key)
+            content = await s3.download(path=key)
 
             try:
                 photo = await prepare_uploaded_photo(content)
             except InvalidProfilePhotoError:
                 logger.warning("이미지 검증 실패로 업로드를 거부함; key=%s", key)
 
-                await storage.delete(path=key)
+                await s3.delete(path=key)
                 await reject(db=db, file=file)
 
                 return
 
-            await storage.upload(path=path, file=photo)
-            await storage.delete(path=key)
+            await s3.upload(path=path, file=photo)
+            await s3.delete(path=key)
 
             size = len(photo)
 

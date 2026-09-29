@@ -12,22 +12,22 @@ from app.services import words
 router = APIRouter(prefix="/words")
 
 
-@router.post("", name="단어 등록", response_model=WordResponse)
+@router.post("", name="단어 등록")
 async def create(user: ActiveUser, body: SaveWordRequest, db: DBSession, storage: Storage) -> WordResponse:
     return WordResponse(message="단어 등록 성공", data=await words.create(db=db, user=user, storage=storage, data=body))
 
 
-@router.get("", name="단어 목록 조회", response_model=WordListResponse)
+@router.get("", name="단어 목록 조회")
 async def get_list(user: ActiveUser, db: DBSession, storage: Storage) -> WordListResponse:
     return WordListResponse(message="단어 목록 조회 성공", data=await words.get_list(db=db, user=user, storage=storage))
 
 
-@router.get("/{word_id}", name="단어 상세 조회", response_model=WordResponse)
+@router.get("/{word_id}", name="단어 상세 조회")
 async def get_detail(word: Annotated[Word, Depends(require_word)], db: DBSession, storage: Storage) -> WordResponse:
     return WordResponse(message="단어 상세 조회 성공", data=await words.get_detail(db=db, storage=storage, word=word))
 
 
-@router.patch("/{word_id}", name="단어 수정", response_model=WordResponse)
+@router.patch("/{word_id}", name="단어 수정")
 async def update(
     word: Annotated[Word, Depends(require_word)], body: SaveWordRequest, db: DBSession, storage: Storage
 ) -> WordResponse:
@@ -41,7 +41,7 @@ async def delete(word: Annotated[Word, Depends(require_word)], db: DBSession) ->
     return BaseResponse(message="단어 삭제 성공")
 
 
-@router.post("/{word_id}/recordings", name="녹음 샘플 업로드 URL 발급", response_model=UploadResponse)
+@router.post("/{word_id}/recordings", name="녹음 샘플 업로드 URL 발급")
 async def add_recording(
     word: Annotated[Word, Depends(require_word)],
     body: UploadRequest,

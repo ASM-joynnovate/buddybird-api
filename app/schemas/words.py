@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import StringConstraints
 
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
@@ -27,14 +28,4 @@ class WordListResponse(BaseResponse):
 
 
 class SaveWordRequest(BaseRequest):
-    name: str
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str) -> str:
-        value = value.strip()
-
-        if not 1 <= len(value) <= 50:
-            raise ValueError("단어 이름은 1~50자여야 합니다.")
-
-        return value
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
