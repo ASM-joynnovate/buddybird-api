@@ -26,8 +26,12 @@ async def get_list(user: ActiveUser, db: DBSession, storage: Storage) -> ParrotL
 
 
 @router.get("/{parrot_id}", name="앵무새 상세 조회")
-async def get_detail(parrot: Annotated[Parrot, Depends(require_parrot)], storage: Storage) -> ParrotResponse:
-    return ParrotResponse(message="앵무새 상세 조회 성공", data=parrots.get_detail(parrot=parrot, storage=storage))
+async def get_detail(
+    parrot: Annotated[Parrot, Depends(require_parrot)], db: DBSession, storage: Storage
+) -> ParrotResponse:
+    return ParrotResponse(
+        message="앵무새 상세 조회 성공", data=await parrots.get_detail(db=db, parrot=parrot, storage=storage)
+    )
 
 
 @router.patch("/{parrot_id}", name="앵무새 수정")

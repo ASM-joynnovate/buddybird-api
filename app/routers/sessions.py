@@ -7,8 +7,6 @@ from app.models import Session
 from app.schemas.base import BaseResponse, PageParams, UploadResponse
 from app.schemas.sessions import (
     AddSessionEventsRequest,
-    ChangeSessionLearningRequest,
-    ChangeSessionWordRequest,
     HeartbeatRequest,
     HeartbeatResponse,
     SessionEventListResponse,
@@ -16,6 +14,7 @@ from app.schemas.sessions import (
     SessionResponse,
     SessionSoundListResponse,
     SessionSoundUploadRequest,
+    SessionSummaryResponse,
     StartSessionRequest,
 )
 from app.services import session_sounds, sessions
@@ -42,40 +41,8 @@ async def get_list(user: ActiveUser, query: Annotated[PageParams, Query()], db: 
 
 
 @router.get("/{session_id}", name="세션 상세 조회")
-async def get_detail(session: Annotated[Session, Depends(require_session)]) -> SessionResponse:
-    return SessionResponse(message="세션 상세 조회 성공", data=sessions.get_detail(session=session))
-
-
-@router.put(
-    "/{session_id}/word",
-    name="세션 학습 단어 변경",
-    dependencies=[Depends(require_device)],
-)
-async def change_word(
-    session: Annotated[Session, Depends(require_session)],
-    body: ChangeSessionWordRequest,
-    db: DBSession,
-) -> SessionResponse:
-    return SessionResponse(
-        message="세션 학습 단어 변경 성공",
-        data=await sessions.change_word(db=db, session=session, data=body),
-    )
-
-
-@router.put(
-    "/{session_id}/learning",
-    name="세션 학습 켜기 끄기",
-    dependencies=[Depends(require_device)],
-)
-async def change_learning(
-    session: Annotated[Session, Depends(require_session)],
-    body: ChangeSessionLearningRequest,
-    db: DBSession,
-) -> SessionResponse:
-    return SessionResponse(
-        message="세션 학습 설정 변경 성공",
-        data=await sessions.change_learning(db=db, session=session, data=body),
-    )
+async def get_detail(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionResponse:
+    return SessionResponse(message="세션 상세 조회 성공", data=await sessions.get_detail(db=db, session=session))
 
 
 @router.post(
@@ -142,4 +109,11 @@ async def get_sounds(
         message="세션 소리 목록 조회 성공",
         data=items,
         meta=query.meta(total),
+    )
+
+
+@router.get("/{session_id}/summary", name="세션 요약 조회")
+async def get_summary(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionSummaryResponse:
+    return SessionSummaryResponse(
+        message="세션 요약 조회 성공", data=await sessions.get_summary(db=db, session=session)
     )

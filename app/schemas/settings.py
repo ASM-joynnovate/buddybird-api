@@ -9,11 +9,9 @@ class SleepSettingsDTO(CustomBaseModel):
 
 
 class NotificationSettingsDTO(CustomBaseModel):
-    emergency: bool
-    mimicry: bool
-    daily_summary: bool
-    streak: bool
-    station_disconnect: bool
+    notice_enabled: bool
+    report_enabled: bool
+    marketing_enabled: bool
 
 
 class SettingsDTO(CustomBaseModel):
@@ -31,8 +29,6 @@ class UpdateSleepSettingsRequest(BaseRequest):
 
 
 class UpdateNotificationSettingsRequest(BaseRequest):
-    emergency: bool
-    mimicry: bool
-    daily_summary: bool
-    streak: bool
-    station_disconnect: bool
+    notice_enabled: bool
+    report_enabled: bool
+    marketing_enabled: bool

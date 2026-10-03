@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import get_or_404, session_factory
+from app.enums import LocaleEnum
 from app.errors import (
     AuthenticationError,
     BackofficePasswordInvalidError,
@@ -156,3 +157,13 @@ async def require_backoffice(
 
 async def require_consent(db: DBSession, consent_id: UUID) -> Consent:
     return await get_or_404(db=db, model=Consent, id=consent_id)
+
+
+async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:
+    if accept_language in LocaleEnum:
+        return LocaleEnum(accept_language)
+
+    return LocaleEnum.EN_US
+
+
+Locale = Annotated[LocaleEnum, Depends(get_locale)]

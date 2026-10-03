@@ -12,10 +12,15 @@ from app.db import get_or_404, session_factory, transactional
 from app.enums import NotificationKindEnum, SessionStatusEnum
 from app.errors import NotificationReadFailedError, NotificationSendFailedError, PushDeliveryRetryError
 from app.fcm import send_push
-from app.models import Device, File, Notification, Session, User
+from app.models import Device, File, Notification, Session, SessionSound, User
 from app.s3 import S3StorageClient, s3
 from app.schemas.base import PageParams
-from app.schemas.notifications import NotificationDTO, NotificationImageDTO
+from app.schemas.notifications import (
+    DailySummaryNotificationDataDTO,
+    MimicryNotificationDataDTO,
+    NotificationDTO,
+    NotificationImageDTO,
+)
 from app.services.settings import get_or_create_settings
 
 logger = logging.getLogger(__name__)
@@ -23,9 +28,15 @@ logger = logging.getLogger(__name__)
 
 def build_notification_dto(notification: Notification, storage: S3StorageClient) -> NotificationDTO:
     image = None
+    data = None
 
     if notification.image_file is not None:
         image = NotificationImageDTO(url=storage.generate_presigned_url(path=notification.image_file.object_key))
+
+    if notification.kind == NotificationKindEnum.MIMICRY.value and notification.sound is not None:
+        data = MimicryNotificationDataDTO(sound_id=notification.sound_id, session_id=notification.sound.session_id)
+    elif notification.kind == NotificationKindEnum.DAILY_SUMMARY.value and notification.report_date is not None:
+        data = DailySummaryNotificationDataDTO(report_date=notification.report_date)
 
     return NotificationDTO(
         id=notification.id,
@@ -33,9 +44,7 @@ def build_notification_dto(notification: Notification, storage: S3StorageClient)
         title=notification.title,
         body=notification.body,
         image=image,
-        sound_id=notification.sound_id,
-        emergency_event_id=notification.emergency_event_id,
-        report_date=notification.report_date,
+        data=data,
         sent_at=notification.sent_at,
         read_at=notification.read_at,
     )
@@ -50,36 +59,31 @@ async def create(
     kind: NotificationKindEnum,
     title: str,
     body: str,
-    emergency_event_id: UUID | None = None,
     image_file_id: UUID | None = None,
     sound_id: UUID | None = None,
     report_date: date | None = None,
 ) -> NotificationDTO | None:
     setting = await get_or_create_settings(db=db, user=user)
-    enabled = {
-        NotificationKindEnum.EMERGENCY: setting.notify_emergency,
-        NotificationKindEnum.MIMICRY: setting.notify_mimicry,
-        NotificationKindEnum.STATION_DISCONNECT: setting.notify_station_disconnect,
-        NotificationKindEnum.DAILY_SUMMARY: setting.notify_daily_summary,
-        NotificationKindEnum.STREAK: setting.notify_streak,
-    }[kind]
 
-    if not enabled:
+    if not setting.report_notification_enabled:
         return None
 
     image_file = None
+    sound = None
 
     if image_file_id is not None:
         image_file = await get_or_404(db=db, model=File, id=image_file_id)
+
+    if sound_id is not None:
+        sound = await get_or_404(db=db, model=SessionSound, id=sound_id)
 
     notification = Notification(
         user_id=user.id,
         kind=kind.value,
         title=title,
         body=body,
-        emergency_event_id=emergency_event_id,
         image_file=image_file,
-        sound_id=sound_id,
+        sound=sound,
         report_date=report_date,
         sent_at=datetime.now(UTC),
         is_deleted=False,
@@ -99,7 +103,6 @@ async def send(
     kind: NotificationKindEnum,
     title: str,
     body: str,
-    emergency_event_id: UUID | None = None,
     image_file_id: UUID | None = None,
     sound_id: UUID | None = None,
     report_date: date | None = None,
@@ -111,7 +114,6 @@ async def send(
         kind=kind,
         title=title,
         body=body,
-        emergency_event_id=emergency_event_id,
         image_file_id=image_file_id,
         sound_id=sound_id,
         report_date=report_date,
@@ -196,10 +198,11 @@ async def deliver(notification_id: UUID) -> None:
         if notification.image_file is not None:
             image_url = s3.generate_presigned_url(path=notification.image_file.object_key)
 
-        data = {"kind": notification.kind, "notification_id": str(notification.id)}
-
-        if notification.emergency_event_id is not None:
-            data["emergency_event_id"] = str(notification.emergency_event_id)
+        data = {
+            "kind": notification.kind,
+            "notification_id": str(notification.id),
+            "sent_at": notification.sent_at.isoformat(),
+        }
 
         if notification.sound_id is not None:
             data["sound_id"] = str(notification.sound_id)

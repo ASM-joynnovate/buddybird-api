@@ -9,8 +9,8 @@ router = APIRouter(prefix="/users")
 
 
 @router.get("/me", name="내 프로필 조회")
-async def get_me(user: ActiveUser, storage: Storage) -> UserResponse:
-    return UserResponse(message="사용자 조회 성공", data=await users.get_profile(user=user, storage=storage))
+async def get_me(user: ActiveUser, db: DBSession, storage: Storage) -> UserResponse:
+    return UserResponse(message="사용자 조회 성공", data=await users.get_profile(db=db, user=user, storage=storage))
 
 
 @router.patch("/me", name="내 프로필 수정")

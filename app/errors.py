@@ -119,11 +119,6 @@ class WordSaveUnavailableError(CustomError):
     message = "단어 정보를 일시적으로 저장할 수 없습니다."
 
 
-class WordRecordingLimitError(CustomError):
-    error_code = "WORD__RECORDING_LIMIT"
-    message = "녹음 샘플은 단어당 최대 5개까지 등록할 수 있습니다."
-
-
 class WordRecordingRequiredError(CustomError):
     error_code = "WORD__RECORDING_REQUIRED"
     message = "녹음 샘플은 단어당 최소 1개가 필요합니다."
@@ -186,6 +181,11 @@ class InvalidNoticePeriodError(CustomError):
     message = "게시 종료 시각은 게시 시작 시각보다 늦어야 합니다."
 
 
+class InvalidNoticeBodyError(CustomError):
+    error_code = "NOTICE__INVALID_BODY"
+    message = "본문을 새로 추가할 때는 en_us가 필요합니다."
+
+
 class NotificationReadFailedError(CustomError):
     code = 503
     error_code = "NOTIFICATION__READ_FAILED"
@@ -212,6 +212,12 @@ class ConsentAlreadyPublishedError(CustomError):
     code = 409
     error_code = "CONSENT__ALREADY_PUBLISHED"
     message = "게시된 고지문은 수정하거나 삭제할 수 없습니다."
+
+
+class AppUpdateSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "APP_UPDATE__SAVE_UNAVAILABLE"
+    message = "앱 업데이트 정보를 일시적으로 저장할 수 없습니다."
 
 
 def register_exception_handlers(app: FastAPI) -> None:

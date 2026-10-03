@@ -41,6 +41,7 @@ class NoStoreMiddleware:
 class AuthContext(BaseUser):
     auth_user_id: UUID
     access_token: str = field(repr=False)
+    is_anonymous: bool
 
     @property
     def is_authenticated(self) -> bool:
@@ -167,10 +168,12 @@ class AuthBackend(AuthenticationBackend):
             return None
 
         try:
-            auth_user_id = await verify_access_token(token)
+            auth_user_id, is_anonymous = await verify_access_token(token)
         except (AuthenticationError, AuthenticationServiceUnavailableError) as exc:
             conn.scope.setdefault("state", {})["auth_error"] = exc
 
             return None
 
-        return AuthCredentials(["authenticated"]), AuthContext(auth_user_id=auth_user_id, access_token=token)
+        return AuthCredentials(["authenticated"]), AuthContext(
+            auth_user_id=auth_user_id, access_token=token, is_anonymous=is_anonymous
+        )

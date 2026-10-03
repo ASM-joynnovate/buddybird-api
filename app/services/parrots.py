@@ -8,24 +8,48 @@ from app.enums import FileStatusEnum
 from app.errors import FileSizeExceededError, InvalidProfilePhotoError, ParrotSaveUnavailableError
 from app.models import File, Parrot, User
 from app.s3 import S3StorageClient
-from app.schemas.base import UploadDTO, UploadRequest
-from app.schemas.parrots import CreateParrotRequest, ParrotDTO, ParrotPhotoDTO, UpdateParrotRequest
-from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
+from app.schemas.base import FileDTO, UploadDTO, UploadRequest
+from app.schemas.parrots import CreateParrotRequest, ParrotDTO, UpdateParrotRequest
+from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, get_uploading_photo_files
 
 
-def build_parrot_dto(parrot: Parrot, storage: S3StorageClient) -> ParrotDTO:
+def build_parrot_dto(parrot: Parrot, uploading_photo_file: File | None, storage: S3StorageClient) -> ParrotDTO:
     photo = None
+    uploading_photo = None
 
     if parrot.photo_file is not None:
-        photo = ParrotPhotoDTO(url=storage.generate_presigned_url(path=parrot.photo_file.object_key))
+        photo = FileDTO(
+            url=storage.generate_presigned_url(path=parrot.photo_file.object_key),
+            status=parrot.photo_file.status,
+        )
 
-    return ParrotDTO(id=parrot.id, name=parrot.name, species=parrot.species, birthdate=parrot.birthdate, photo=photo)
+    if uploading_photo_file is not None:
+        uploading_photo = FileDTO(
+            url=storage.generate_presigned_url(path=uploading_photo_file.object_key),
+            status=uploading_photo_file.status,
+        )
+
+    return ParrotDTO(
+        id=parrot.id,
+        name=parrot.name,
+        species=parrot.species,
+        birthdate=parrot.birthdate,
+        photo_file=photo,
+        uploading_photo_file=uploading_photo,
+    )
 
 
 async def get_list(*, db: AsyncSession, user: User, storage: S3StorageClient) -> list[ParrotDTO]:
     parrots = (await db.scalars(select(Parrot).where(Parrot.user_id == user.id).order_by(Parrot.created_at))).all()
+    uploading_photo_files = await get_uploading_photo_files(
+        db=db,
+        file_ids={parrot.uploading_photo_file_id for parrot in parrots if parrot.uploading_photo_file_id is not None},
+    )
 
-    return [build_parrot_dto(parrot, storage) for parrot in parrots]
+    return [
+        build_parrot_dto(parrot, uploading_photo_files.get(parrot.uploading_photo_file_id), storage)
+        for parrot in parrots
+    ]
 
 
 @transactional(unavailable_error=ParrotSaveUnavailableError)
@@ -35,7 +59,7 @@ async def create(*, db: AsyncSession, user: User, storage: S3StorageClient, data
     db.add(parrot)
     await db.flush()
 
-    return build_parrot_dto(parrot, storage)
+    return build_parrot_dto(parrot, None, storage)
 
 
 @transactional(unavailable_error=ParrotSaveUnavailableError)
@@ -45,7 +69,12 @@ async def update(*, db: AsyncSession, storage: S3StorageClient, parrot: Parrot, 
 
     await db.flush()
 
-    return build_parrot_dto(parrot, storage)
+    uploading_photo_files = await get_uploading_photo_files(
+        db=db,
+        file_ids={parrot.uploading_photo_file_id} if parrot.uploading_photo_file_id is not None else set(),
+    )
+
+    return build_parrot_dto(parrot, uploading_photo_files.get(parrot.uploading_photo_file_id), storage)
 
 
 @transactional(unavailable_error=ParrotSaveUnavailableError)
@@ -88,6 +117,8 @@ async def update_photo(
 
     await db.flush()
 
+    parrot.uploading_photo_file_id = photo_file.id
+
     return storage.generate_presigned_upload(
         file_id=file_id,
         path=f"upload/{photo_file.object_key}",
@@ -109,5 +140,10 @@ async def delete_photo(*, db: AsyncSession, parrot: Parrot) -> None:
     await db.flush()
 
 
-def get_detail(*, parrot: Parrot, storage: S3StorageClient) -> ParrotDTO:
-    return build_parrot_dto(parrot, storage)
+async def get_detail(*, db: AsyncSession, parrot: Parrot, storage: S3StorageClient) -> ParrotDTO:
+    uploading_photo_files = await get_uploading_photo_files(
+        db=db,
+        file_ids={parrot.uploading_photo_file_id} if parrot.uploading_photo_file_id is not None else set(),
+    )
+
+    return build_parrot_dto(parrot, uploading_photo_files.get(parrot.uploading_photo_file_id), storage)
