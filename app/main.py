@@ -14,7 +14,7 @@ from app import sentry
 from app.config import config
 from app.db import engine
 from app.errors import register_exception_handlers
-from app.legacy.routers import captures, labels
+from app.legacy.routers import captures, labels, uploads
 from app.middlewares import AuthBackend, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
 from app.routers import (
@@ -79,6 +79,7 @@ def create_app() -> FastAPI:
 
     application.include_router(labels.router, prefix="/api/v1/backoffice", tags=["백오피스"])
     application.include_router(captures.router, prefix="/api/v1/backoffice", tags=["백오피스"])
+    application.include_router(uploads.router, prefix="/api/v1", tags=["오디오 클립"])
     application.include_router(auth.router, prefix="/api/v1", tags=["인증"])
     application.include_router(users.router, prefix="/api/v1", tags=["사용자"])
     application.include_router(settings.router, prefix="/api/v1", tags=["설정"])
