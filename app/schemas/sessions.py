@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field
 
 from app.enums import JudgmentStatusEnum, SessionActorEnum, SessionEventKindEnum, SessionPhaseEnum, SessionStatusEnum
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, UploadRequest
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams, UploadRequest
 from app.schemas.settings import SleepSettingsDTO, UpdateSleepSettingsRequest
 
 
@@ -152,6 +152,10 @@ class SessionSoundDTO(CustomBaseModel):
 
 class SessionSoundUploadRequest(UploadRequest):
     captured_at: datetime
+
+
+class SessionSoundListParams(PageParams):
+    mimicry: bool = False
 
 
 class SessionSoundListResponse(BaseResponse):
