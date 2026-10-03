@@ -1,7 +1,11 @@
-from fastapi import APIRouter, BackgroundTasks
+from typing import Annotated
+from uuid import UUID
 
-from app.dependencies import Authenticated, DBSession, Storage
+from fastapi import APIRouter, BackgroundTasks, Header
+
+from app.dependencies import ActiveUser, Authenticated, DBSession, Storage
 from app.schemas.auth import LoginRequest, LoginResponse
+from app.schemas.base import BaseResponse
 from app.schemas.withdrawals import WithdrawalResponse
 from app.services import auth, withdrawals
 
@@ -19,9 +23,21 @@ async def login(
             storage=storage,
             auth_user_id=context.auth_user_id,
             access_token=context.access_token,
+            is_anonymous=context.is_anonymous,
             data=body,
         ),
     )
+
+
+@router.post("/logout", name="로그아웃")
+async def logout(
+    user: ActiveUser,
+    db: DBSession,
+    x_device_id: Annotated[UUID | None, Header(alias="X-Device-Id")] = None,
+) -> BaseResponse:
+    await auth.logout(db=db, user=user, client_device_id=x_device_id)
+
+    return BaseResponse(message="로그아웃 성공")
 
 
 @router.delete("/withdrawal", name="회원 탈퇴 접수", status_code=202)

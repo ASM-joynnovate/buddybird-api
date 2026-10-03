@@ -18,6 +18,7 @@ from app.legacy.routers import captures, labels, uploads
 from app.middlewares import AuthBackend, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
 from app.routers import (
+    app_updates,
     auth,
     consents,
     devices,
@@ -25,6 +26,7 @@ from app.routers import (
     notices,
     notifications,
     parrots,
+    reports,
     sessions,
     settings,
     user_consents,
@@ -93,6 +95,8 @@ def create_app() -> FastAPI:
     application.include_router(feedback.router, prefix="/api/v1", tags=["피드백"])
     application.include_router(notices.router, prefix="/api/v1", tags=["공지"])
     application.include_router(notifications.router, prefix="/api/v1", tags=["알림"])
+    application.include_router(app_updates.router, prefix="/api/v1", tags=["앱 업데이트"])
+    application.include_router(reports.router, prefix="/api/v1", tags=["리포트"])
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:

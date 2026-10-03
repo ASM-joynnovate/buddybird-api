@@ -1,13 +1,14 @@
-from datetime import UTC, date, datetime
+from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
+from app.enums import FileStatusEnum, JudgmentStatusEnum, SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
 from app.errors import (
     DeviceNotStationError,
     ResourceNotFoundError,
@@ -15,37 +16,44 @@ from app.errors import (
     SessionNotRunningError,
     SessionSaveUnavailableError,
 )
-from app.models import Device, LearningDailySummary, Session, SessionEvent, User, Word
+from app.models import Device, File, LearningSegment, Session, SessionEvent, SessionSound, User, Word
 from app.schemas.base import PageParams
 from app.schemas.sessions import (
-    AcknowledgedSummaryDTO,
+    AcknowledgedLearningSegmentDTO,
     AddSessionEventsRequest,
-    ChangeSessionLearningRequest,
-    ChangeSessionWordRequest,
     HeartbeatDTO,
     HeartbeatRequest,
     HeartbeatSessionDTO,
+    LearningDurationDTO,
     SessionDTO,
     SessionEventDTO,
     SessionEventWordDTO,
+    SessionJudgmentDTO,
     SessionPeriodDTO,
     SessionProgressDTO,
-    SessionSettingsDTO,
+    SessionScheduleDTO,
     SessionStationDTO,
+    SessionSummaryDTO,
+    SessionSummarySessionDTO,
+    SessionSummaryTotalDTO,
+    SessionSummaryWordDTO,
+    SessionWordDTO,
     StartSessionRequest,
 )
+from app.schemas.settings import SleepSettingsDTO
 
 
-def build_session_dto(session: Session) -> SessionDTO:
+def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum) -> SessionDTO:
     return SessionDTO(
         id=session.id,
         status=session.status,
         station=SessionStationDTO(device_id=session.station_device_id),
-        settings=SessionSettingsDTO(
-            word_id=session.word_id,
-            learning_enabled=session.learning_enabled,
-            version=session.settings_version,
-            applied_version=session.applied_settings_version,
+        word=SessionWordDTO(id=session.word_id),
+        schedule=SessionScheduleDTO(
+            ends_at=session.scheduled_end_at,
+            sleep=SleepSettingsDTO(sleep_at=session.sleep_at, wake_at=session.wake_at)
+            if session.sleep_at is not None
+            else None,
         ),
         progress=SessionProgressDTO(
             current_phase=session.current_phase,
@@ -53,7 +61,31 @@ def build_session_dto(session: Session) -> SessionDTO:
             last_heartbeat_at=session.last_heartbeat_at,
         ),
         period=SessionPeriodDTO(started_at=session.started_at, ended_at=session.ended_at, ended_by=session.ended_by),
+        judgment=SessionJudgmentDTO(status=judgment_status),
     )
+
+
+async def get_judgment_statuses(*, db: AsyncSession, sessions: Sequence[Session]) -> dict[UUID, JudgmentStatusEnum]:
+    stmt = (
+        select(SessionSound.session_id)
+        .join(File, File.id == SessionSound.audio_file_id)
+        .where(
+            SessionSound.session_id.in_(
+                [session.id for session in sessions if session.status == SessionStatusEnum.FINISHED.value]
+            ),
+            File.status == FileStatusEnum.UPLOADED.value,
+            SessionSound.is_parrot_sound.is_(None),
+        )
+        .distinct()
+    )
+    pending_session_ids = set((await db.scalars(stmt)).all())
+
+    return {
+        session.id: JudgmentStatusEnum.PENDING
+        if session.status == SessionStatusEnum.RUNNING.value or session.id in pending_session_ids
+        else JudgmentStatusEnum.DONE
+        for session in sessions
+    }
 
 
 async def verify_words_owned(*, db: AsyncSession, user_id: UUID, word_ids: set[UUID]) -> None:
@@ -94,18 +126,20 @@ async def get_list(*, db: AsyncSession, user: User, query: PageParams) -> tuple[
             .limit(query.count_by_page)
         )
     ).all()
+    judgment_statuses = await get_judgment_statuses(db=db, sessions=sessions)
 
-    return [build_session_dto(session) for session in sessions], total
+    return [build_session_dto(session, judgment_statuses[session.id]) for session in sessions], total
 
 
-def get_detail(*, session: Session) -> SessionDTO:
-    return build_session_dto(session)
+async def get_detail(*, db: AsyncSession, session: Session) -> SessionDTO:
+    judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
+
+    return build_session_dto(session, judgment_statuses[session.id])
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
 async def start(*, db: AsyncSession, user: User, device: Device, data: StartSessionRequest) -> SessionDTO:
-    if data.word_id is not None:
-        await verify_words_owned(db=db, user_id=user.id, word_ids={data.word_id})
+    await verify_words_owned(db=db, user_id=user.id, word_ids={data.word_id})
 
     now = datetime.now(UTC)
     session = Session(
@@ -113,9 +147,9 @@ async def start(*, db: AsyncSession, user: User, device: Device, data: StartSess
         station_device_id=device.id,
         status=SessionStatusEnum.RUNNING.value,
         word_id=data.word_id,
-        learning_enabled=data.learning_enabled,
-        settings_version=1,
-        applied_settings_version=0,
+        scheduled_end_at=data.ends_at,
+        sleep_at=data.sleep.sleep_at if data.sleep is not None else None,
+        wake_at=data.sleep.wake_at if data.sleep is not None else None,
         started_at=now,
         is_deleted=False,
     )
@@ -137,51 +171,7 @@ async def start(*, db: AsyncSession, user: User, device: Device, data: StartSess
 
     await db.flush()
 
-    return build_session_dto(session)
-
-
-@transactional(unavailable_error=SessionSaveUnavailableError)
-async def change_word(*, db: AsyncSession, session: Session, data: ChangeSessionWordRequest) -> SessionDTO:
-    verify_running(session)
-
-    if data.word_id is not None:
-        await verify_words_owned(db=db, user_id=session.user_id, word_ids={data.word_id})
-
-    session.word_id = data.word_id
-    session.settings_version += 1
-
-    db.add(
-        SessionEvent(
-            session_id=session.id,
-            kind=SessionEventKindEnum.WORD_CHANGED.value,
-            occurred_at=datetime.now(UTC),
-            word_id=data.word_id,
-        )
-    )
-
-    await db.flush()
-
-    return build_session_dto(session)
-
-
-@transactional(unavailable_error=SessionSaveUnavailableError)
-async def change_learning(*, db: AsyncSession, session: Session, data: ChangeSessionLearningRequest) -> SessionDTO:
-    verify_running(session)
-
-    session.learning_enabled = data.enabled
-    session.settings_version += 1
-
-    db.add(
-        SessionEvent(
-            session_id=session.id,
-            kind=SessionEventKindEnum.LEARNING_TOGGLED.value,
-            occurred_at=datetime.now(UTC),
-        )
-    )
-
-    await db.flush()
-
-    return build_session_dto(session)
+    return build_session_dto(session, JudgmentStatusEnum.PENDING)
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
@@ -203,7 +193,49 @@ async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
 
     await db.flush()
 
-    return build_session_dto(session)
+    judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
+
+    return build_session_dto(session, judgment_statuses[session.id])
+
+
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def finish_expired_sessions(*, db: AsyncSession) -> None:
+    now = datetime.now(UTC)
+    heartbeat_deadline = now - timedelta(minutes=10)
+    stmt = select(Session).where(
+        Session.status == SessionStatusEnum.RUNNING.value,
+        or_(
+            func.coalesce(Session.last_heartbeat_at, Session.started_at) <= heartbeat_deadline,
+            Session.scheduled_end_at <= now,
+        ),
+    )
+    sessions = (await db.scalars(stmt)).all()
+
+    for session in sessions:
+        last_active_at = session.last_heartbeat_at if session.last_heartbeat_at is not None else session.started_at
+        heartbeat_expired = last_active_at <= heartbeat_deadline
+        schedule_expired = session.scheduled_end_at is not None and session.scheduled_end_at <= now
+
+        if heartbeat_expired and schedule_expired:
+            ended_at = min(last_active_at, session.scheduled_end_at)
+        elif heartbeat_expired:
+            ended_at = last_active_at
+        else:
+            ended_at = session.scheduled_end_at
+
+        session.status = SessionStatusEnum.FINISHED.value
+        session.ended_at = ended_at
+        session.ended_by = SessionActorEnum.SERVER.value
+
+        db.add(
+            SessionEvent(
+                session_id=session.id,
+                kind=SessionEventKindEnum.SESSION_FINISHED.value,
+                occurred_at=ended_at,
+            )
+        )
+
+    await db.flush()
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
@@ -211,48 +243,48 @@ async def record_heartbeat(
     *, db: AsyncSession, session: Session, device: Device, data: HeartbeatRequest
 ) -> HeartbeatDTO:
     verify_station(session, device)
+    verify_running(session)
 
     now = datetime.now(UTC)
     session.current_phase = data.current_phase.value if data.current_phase is not None else None
     session.phase_started_at = data.phase_started_at
-    session.applied_settings_version = data.applied_settings_version
     session.last_heartbeat_at = now
-    device.timezone = data.timezone
     device.last_seen_at = now
 
-    summaries: dict[tuple[UUID, date], dict] = {}
+    segments: dict[tuple[UUID, datetime], dict] = {}
 
-    for summary in data.summaries:
-        current = summaries.get((summary.word_id, summary.local_date))
+    for segment in data.learning_segments:
+        current = segments.get((segment.word_id, segment.started_at))
 
         if current is None:
-            summaries[(summary.word_id, summary.local_date)] = {
+            segments[(segment.word_id, segment.started_at)] = {
                 "session_id": session.id,
-                "word_id": summary.word_id,
-                "local_date": summary.local_date,
-                "play_count": summary.play_count,
-                "play_duration_ms": summary.play_duration_ms,
+                "word_id": segment.word_id,
+                "started_at": segment.started_at,
+                "ended_at": segment.ended_at,
+                "play_count": segment.play_count,
+                "play_duration_ms": segment.play_duration_ms,
             }
         else:
-            current["play_count"] = max(current["play_count"], summary.play_count)
-            current["play_duration_ms"] = max(current["play_duration_ms"], summary.play_duration_ms)
+            current["ended_at"] = max(current["ended_at"], segment.ended_at)
+            current["play_count"] = max(current["play_count"], segment.play_count)
+            current["play_duration_ms"] = max(current["play_duration_ms"], segment.play_duration_ms)
 
-    if summaries:
-        await verify_words_owned(db=db, user_id=session.user_id, word_ids={word_id for word_id, _ in summaries})
+    if segments:
+        await verify_words_owned(db=db, user_id=session.user_id, word_ids={word_id for word_id, _ in segments})
 
-        stmt = insert(LearningDailySummary).values(list(summaries.values()))
+        stmt = insert(LearningSegment).values(list(segments.values()))
         await db.execute(
             stmt.on_conflict_do_update(
                 index_elements=[
-                    LearningDailySummary.session_id,
-                    LearningDailySummary.word_id,
-                    LearningDailySummary.local_date,
+                    LearningSegment.session_id,
+                    LearningSegment.word_id,
+                    LearningSegment.started_at,
                 ],
                 set_={
-                    "play_count": func.greatest(LearningDailySummary.play_count, stmt.excluded.play_count),
-                    "play_duration_ms": func.greatest(
-                        LearningDailySummary.play_duration_ms, stmt.excluded.play_duration_ms
-                    ),
+                    "ended_at": func.greatest(LearningSegment.ended_at, stmt.excluded.ended_at),
+                    "play_count": func.greatest(LearningSegment.play_count, stmt.excluded.play_count),
+                    "play_duration_ms": func.greatest(LearningSegment.play_duration_ms, stmt.excluded.play_duration_ms),
                 },
             )
         )
@@ -260,17 +292,9 @@ async def record_heartbeat(
     await db.flush()
 
     return HeartbeatDTO(
-        session=HeartbeatSessionDTO(
-            status=session.status,
-            settings=SessionSettingsDTO(
-                word_id=session.word_id,
-                learning_enabled=session.learning_enabled,
-                version=session.settings_version,
-                applied_version=session.applied_settings_version,
-            ),
-        ),
+        session=HeartbeatSessionDTO(status=session.status),
         acknowledged=[
-            AcknowledgedSummaryDTO(word_id=word_id, local_date=local_date) for word_id, local_date in summaries
+            AcknowledgedLearningSegmentDTO(word_id=word_id, started_at=started_at) for word_id, started_at in segments
         ],
     )
 
@@ -312,3 +336,41 @@ async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEvent
         )
         for event in events
     ]
+
+
+async def get_summary(*, db: AsyncSession, session: Session) -> SessionSummaryDTO:
+    stmt = select(Word).where(Word.id == session.word_id).execution_options(include_deleted=True)
+    word = await db.scalar(stmt)
+
+    duration = func.sum(LearningSegment.ended_at - LearningSegment.started_at)
+    stmt = select(func.sum(LearningSegment.play_count), duration).where(LearningSegment.session_id == session.id)
+    play_count, session_duration = (await db.execute(stmt)).one()
+
+    stmt = (
+        select(duration)
+        .join(Session, Session.id == LearningSegment.session_id)
+        .where(Session.user_id == session.user_id, LearningSegment.word_id == session.word_id)
+    )
+    word_duration = await db.scalar(stmt)
+
+    stmt = (
+        select(duration)
+        .join(Session, Session.id == LearningSegment.session_id)
+        .where(Session.user_id == session.user_id)
+    )
+    total_duration = await db.scalar(stmt)
+
+    return SessionSummaryDTO(
+        word=SessionSummaryWordDTO(
+            id=word.id,
+            name=word.name,
+            learning=LearningDurationDTO(duration_ms=(word_duration or timedelta(0)) // timedelta(milliseconds=1)),
+        ),
+        session=SessionSummarySessionDTO(
+            play_count=play_count or 0,
+            learning=LearningDurationDTO(duration_ms=(session_duration or timedelta(0)) // timedelta(milliseconds=1)),
+        ),
+        total=SessionSummaryTotalDTO(
+            learning=LearningDurationDTO(duration_ms=(total_duration or timedelta(0)) // timedelta(milliseconds=1)),
+        ),
+    )

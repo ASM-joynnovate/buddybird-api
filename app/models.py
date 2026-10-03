@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from app.enums import FileStatusEnum
+from app.enums import FileStatusEnum, LocaleEnum
 
 
 class Base(DeclarativeBase):
@@ -74,6 +74,7 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("auth_user_id", name="uq_users_auth_user_id"),
         UniqueConstraint("photo_file_id", name="uq_users_photo_file_id"),
+        UniqueConstraint("uploading_photo_file_id", name="uq_users_uploading_photo_file_id"),
         Index(
             "uq_users_nickname_active",
             "nickname",
@@ -87,8 +88,10 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(Text, nullable=True)
     nickname: Mapped[str | None] = mapped_column(String(20), nullable=True)
     photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    uploading_photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    is_anonymous: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    photo_file: Mapped[File | None] = relationship(lazy="selectin")
+    photo_file: Mapped[File | None] = relationship(lazy="selectin", foreign_keys=[photo_file_id])
 
 
 class UserOAuthCredential(Base):
@@ -145,13 +148,26 @@ class UserSetting(Base):
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
     sleep_at: Mapped[time] = mapped_column(Time, nullable=False, default=time(20, 0), server_default="20:00")
     wake_at: Mapped[time] = mapped_column(Time, nullable=False, default=time(8, 0), server_default="08:00")
-    notify_emergency: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
-    notify_mimicry: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
-    notify_daily_summary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
-    notify_streak: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
-    notify_station_disconnect: Mapped[bool] = mapped_column(
+    notice_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
+    report_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+
+
+class I18n(Base):
+    __tablename__ = "i18n"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    ko_kr: Mapped[str | None] = mapped_column(Text, nullable=True)
+    en_us: Mapped[str] = mapped_column(Text, nullable=False)
+
+    def get_text(self, locale: LocaleEnum) -> str:
+        if locale == LocaleEnum.KO_KR and self.ko_kr is not None:
+            return self.ko_kr
+
+        return self.en_us
 
 
 class Consent(Base):
@@ -164,11 +180,13 @@ class Consent(Base):
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     kind: Mapped[str] = mapped_column(String(50), nullable=False)
     version: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    title: Mapped[str] = mapped_column(String(100), nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
+    title_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    body_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
     is_required: Mapped[bool] = mapped_column(Boolean, nullable=False)
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
+    body_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
 
 
 class UserConsent(Base):
@@ -192,7 +210,7 @@ class Device(Base):
     client_device_id: Mapped[UUID] = mapped_column(SQL_UUID, nullable=False)
     platform: Mapped[str] = mapped_column(String(10), nullable=False)
     os_version: Mapped[str] = mapped_column(String(20), nullable=False)
-    model: Mapped[str] = mapped_column(String(30), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
     app_version: Mapped[str] = mapped_column(String(12), nullable=False)
     push_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     timezone: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -251,10 +269,10 @@ class Session(Base):
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), index=True, nullable=False)
     station_device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False)
-    word_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=True)
-    learning_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    settings_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
-    applied_settings_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    word_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=False)
+    scheduled_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sleep_at: Mapped[time | None] = mapped_column(Time, nullable=True)
+    wake_at: Mapped[time | None] = mapped_column(Time, nullable=True)
     current_phase: Mapped[str | None] = mapped_column(Text, nullable=True)
     phase_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -276,22 +294,23 @@ class SessionEvent(Base):
     emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
 
 
-class LearningDailySummary(Base):
-    __tablename__ = "learning_daily_summary"
+class LearningSegment(Base):
+    __tablename__ = "learning_segments"
     __table_args__ = (
         UniqueConstraint(
             "session_id",
             "word_id",
-            "local_date",
-            name="uq_learning_daily_summary_session_id_word_id_local_date",
+            "started_at",
+            name="uq_learning_segments_session_id_word_id_started_at",
         ),
-        Index("ix_learning_daily_summary_word_id_local_date", "word_id", "local_date"),
+        Index("ix_learning_segments_word_id_started_at", "word_id", "started_at"),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     session_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=False)
     word_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=False)
-    local_date: Mapped[date] = mapped_column(Date, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     play_count: Mapped[int] = mapped_column(Integer, nullable=False)
     play_duration_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
@@ -309,7 +328,10 @@ class ProcessedRequest(Base):
 
 class Parrot(Base):
     __tablename__ = "parrots"
-    __table_args__ = (UniqueConstraint("photo_file_id", name="uq_parrots_photo_file_id"),)
+    __table_args__ = (
+        UniqueConstraint("photo_file_id", name="uq_parrots_photo_file_id"),
+        UniqueConstraint("uploading_photo_file_id", name="uq_parrots_uploading_photo_file_id"),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
@@ -317,8 +339,9 @@ class Parrot(Base):
     species: Mapped[str] = mapped_column(String(50), nullable=False)
     birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
     photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    uploading_photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    photo_file: Mapped[File | None] = relationship(lazy="selectin")
+    photo_file: Mapped[File | None] = relationship(lazy="selectin", foreign_keys=[photo_file_id])
 
 
 class SessionSound(Base):
@@ -355,10 +378,10 @@ class Notification(Base):
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
     image_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
     image_file: Mapped[File | None] = relationship(lazy="selectin")
     sound_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=True)
+    sound: Mapped[SessionSound | None] = relationship(lazy="selectin")
     report_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -384,12 +407,14 @@ class Notice(Base):
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    title: Mapped[str] = mapped_column(String(100), nullable=False)
-    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    body_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     images: Mapped[list[NoticeImage]] = relationship(lazy="selectin", order_by="NoticeImage.display_order")
+    title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
+    body_i18n: Mapped[I18n | None] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
 
 
 class NoticeImage(Base):
@@ -412,3 +437,15 @@ class NoticeRead(Base):
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
     notice_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Notice.id), primary_key=True)
     read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AppUpdate(Base):
+    __tablename__ = "app_updates"
+    __table_args__ = (UniqueConstraint("platform", name="uq_app_updates_platform"),)
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    platform: Mapped[str] = mapped_column(Text, nullable=False)
+    latest_version: Mapped[str] = mapped_column(String(12), nullable=False)
+    min_supported_version: Mapped[str] = mapped_column(String(12), nullable=False)
+    release_notes_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
+    release_notes_i18n: Mapped[I18n | None] = relationship(lazy="selectin")

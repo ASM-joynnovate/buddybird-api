@@ -4,12 +4,12 @@ from uuid import UUID
 
 from pydantic import StringConstraints
 
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO
 
 
 class WordRecordingDTO(CustomBaseModel):
     id: UUID
-    url: str
+    audio_file: FileDTO
     created_at: datetime
 
 

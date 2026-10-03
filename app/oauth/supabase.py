@@ -11,7 +11,7 @@ from app.errors import AuthenticationError, AuthenticationServiceUnavailableErro
 from app.oauth.base import SocialIdentity, jwks_client, provider_request, response_object
 
 
-async def verify_access_token(token: str) -> UUID:
+async def verify_access_token(token: str) -> tuple[UUID, bool]:
     issuer = config.SUPABASE_AUTH_URL
 
     if issuer is None:
@@ -38,10 +38,10 @@ async def verify_access_token(token: str) -> UUID:
     except (InvalidTokenError, KeyError, TypeError, ValueError) as exc:
         raise AuthenticationError from exc
 
-    if claims.get("role") != "authenticated" or claims.get("is_anonymous") is not False:
+    if claims.get("role") != "authenticated":
         raise AuthenticationError
 
-    return auth_user_id
+    return auth_user_id, claims["is_anonymous"]
 
 
 async def get_social_identities(*, auth_user_id: UUID, access_token: str) -> list[SocialIdentity]:

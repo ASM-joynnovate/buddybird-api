@@ -19,7 +19,7 @@ def get_sqs() -> Any:
     )
 
 
-async def send(*, queue_url: str, body: dict[str, str]) -> None:
+async def send(*, queue_url: str, body: dict[str, Any]) -> None:
     await asyncio.to_thread(
         get_sqs().send_message,
         QueueUrl=queue_url,

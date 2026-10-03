@@ -6,10 +6,16 @@ from pydantic import AwareDatetime, StringConstraints
 from pydantic.experimental.missing_sentinel import MISSING
 
 from app.enums import ConsentStatusEnum
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
-
-Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
-Body = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+from app.schemas.base import (
+    BaseRequest,
+    BaseResponse,
+    CustomBaseModel,
+    I18nBodyRequest,
+    I18nDTO,
+    I18nTitleRequest,
+    UpdateI18nBodyRequest,
+    UpdateI18nTitleRequest,
+)
 
 
 class ConsentDTO(CustomBaseModel):
@@ -33,17 +39,31 @@ class ConsentListResponse(BaseResponse):
     data: list[ConsentDTO]
 
 
+class BackofficeConsentDTO(CustomBaseModel):
+    id: UUID
+    kind: str
+    version: int
+    title: I18nDTO
+    body: I18nDTO
+    is_required: bool
+    published_at: datetime
+
+
+class BackofficeConsentResponse(BaseResponse):
+    data: BackofficeConsentDTO
+
+
 class CreateConsentRequest(BaseRequest):
     kind: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
-    title: Title
-    body: Body
+    title: I18nTitleRequest
+    body: I18nBodyRequest
     is_required: bool
     published_at: AwareDatetime
 
 
 class UpdateConsentRequest(BaseRequest):
-    title: Title | MISSING = MISSING
-    body: Body | MISSING = MISSING
+    title: UpdateI18nTitleRequest | MISSING = MISSING
+    body: UpdateI18nBodyRequest | MISSING = MISSING
     is_required: bool | MISSING = MISSING
     published_at: AwareDatetime | MISSING = MISSING
 

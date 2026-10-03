@@ -1,30 +1,34 @@
 from datetime import UTC, datetime
 from uuid import uuid7
 
+from pydantic.experimental.missing_sentinel import MISSING
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import FileStatusEnum
+from app.enums import FileStatusEnum, LocaleEnum
 from app.errors import (
     FileSizeExceededError,
+    InvalidNoticeBodyError,
     InvalidNoticePeriodError,
     InvalidProfilePhotoError,
     NoticeSaveUnavailableError,
 )
-from app.models import File, Notice, NoticeImage, NoticeRead, User
+from app.models import File, I18n, Notice, NoticeImage, NoticeRead, User
 from app.s3 import S3StorageClient
-from app.schemas.base import PageParams, UploadDTO, UploadRequest
-from app.schemas.notices import CreateNoticeRequest, NoticeDTO, NoticeImageDTO, UpdateNoticeRequest
+from app.schemas.base import I18nDTO, PageParams, UploadDTO, UploadRequest
+from app.schemas.notices import BackofficeNoticeDTO, CreateNoticeRequest, NoticeDTO, NoticeImageDTO, UpdateNoticeRequest
 from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
 
 
-def build_notice_dto(notice: Notice, read_at: datetime | None, storage: S3StorageClient) -> NoticeDTO:
+def build_notice_dto(
+    notice: Notice, read_at: datetime | None, locale: LocaleEnum, storage: S3StorageClient
+) -> NoticeDTO:
     return NoticeDTO(
         id=notice.id,
-        title=notice.title,
-        body=notice.body,
+        title=notice.title_i18n.get_text(locale),
+        body=notice.body_i18n.get_text(locale) if notice.body_i18n is not None else None,
         starts_at=notice.starts_at,
         ends_at=notice.ends_at,
         is_read=read_at is not None,
@@ -35,8 +39,24 @@ def build_notice_dto(notice: Notice, read_at: datetime | None, storage: S3Storag
     )
 
 
+def build_backoffice_notice_dto(notice: Notice, storage: S3StorageClient) -> BackofficeNoticeDTO:
+    return BackofficeNoticeDTO(
+        id=notice.id,
+        title=I18nDTO(ko_kr=notice.title_i18n.ko_kr, en_us=notice.title_i18n.en_us),
+        body=I18nDTO(ko_kr=notice.body_i18n.ko_kr, en_us=notice.body_i18n.en_us)
+        if notice.body_i18n is not None
+        else None,
+        starts_at=notice.starts_at,
+        ends_at=notice.ends_at,
+        images=[
+            NoticeImageDTO(id=image.id, url=storage.generate_presigned_url(path=image.file.object_key))
+            for image in notice.images
+        ],
+    )
+
+
 async def get_list(
-    *, db: AsyncSession, user: User, storage: S3StorageClient, query: PageParams
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, query: PageParams
 ) -> tuple[list[NoticeDTO], int]:
     now = datetime.now(UTC)
     stmt = (
@@ -53,19 +73,23 @@ async def get_list(
         )
     ).all()
 
-    return [build_notice_dto(notice, read_at, storage) for notice, read_at in rows], total
+    return [build_notice_dto(notice, read_at, locale, storage) for notice, read_at in rows], total
 
 
-async def get_detail(*, db: AsyncSession, user: User, storage: S3StorageClient, notice: Notice) -> NoticeDTO:
+async def get_detail(
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, notice: Notice
+) -> NoticeDTO:
     read_at = await db.scalar(
         select(NoticeRead.read_at).where(NoticeRead.notice_id == notice.id, NoticeRead.user_id == user.id)
     )
 
-    return build_notice_dto(notice, read_at, storage)
+    return build_notice_dto(notice, read_at, locale, storage)
 
 
 @transactional(unavailable_error=NoticeSaveUnavailableError)
-async def mark_read(*, db: AsyncSession, user: User, storage: S3StorageClient, notice: Notice) -> NoticeDTO:
+async def mark_read(
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, notice: Notice
+) -> NoticeDTO:
     await db.execute(
         insert(NoticeRead)
         .values(user_id=user.id, notice_id=notice.id, read_at=datetime.now(UTC))
@@ -75,14 +99,14 @@ async def mark_read(*, db: AsyncSession, user: User, storage: S3StorageClient, n
         select(NoticeRead.read_at).where(NoticeRead.notice_id == notice.id, NoticeRead.user_id == user.id)
     )
 
-    return build_notice_dto(notice, read_at, storage)
+    return build_notice_dto(notice, read_at, locale, storage)
 
 
 @transactional(unavailable_error=NoticeSaveUnavailableError)
-async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreateNoticeRequest) -> NoticeDTO:
+async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreateNoticeRequest) -> BackofficeNoticeDTO:
     notice = Notice(
-        title=data.title,
-        body=data.body,
+        title_i18n=I18n(ko_kr=data.title.ko_kr, en_us=data.title.en_us),
+        body_i18n=I18n(ko_kr=data.body.ko_kr, en_us=data.body.en_us) if data.body is not None else None,
         starts_at=data.starts_at,
         ends_at=data.ends_at,
         is_deleted=False,
@@ -92,12 +116,29 @@ async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreateNoti
     db.add(notice)
     await db.flush()
 
-    return build_notice_dto(notice, None, storage)
+    return build_backoffice_notice_dto(notice, storage)
 
 
 @transactional(unavailable_error=NoticeSaveUnavailableError)
-async def update(*, db: AsyncSession, storage: S3StorageClient, notice: Notice, data: UpdateNoticeRequest) -> NoticeDTO:
-    for name, value in data.model_dump(exclude_unset=True).items():
+async def update(
+    *, db: AsyncSession, storage: S3StorageClient, notice: Notice, data: UpdateNoticeRequest
+) -> BackofficeNoticeDTO:
+    if data.title is not MISSING:
+        for name, value in data.title.model_dump(exclude_unset=True).items():
+            setattr(notice.title_i18n, name, value)
+
+    if data.body is None:
+        notice.body_i18n = None
+    elif data.body is not MISSING and notice.body_i18n is not None:
+        for name, value in data.body.model_dump(exclude_unset=True).items():
+            setattr(notice.body_i18n, name, value)
+    elif data.body is not MISSING:
+        if data.body.en_us is MISSING:
+            raise InvalidNoticeBodyError
+
+        notice.body_i18n = I18n(**data.body.model_dump(exclude_unset=True))
+
+    for name, value in data.model_dump(exclude_unset=True, exclude={"title", "body"}).items():
         setattr(notice, name, value)
 
     if notice.ends_at is not None and notice.ends_at <= notice.starts_at:
@@ -105,7 +146,7 @@ async def update(*, db: AsyncSession, storage: S3StorageClient, notice: Notice, 
 
     await db.flush()
 
-    return build_notice_dto(notice, None, storage)
+    return build_backoffice_notice_dto(notice, storage)
 
 
 @transactional(unavailable_error=NoticeSaveUnavailableError)
@@ -157,11 +198,13 @@ async def add_image(
 
 
 @transactional(unavailable_error=NoticeSaveUnavailableError)
-async def delete_image(*, db: AsyncSession, storage: S3StorageClient, notice: Notice, image: NoticeImage) -> NoticeDTO:
+async def delete_image(
+    *, db: AsyncSession, storage: S3StorageClient, notice: Notice, image: NoticeImage
+) -> BackofficeNoticeDTO:
     notice.images.remove(image)
     image.file.is_deleted = True
 
     await db.delete(image)
     await db.flush()
 
-    return build_notice_dto(notice, None, storage)
+    return build_backoffice_notice_dto(notice, storage)

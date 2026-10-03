@@ -40,7 +40,7 @@ class RegisterDeviceRequest(BaseRequest):
     client_device_id: UUID
     platform: str = Field(..., min_length=1, max_length=10)
     os_version: str = Field(..., min_length=1, max_length=20)
-    model: str = Field(..., min_length=1, max_length=30)
+    model: str = Field(..., min_length=1, max_length=100)
     app_version: str = Field(..., min_length=1, max_length=12)
     timezone: str | None = Field(None, min_length=1, max_length=64)
 

@@ -6,20 +6,17 @@ from uuid import UUID
 from pydantic import field_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
-
-
-class ProfilePhotoDTO(CustomBaseModel):
-    url: str
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO
 
 
 class UserDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"email", "nickname", "photo"}
+    allow_null_fields: ClassVar[set] = {"email", "nickname", "photo_file", "uploading_photo_file"}
 
     id: UUID
     email: str | None
     nickname: str | None
-    photo: ProfilePhotoDTO | None
+    photo_file: FileDTO | None
+    uploading_photo_file: FileDTO | None
 
 
 class UserResponse(BaseResponse):

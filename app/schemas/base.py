@@ -1,7 +1,13 @@
-from typing import Any, ClassVar
+from typing import Annotated, Any, ClassVar
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic.experimental.missing_sentinel import MISSING
+
+from app.enums import FileStatusEnum
+
+Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+Body = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class BaseRequest(BaseModel):
@@ -52,6 +58,34 @@ class UploadRequest(BaseRequest):
     file_size: int = Field(gt=0)
 
 
+class I18nTitleRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"ko_kr"}
+
+    ko_kr: Title | None = None
+    en_us: Title
+
+
+class I18nBodyRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"ko_kr"}
+
+    ko_kr: Body | None = None
+    en_us: Body
+
+
+class UpdateI18nTitleRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"ko_kr"}
+
+    ko_kr: Title | MISSING | None = MISSING
+    en_us: Title | MISSING = MISSING
+
+
+class UpdateI18nBodyRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"ko_kr"}
+
+    ko_kr: Body | MISSING | None = MISSING
+    en_us: Body | MISSING = MISSING
+
+
 class CustomBaseModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     allow_null_fields: ClassVar[set[str]] = set()
@@ -72,6 +106,18 @@ class UploadDTO(CustomBaseModel):
     url: str
     headers: dict[str, str]
     expires_in: int
+
+
+class FileDTO(CustomBaseModel):
+    url: str
+    status: FileStatusEnum
+
+
+class I18nDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"ko_kr"}
+
+    ko_kr: str | None
+    en_us: str
 
 
 class BaseResponse(BaseModel):

@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     SQS_NOTIFICATION_QUEUE_URL: str
     SQS_WITHDRAWAL_QUEUE_URL: str
     SQS_PERIODIC_COMMAND_QUEUE_URL: str
+    SQS_PARROT_SOUND_DETECTION_QUEUE_URL: str
+    SQS_JUDGMENT_RESULT_QUEUE_URL: str
 
     FRONTEND_CORS_ORIGIN: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://localhost:3001"] if _local else []

@@ -12,17 +12,24 @@ class NotificationImageDTO(CustomBaseModel):
     url: str
 
 
+class MimicryNotificationDataDTO(CustomBaseModel):
+    sound_id: UUID
+    session_id: UUID
+
+
+class DailySummaryNotificationDataDTO(CustomBaseModel):
+    report_date: date
+
+
 class NotificationDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"image", "sound_id", "emergency_event_id", "report_date", "read_at"}
+    allow_null_fields: ClassVar[set] = {"image", "data", "read_at"}
 
     id: UUID
     kind: NotificationKindEnum
     title: str
     body: str
     image: NotificationImageDTO | None
-    sound_id: UUID | None
-    emergency_event_id: UUID | None
-    report_date: date | None
+    data: MimicryNotificationDataDTO | DailySummaryNotificationDataDTO | None
     sent_at: datetime
     read_at: datetime | None
 
