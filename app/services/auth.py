@@ -261,7 +261,7 @@ async def save_login(
             word = Word(id=uuid7(), user_id=user.id, name=preset.name, is_deleted=False)
 
             db.add(word)
-            db.add(WordRecording(word_id=word.id, file_id=preset.audio_file_id, is_deleted=False))
+            db.add(WordRecording(word_id=word.id, file_id=preset.audio_file_id, display_order=0, is_deleted=False))
 
     return LoginDTO(user_id=user.id, is_new_user=is_new_user)
 
