@@ -33,7 +33,12 @@ async def get_list(query: Annotated[GetAudioCaptureListRequest, Query()], db: DB
     return BaseResponse(
         message="오디오 클립 목록 조회 성공",
         data=items,
-        meta=query.meta(total),
+        meta={
+            "current_page": query.page,
+            "total_page_count": (total + query.count_by_page - 1) // query.count_by_page,
+            "is_first": query.page == 1,
+            "is_last": query.page * query.count_by_page >= total,
+        },
     )
 
 

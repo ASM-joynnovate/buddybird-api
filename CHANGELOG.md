@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.1.0...v1.1.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **legacy:** restore the capture list pagination meta ([4e7cc64](https://github.com/ASM-joynnovate/buddybird-api/commit/4e7cc64531273de5b43b765b56ebb7bd2ec3f63d))
+* **legacy:** restore the capture list pagination meta ([77eb28e](https://github.com/ASM-joynnovate/buddybird-api/commit/77eb28e6e23ebe643ec13e48c33bc22dca449c7d))
+
 ## [1.1.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.0.1...v1.1.0) (2026-10-03)
 
 
