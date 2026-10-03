@@ -2,10 +2,9 @@ from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic.experimental.missing_sentinel import MISSING
 
-from app.enums import DeviceRoleEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
 
@@ -21,7 +20,6 @@ class DeviceDTO(CustomBaseModel):
 
     id: UUID
     client_device_id: UUID
-    role: DeviceRoleEnum
     timezone: str | None
     last_seen_at: datetime | None
     client: DeviceClientDTO
@@ -40,10 +38,9 @@ class RegisterDeviceRequest(BaseRequest):
     null_fields: ClassVar[set] = {"timezone"}
 
     client_device_id: UUID
-    role: DeviceRoleEnum
     platform: str = Field(..., min_length=1, max_length=10)
     os_version: str = Field(..., min_length=1, max_length=20)
-    model: str = Field(..., min_length=1, max_length=30)
+    model: str = Field(..., min_length=1, max_length=100)
     app_version: str = Field(..., min_length=1, max_length=12)
     timezone: str | None = Field(None, min_length=1, max_length=64)
 
@@ -55,30 +52,6 @@ class UpdatePushTokenRequest(BaseRequest):
 class UpdateDeviceRequest(BaseRequest):
     null_fields: ClassVar[set] = {"timezone"}
 
-    app_version: str | MISSING = MISSING
-    os_version: str | MISSING = MISSING
-    timezone: str | MISSING | None = MISSING
-
-    @field_validator("app_version")
-    @classmethod
-    def validate_app_version(cls, value: str | MISSING) -> str | MISSING:
-        if isinstance(value, str) and not 1 <= len(value) <= 12:
-            raise ValueError("앱 버전은 1~12자여야 합니다.")
-
-        return value
-
-    @field_validator("os_version")
-    @classmethod
-    def validate_os_version(cls, value: str | MISSING) -> str | MISSING:
-        if isinstance(value, str) and not 1 <= len(value) <= 20:
-            raise ValueError("OS 버전은 1~20자여야 합니다.")
-
-        return value
-
-    @field_validator("timezone")
-    @classmethod
-    def validate_timezone(cls, value: str | MISSING | None) -> str | MISSING | None:
-        if isinstance(value, str) and not 1 <= len(value) <= 64:
-            raise ValueError("시간대는 1~64자여야 합니다.")
-
-        return value
+    app_version: str | MISSING = Field(MISSING, min_length=1, max_length=12)
+    os_version: str | MISSING = Field(MISSING, min_length=1, max_length=20)
+    timezone: str | MISSING | None = Field(MISSING, min_length=1, max_length=64)

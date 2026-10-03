@@ -19,11 +19,6 @@ class ConsentStatusEnum(StrEnum):
     DENIED = "denied"
 
 
-class DeviceRoleEnum(StrEnum):
-    STATION = "station"
-    VIEWER = "viewer"
-
-
 class PresetLanguageEnum(StrEnum):
     KO = "ko"
     EN = "en"
@@ -42,15 +37,12 @@ class SessionPhaseEnum(StrEnum):
 
 
 class SessionActorEnum(StrEnum):
-    STATION = "station"
-    VIEWER = "viewer"
+    USER = "user"
     SERVER = "server"
 
 
 class NotificationKindEnum(StrEnum):
-    EMERGENCY = "emergency"
     MIMICRY = "mimicry"
-    STATION_DISCONNECT = "station_disconnect"
     DAILY_SUMMARY = "daily_summary"
     STREAK = "streak"
 
@@ -71,3 +63,24 @@ class FileStatusEnum(StrEnum):
     PENDING = "pending"
     UPLOADED = "uploaded"
     REJECTED = "rejected"
+
+
+class JudgmentStatusEnum(StrEnum):
+    PENDING = "pending"
+    DONE = "done"
+
+
+class LocaleEnum(StrEnum):
+    KO_KR = "ko-KR"
+    EN_US = "en-US"
+
+
+class PlatformEnum(StrEnum):
+    IOS = "ios"
+    ANDROID = "android"
+
+
+class ReportPeriodEnum(StrEnum):
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"

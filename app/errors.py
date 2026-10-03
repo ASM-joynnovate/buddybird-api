@@ -76,25 +76,21 @@ class DuplicateNicknameError(CustomError):
 
 
 class InvalidProfilePhotoError(CustomError):
-    code = 400
     error_code = "USER__INVALID_PROFILE_PHOTO"
     message = "JPEG 또는 PNG 이미지만 업로드할 수 있습니다."
 
 
 class FileSizeExceededError(CustomError):
-    code = 400
     error_code = "COMMON__FILE_SIZE_EXCEEDED"
     message = "파일 크기가 허용된 최대 크기를 초과했습니다."
 
 
 class IdempotencyKeyRequiredError(CustomError):
-    code = 400
     error_code = "COMMON__IDEMPOTENCY_KEY_REQUIRED"
     message = "Idempotency-Key 헤더에 UUID가 필요합니다."
 
 
 class DeviceNotRegisteredError(CustomError):
-    code = 400
     error_code = "DEVICE__NOT_REGISTERED"
     message = "등록되지 않은 기기입니다."
 
@@ -123,20 +119,12 @@ class WordSaveUnavailableError(CustomError):
     message = "단어 정보를 일시적으로 저장할 수 없습니다."
 
 
-class WordRecordingLimitError(CustomError):
-    code = 400
-    error_code = "WORD__RECORDING_LIMIT"
-    message = "녹음 샘플은 단어당 최대 5개까지 등록할 수 있습니다."
-
-
 class WordRecordingRequiredError(CustomError):
-    code = 400
     error_code = "WORD__RECORDING_REQUIRED"
     message = "녹음 샘플은 단어당 최소 1개가 필요합니다."
 
 
 class InvalidWordRecordingError(CustomError):
-    code = 400
     error_code = "WORD__INVALID_RECORDING"
     message = "m4a, wav, mp3 오디오만 업로드할 수 있습니다."
 
@@ -150,7 +138,7 @@ class SessionSaveUnavailableError(CustomError):
 class SessionAlreadyRunningError(CustomError):
     code = 409
     error_code = "SESSION__ALREADY_RUNNING"
-    message = "이 station에서 실행 중인 세션이 이미 있습니다."
+    message = "실행 중인 세션이 이미 있습니다."
 
 
 class SessionNotRunningError(CustomError):
@@ -160,7 +148,6 @@ class SessionNotRunningError(CustomError):
 
 
 class InvalidSessionSoundError(CustomError):
-    code = 400
     error_code = "SESSION__INVALID_SOUND"
     message = "wav 오디오만 업로드할 수 있습니다."
 
@@ -190,9 +177,13 @@ class NoticeSaveUnavailableError(CustomError):
 
 
 class InvalidNoticePeriodError(CustomError):
-    code = 400
     error_code = "NOTICE__INVALID_PERIOD"
     message = "게시 종료 시각은 게시 시작 시각보다 늦어야 합니다."
+
+
+class InvalidNoticeBodyError(CustomError):
+    error_code = "NOTICE__INVALID_BODY"
+    message = "본문을 새로 추가할 때는 en_us가 필요합니다."
 
 
 class NotificationReadFailedError(CustomError):
@@ -221,6 +212,12 @@ class ConsentAlreadyPublishedError(CustomError):
     code = 409
     error_code = "CONSENT__ALREADY_PUBLISHED"
     message = "게시된 고지문은 수정하거나 삭제할 수 없습니다."
+
+
+class AppUpdateSaveUnavailableError(CustomError):
+    code = 503
+    error_code = "APP_UPDATE__SAVE_UNAVAILABLE"
+    message = "앱 업데이트 정보를 일시적으로 저장할 수 없습니다."
 
 
 def register_exception_handlers(app: FastAPI) -> None:

@@ -1,18 +1,19 @@
 import asyncio
 import io
 import logging
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
-from uuid import uuid7
+from uuid import UUID, uuid7
 
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
 from app.enums import FileStatusEnum
 from app.errors import (
-    AuthenticationError,
     DuplicateNicknameError,
     FileSizeExceededError,
     InvalidProfilePhotoError,
@@ -21,8 +22,8 @@ from app.errors import (
 from app.models import File, User
 from app.oauth.base import http_client
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
-from app.schemas.base import UploadDTO, UploadRequest
-from app.schemas.users import ProfilePhotoDTO, UpdateUserRequest, UserDTO
+from app.schemas.base import FileDTO, UploadDTO, UploadRequest
+from app.schemas.users import UpdateUserRequest, UserDTO
 
 logger = logging.getLogger(__name__)
 
@@ -113,13 +114,57 @@ async def delete_uploaded_photo(*, storage: S3StorageClient, path: str, version_
         logger.exception("업로드된 프로필 사진 정리 실패")
 
 
-async def get_profile(*, user: User, storage: S3StorageClient) -> UserDTO:
+async def get_uploading_photo_files(*, db: AsyncSession, file_ids: set[UUID]) -> dict[UUID, File]:
+    if not file_ids:
+        return {}
+
+    stmt = (
+        select(File)
+        .where(
+            File.id.in_(file_ids),
+            or_(
+                File.status == FileStatusEnum.REJECTED.value,
+                and_(
+                    File.status == FileStatusEnum.PENDING.value,
+                    File.created_at > datetime.now(UTC) - timedelta(seconds=UPLOAD_URL_EXPIRES_IN),
+                ),
+            ),
+        )
+        .execution_options(include_deleted=True)
+    )
+    files = (await db.scalars(stmt)).all()
+
+    return {file.id: file for file in files}
+
+
+async def get_profile(*, db: AsyncSession, user: User, storage: S3StorageClient) -> UserDTO:
+    uploading_photo_files = await get_uploading_photo_files(
+        db=db,
+        file_ids={user.uploading_photo_file_id} if user.uploading_photo_file_id is not None else set(),
+    )
+    uploading_photo_file = uploading_photo_files.get(user.uploading_photo_file_id)
     photo = None
+    uploading_photo = None
 
     if user.photo_file is not None:
-        photo = ProfilePhotoDTO(url=storage.generate_presigned_url(path=user.photo_file.object_key))
+        photo = FileDTO(
+            url=storage.generate_presigned_url(path=user.photo_file.object_key),
+            status=user.photo_file.status,
+        )
 
-    return UserDTO(id=user.id, email=user.email, nickname=user.nickname, photo=photo)
+    if uploading_photo_file is not None:
+        uploading_photo = FileDTO(
+            url=storage.generate_presigned_url(path=uploading_photo_file.object_key),
+            status=uploading_photo_file.status,
+        )
+
+    return UserDTO(
+        id=user.id,
+        email=user.email,
+        nickname=user.nickname,
+        photo_file=photo,
+        uploading_photo_file=uploading_photo,
+    )
 
 
 @transactional(unavailable_error=UserSaveUnavailableError)
@@ -128,9 +173,6 @@ async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserReques
 
     if "nickname" not in changes:
         return
-
-    if user.is_deleted:
-        raise AuthenticationError
 
     user.nickname = changes["nickname"]
 
@@ -142,9 +184,6 @@ async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserReques
 
 @transactional(unavailable_error=UserSaveUnavailableError)
 async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User, data: UploadRequest) -> UploadDTO:
-    if user.is_deleted:
-        raise AuthenticationError
-
     if data.content_type not in PHOTO_TYPES:
         raise InvalidProfilePhotoError
 
@@ -167,23 +206,18 @@ async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User
 
     await db.flush()
 
-    return UploadDTO(
+    user.uploading_photo_file_id = photo_file.id
+
+    return storage.generate_presigned_upload(
         file_id=file_id,
-        url=storage.generate_presigned_upload_url(
-            path=f"upload/{photo_file.object_key}",
-            file_type=data.content_type,
-            file_size=data.file_size,
-        ),
-        headers={"Content-Type": data.content_type},
-        expires_in=UPLOAD_URL_EXPIRES_IN,
+        path=f"upload/{photo_file.object_key}",
+        content_type=data.content_type,
+        file_size=data.file_size,
     )
 
 
 @transactional(unavailable_error=UserSaveUnavailableError)
 async def delete_photo(*, db: AsyncSession, user: User) -> None:
-    if user.is_deleted:
-        raise AuthenticationError
-
     old_file = user.photo_file
 
     if old_file is None:

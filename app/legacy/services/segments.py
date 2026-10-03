@@ -22,7 +22,7 @@ from app.s3 import S3StorageClient
 logger = logging.getLogger(__name__)
 
 
-def _create_audio_file(*, name: str, path: str, content: bytes) -> File:
+def create_audio_file(*, name: str, path: str, content: bytes) -> File:
     size = len(content)
 
     if size > 1024**2:
@@ -97,7 +97,7 @@ async def create_audio_segment(
     content = await asyncio.to_thread(audio.trim, file=source, start_ms=data.start_ms, end_ms=data.end_ms)
 
     segment_id = uuid7()
-    file = _create_audio_file(
+    file = create_audio_file(
         name=capture.audio_file.file_name,
         path=f"audio_capture/{capture.firebase_anon_uid}/{capture.id}/segments/{segment_id}",
         content=content,
@@ -136,7 +136,7 @@ async def trim_audio_segment(
     content = await asyncio.to_thread(audio.trim, file=source, start_ms=data.start_ms, end_ms=data.end_ms)
 
     old_file = segment.audio_file
-    file = _create_audio_file(name=old_file.file_name, path=old_file.file_path.rsplit("/", 1)[0], content=content)
+    file = create_audio_file(name=old_file.file_name, path=old_file.file_path.rsplit("/", 1)[0], content=content)
 
     await storage.upload(path=file.object_key, file=content)
 

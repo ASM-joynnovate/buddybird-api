@@ -1,25 +1,25 @@
 from datetime import UTC, date, datetime
-from typing import ClassVar
+from typing import Annotated, ClassVar
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import StringConstraints, field_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO
 
-
-class ParrotPhotoDTO(CustomBaseModel):
-    url: str
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
+Species = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
 
 class ParrotDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"birthdate", "photo"}
+    allow_null_fields: ClassVar[set] = {"birthdate", "photo_file", "uploading_photo_file"}
 
     id: UUID
     name: str
     species: str
     birthdate: date | None
-    photo: ParrotPhotoDTO | None
+    photo_file: FileDTO | None
+    uploading_photo_file: FileDTO | None
 
 
 class ParrotResponse(BaseResponse):
@@ -33,29 +33,9 @@ class ParrotListResponse(BaseResponse):
 class CreateParrotRequest(BaseRequest):
     null_fields: ClassVar[set] = {"birthdate"}
 
-    name: str
-    species: str
+    name: Name
+    species: Species
     birthdate: date | None = None
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str) -> str:
-        value = value.strip()
-
-        if not 1 <= len(value) <= 20:
-            raise ValueError("이름은 1~20자여야 합니다.")
-
-        return value
-
-    @field_validator("species")
-    @classmethod
-    def validate_species(cls, value: str) -> str:
-        value = value.strip()
-
-        if not 1 <= len(value) <= 50:
-            raise ValueError("종은 1~50자여야 합니다.")
-
-        return value
 
     @field_validator("birthdate")
     @classmethod
@@ -69,35 +49,9 @@ class CreateParrotRequest(BaseRequest):
 class UpdateParrotRequest(BaseRequest):
     null_fields: ClassVar[set] = {"birthdate"}
 
-    name: str | MISSING = MISSING
-    species: str | MISSING = MISSING
+    name: Name | MISSING = MISSING
+    species: Species | MISSING = MISSING
     birthdate: date | MISSING | None = MISSING
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str | MISSING) -> str | MISSING:
-        if not isinstance(value, str):
-            return value
-
-        value = value.strip()
-
-        if not 1 <= len(value) <= 20:
-            raise ValueError("이름은 1~20자여야 합니다.")
-
-        return value
-
-    @field_validator("species")
-    @classmethod
-    def validate_species(cls, value: str | MISSING) -> str | MISSING:
-        if not isinstance(value, str):
-            return value
-
-        value = value.strip()
-
-        if not 1 <= len(value) <= 50:
-            raise ValueError("종은 1~50자여야 합니다.")
-
-        return value
 
     @field_validator("birthdate")
     @classmethod

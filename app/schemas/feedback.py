@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import StringConstraints
 
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
@@ -24,14 +25,4 @@ class FeedbackListResponse(BaseResponse):
 
 
 class CreateFeedbackRequest(BaseRequest):
-    message: str
-
-    @field_validator("message")
-    @classmethod
-    def validate_message(cls, value: str) -> str:
-        value = value.strip()
-
-        if not 1 <= len(value) <= 1000:
-            raise ValueError("메시지는 1~1000자여야 합니다.")
-
-        return value
+    message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]

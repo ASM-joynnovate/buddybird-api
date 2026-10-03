@@ -1,24 +1,27 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AwareDatetime, Field
 
-from app.enums import SessionActorEnum, SessionEventKindEnum, SessionPhaseEnum, SessionStatusEnum
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, UploadRequest
+from app.enums import JudgmentStatusEnum, SessionActorEnum, SessionEventKindEnum, SessionPhaseEnum, SessionStatusEnum
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, UploadRequest
+from app.schemas.settings import SleepSettingsDTO, UpdateSleepSettingsRequest
 
 
 class SessionStationDTO(CustomBaseModel):
     device_id: UUID
 
 
-class SessionSettingsDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"word_id"}
+class SessionWordDTO(CustomBaseModel):
+    id: UUID
 
-    word_id: UUID | None
-    learning_enabled: bool
-    version: int
-    applied_version: int
+
+class SessionScheduleDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"ends_at", "sleep"}
+
+    ends_at: datetime | None
+    sleep: SleepSettingsDTO | None
 
 
 class SessionProgressDTO(CustomBaseModel):
@@ -37,13 +40,19 @@ class SessionPeriodDTO(CustomBaseModel):
     ended_by: SessionActorEnum | None
 
 
+class SessionJudgmentDTO(CustomBaseModel):
+    status: JudgmentStatusEnum
+
+
 class SessionDTO(CustomBaseModel):
     id: UUID
     status: SessionStatusEnum
     station: SessionStationDTO
-    settings: SessionSettingsDTO
+    word: SessionWordDTO
+    schedule: SessionScheduleDTO
     progress: SessionProgressDTO
     period: SessionPeriodDTO
+    judgment: SessionJudgmentDTO
 
 
 class SessionResponse(BaseResponse):
@@ -55,25 +64,17 @@ class SessionListResponse(BaseResponse):
 
 
 class StartSessionRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"word_id"}
+    null_fields: ClassVar[set] = {"ends_at", "sleep"}
 
-    word_id: UUID | None = None
-    learning_enabled: bool
-
-
-class ChangeSessionWordRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"word_id"}
-
-    word_id: UUID | None
-
-
-class ChangeSessionLearningRequest(BaseRequest):
-    enabled: bool
-
-
-class HeartbeatSummaryRequest(BaseRequest):
     word_id: UUID
-    local_date: date
+    ends_at: AwareDatetime | None
+    sleep: UpdateSleepSettingsRequest | None
+
+
+class HeartbeatLearningSegmentRequest(BaseRequest):
+    word_id: UUID
+    started_at: AwareDatetime
+    ended_at: AwareDatetime
     play_count: int = Field(..., ge=0)
     play_duration_ms: int = Field(..., ge=0)
 
@@ -83,24 +84,21 @@ class HeartbeatRequest(BaseRequest):
 
     current_phase: SessionPhaseEnum | None
     phase_started_at: datetime | None
-    applied_settings_version: int = Field(..., ge=0)
-    timezone: str = Field(..., min_length=1, max_length=64)
-    summaries: list[HeartbeatSummaryRequest] = Field(default_factory=list, max_length=500)
+    learning_segments: list[HeartbeatLearningSegmentRequest] = Field(default_factory=list, max_length=500)
 
 
 class HeartbeatSessionDTO(CustomBaseModel):
     status: SessionStatusEnum
-    settings: SessionSettingsDTO
 
 
-class AcknowledgedSummaryDTO(CustomBaseModel):
+class AcknowledgedLearningSegmentDTO(CustomBaseModel):
     word_id: UUID
-    local_date: date
+    started_at: datetime
 
 
 class HeartbeatDTO(CustomBaseModel):
     session: HeartbeatSessionDTO
-    acknowledged: list[AcknowledgedSummaryDTO]
+    acknowledged: list[AcknowledgedLearningSegmentDTO]
 
 
 class HeartbeatResponse(BaseResponse):
@@ -129,16 +127,11 @@ class SessionEventDTO(CustomBaseModel):
     id: UUID
     kind: SessionEventKindEnum
     occurred_at: datetime
-    occurred_by: SessionActorEnum
     word: SessionEventWordDTO | None
 
 
 class SessionEventListResponse(BaseResponse):
     data: list[SessionEventDTO]
-
-
-class SessionSoundAudioDTO(CustomBaseModel):
-    url: str
 
 
 class SessionSoundJudgmentDTO(CustomBaseModel):
@@ -153,7 +146,7 @@ class SessionSoundDTO(CustomBaseModel):
     id: UUID
     session_id: UUID
     captured_at: datetime
-    audio: SessionSoundAudioDTO
+    audio_file: FileDTO
     judgment: SessionSoundJudgmentDTO | None
 
 
@@ -163,3 +156,32 @@ class SessionSoundUploadRequest(UploadRequest):
 
 class SessionSoundListResponse(BaseResponse):
     data: list[SessionSoundDTO]
+
+
+class LearningDurationDTO(CustomBaseModel):
+    duration_ms: int
+
+
+class SessionSummaryWordDTO(CustomBaseModel):
+    id: UUID
+    name: str
+    learning: LearningDurationDTO
+
+
+class SessionSummarySessionDTO(CustomBaseModel):
+    play_count: int
+    learning: LearningDurationDTO
+
+
+class SessionSummaryTotalDTO(CustomBaseModel):
+    learning: LearningDurationDTO
+
+
+class SessionSummaryDTO(CustomBaseModel):
+    word: SessionSummaryWordDTO
+    session: SessionSummarySessionDTO
+    total: SessionSummaryTotalDTO
+
+
+class SessionSummaryResponse(BaseResponse):
+    data: SessionSummaryDTO

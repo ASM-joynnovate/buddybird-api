@@ -14,12 +14,13 @@ from app.enums import OAuthProviderEnum, PresetLanguageEnum
 from app.errors import (
     AuthenticationError,
     AuthenticationServiceUnavailableError,
+    DeviceSaveUnavailableError,
     OAuthCredentialError,
     OAuthCredentialRequiredError,
     UserSaveUnavailableError,
     WithdrawalOperationError,
 )
-from app.models import File, PresetWord, User, UserOAuthCredential, UserSetting, Word, WordRecording
+from app.models import Device, File, PresetWord, User, UserOAuthCredential, UserSetting, Word, WordRecording
 from app.oauth.apple import verify_apple_credential
 from app.oauth.base import SocialIdentity, credential_cipher, decrypt_credentials, encrypt_credentials, match_identity
 from app.oauth.google import verify_google_credential
@@ -81,8 +82,27 @@ async def verify_login_credential(
 
 
 async def complete_login(
-    *, db: AsyncSession, storage: S3StorageClient, auth_user_id: UUID, access_token: str, data: LoginRequest | None
+    *,
+    db: AsyncSession,
+    storage: S3StorageClient,
+    auth_user_id: UUID,
+    access_token: str,
+    is_anonymous: bool,
+    data: LoginRequest | None,
 ) -> LoginDTO:
+    if is_anonymous:
+        return await save_login(
+            db=db,
+            user_id=uuid7(),
+            auth_user_id=auth_user_id,
+            email=None,
+            credential=None,
+            credential_required=False,
+            photo_file=None,
+            is_anonymous=True,
+            language=data.language if data is not None else PresetLanguageEnum.KO,
+        )
+
     identities = await get_social_identities(auth_user_id=auth_user_id, access_token=access_token)
     profile = min(identities, key=lambda item: (item.created_at, item.identity_id))
 
@@ -103,11 +123,12 @@ async def complete_login(
     credential_required = any(
         identity.provider in {OAuthProviderEnum.GOOGLE, OAuthProviderEnum.APPLE} for identity in identities
     )
+    anonymous_without_photo = user is not None and user.is_anonymous and user.photo_file_id is None
     photo_file = None
     uploaded_path = None
     uploaded_version_id = None
 
-    if user is None and profile.photo_url:
+    if (user is None or anonymous_without_photo) and profile.photo_url:
         photo = await download_social_photo(url=profile.photo_url, provider=profile.provider)
 
         if photo is not None:
@@ -137,6 +158,7 @@ async def complete_login(
             credential=credential,
             credential_required=credential_required,
             photo_file=photo_file,
+            is_anonymous=False,
             language=data.language if data is not None else PresetLanguageEnum.KO,
         )
     except Exception, asyncio.CancelledError:
@@ -145,7 +167,7 @@ async def complete_login(
 
         raise
 
-    if uploaded_path is not None and not login.is_new_user:
+    if uploaded_path is not None and not login.is_new_user and not anonymous_without_photo:
         await delete_uploaded_photo(storage=storage, path=uploaded_path, version_id=uploaded_version_id)
 
     return login
@@ -161,11 +183,12 @@ async def save_login(
     credential: UserOAuthCredential | None,
     credential_required: bool,
     photo_file: File | None,
+    is_anonymous: bool,
     language: PresetLanguageEnum,
 ) -> LoginDTO:
     inserted_id = await db.scalar(
         insert(User)
-        .values(id=user_id, auth_user_id=auth_user_id, email=email, is_deleted=False)
+        .values(id=user_id, auth_user_id=auth_user_id, email=email, is_anonymous=is_anonymous, is_deleted=False)
         .on_conflict_do_nothing(index_elements=[User.auth_user_id])
         .returning(User.id)
     )
@@ -181,9 +204,13 @@ async def save_login(
     if user.is_deleted:
         raise AuthenticationError
 
-    is_new_user = inserted_id is not None
+    if is_anonymous and not user.is_anonymous:
+        raise AuthenticationError
 
-    if is_new_user and credential is None and credential_required:
+    is_new_user = inserted_id is not None
+    is_first_link = user.is_anonymous and not is_anonymous
+
+    if (is_new_user or is_first_link) and credential is None and credential_required:
         raise OAuthCredentialRequiredError
 
     if credential is not None:
@@ -213,6 +240,14 @@ async def save_login(
     if is_new_user and photo_file is not None:
         user.photo_file = photo_file
 
+    if is_first_link:
+        user.email = email
+
+        if photo_file is not None and user.photo_file is None:
+            user.photo_file = photo_file
+
+        user.is_anonymous = False
+
     if is_new_user:
         db.add(UserSetting(user_id=user.id))
 
@@ -229,3 +264,15 @@ async def save_login(
             db.add(WordRecording(word_id=word.id, file_id=preset.audio_file_id, is_deleted=False))
 
     return LoginDTO(user_id=user.id, is_new_user=is_new_user)
+
+
+@transactional(unavailable_error=DeviceSaveUnavailableError)
+async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None) -> None:
+    if client_device_id is None:
+        return
+
+    stmt = select(Device).where(Device.user_id == user.id, Device.client_device_id == client_device_id)
+    device = await db.scalar(stmt)
+
+    if device is not None:
+        device.push_token = None

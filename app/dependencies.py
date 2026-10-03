@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 from uuid import UUID
 
+import sentry_sdk
 from fastapi import Depends, Header, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import get_or_404, session_factory
+from app.enums import LocaleEnum
 from app.errors import (
     AuthenticationError,
     BackofficePasswordInvalidError,
@@ -63,6 +65,9 @@ async def require_active_user(context: Authenticated, db: DBSession) -> User:
 
     if user is None:
         raise AuthenticationError
+
+    sentry_sdk.set_user({"id": str(user.id)})
+    sentry_sdk.set_attribute("user.id", str(user.id))
 
     return user
 
@@ -152,3 +157,13 @@ async def require_backoffice(
 
 async def require_consent(db: DBSession, consent_id: UUID) -> Consent:
     return await get_or_404(db=db, model=Consent, id=consent_id)
+
+
+async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:
+    if accept_language in LocaleEnum:
+        return LocaleEnum(accept_language)
+
+    return LocaleEnum.EN_US
+
+
+Locale = Annotated[LocaleEnum, Depends(get_locale)]

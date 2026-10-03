@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.1.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.0.1...v1.1.0) (2026-10-03)
+
+
+### Features
+
+* **api:** apply API changes requested by the mobile app ([fd3c025](https://github.com/ASM-joynnovate/buddybird-api/commit/fd3c0252e68461cc36d4909a98d127036ec9f013))
+* **api:** apply API changes requested by the mobile app ([8c69117](https://github.com/ASM-joynnovate/buddybird-api/commit/8c6911782d9653cf921a7804e357aa8495b503be))
+* **devices:** replace fixed device role with session-based role ([4c9f830](https://github.com/ASM-joynnovate/buddybird-api/commit/4c9f8300e36b2714bf673ab84a883b9d1ccb9d24))
+* **devices:** replace fixed device role with session-based role ([999500e](https://github.com/ASM-joynnovate/buddybird-api/commit/999500e8b66cdf7e7f756cd30d620333028a5a16))
+* **legacy:** restore the clip batch upload API ([5f79196](https://github.com/ASM-joynnovate/buddybird-api/commit/5f791963687636cb5bd5adb571998583754577ea))
+* **legacy:** restore the clip batch upload API ([093c7a1](https://github.com/ASM-joynnovate/buddybird-api/commit/093c7a1bdcbac36dd8442eb6cbc1ade7d5e30f96))
+* **sentry:** add error, tracing, and log monitoring ([1da08fa](https://github.com/ASM-joynnovate/buddybird-api/commit/1da08fa05e0d97b2f0301b42c14871c393c45d4d))
+* **sentry:** add error, tracing, and log monitoring ([a37a997](https://github.com/ASM-joynnovate/buddybird-api/commit/a37a997c6fabbb78766965582bb57cfb4dbb8036))
+
+
+### Bug Fixes
+
+* **api:** send no-store on every response and remove the ETag middleware ([2bfa0d9](https://github.com/ASM-joynnovate/buddybird-api/commit/2bfa0d99006ed30547803e8cfb91fffdc7172030))
+
+
+### Performance Improvements
+
+* **db:** fill joined relationships with contains_eager ([972b555](https://github.com/ASM-joynnovate/buddybird-api/commit/972b555b3a901c5e6e35e44c4120fb7336cbbc82))
+* **s3:** make the storage dependency async ([bed322f](https://github.com/ASM-joynnovate/buddybird-api/commit/bed322fe2a0ec24010128a4a92acf2ba358e60e3))
+
 ## [1.0.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.0.0...v1.0.1) (2026-09-19)
 
 

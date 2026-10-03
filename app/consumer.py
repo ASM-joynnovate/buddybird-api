@@ -5,11 +5,16 @@ import signal
 from collections.abc import Awaitable, Callable
 from uuid import UUID
 
+import sentry_sdk
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app import sentry
 from app.config import config
+from app.db import session_factory
 from app.services import uploads
 from app.services.notifications import deliver
+from app.services.session_sounds import save_parrot_detection
+from app.services.sessions import finish_expired_sessions
 from app.services.withdrawals import dispatch_due_withdrawals, process_user_withdrawal
 from app.sqs import get_sqs
 
@@ -25,12 +30,23 @@ async def send_notification(body: dict) -> None:
 
 
 async def process_withdrawal(body: dict) -> None:
+    sentry_sdk.set_user({"id": body["user_id"]})
+    sentry_sdk.set_attribute("user.id", body["user_id"])
+
     await process_user_withdrawal(UUID(body["user_id"]))
 
 
 async def run_periodic_command(body: dict) -> None:
     if body["type"] == "withdrawal.dispatch":
         await dispatch_due_withdrawals()
+    elif body["type"] == "session.check_heartbeats":
+        async with session_factory() as db:
+            await finish_expired_sessions(db=db)
+
+
+async def save_parrot_sound_detection(body: dict) -> None:
+    async with session_factory() as db:
+        await save_parrot_detection(db=db, data=body["data"])
 
 
 async def consume(*, queue_url: str, handle: Callable[[dict], Awaitable[None]]) -> None:
@@ -52,18 +68,29 @@ async def consume(*, queue_url: str, handle: Callable[[dict], Awaitable[None]]) 
             continue
 
         for message in response.get("Messages", []):
-            try:
-                await handle(json.loads(message["Body"]))
-                await asyncio.to_thread(
-                    sqs.delete_message,
-                    QueueUrl=queue_url,
-                    ReceiptHandle=message["ReceiptHandle"],
+            with sentry_sdk.isolation_scope(), sentry_sdk.start_transaction(op="queue.process", name=handle.__name__):
+                sentry_sdk.set_attributes(
+                    {
+                        "messaging.system": "aws_sqs",
+                        "messaging.destination.name": queue_url.rsplit("/", 1)[-1],
+                        "messaging.message.id": message["MessageId"],
+                    }
                 )
-            except Exception:
-                logger.exception("메시지 처리 실패; queue_url=%s message_id=%s", queue_url, message["MessageId"])
+
+                try:
+                    await handle(json.loads(message["Body"]))
+                    await asyncio.to_thread(
+                        sqs.delete_message,
+                        QueueUrl=queue_url,
+                        ReceiptHandle=message["ReceiptHandle"],
+                    )
+                except Exception:
+                    logger.exception("메시지 처리 실패; queue_url=%s message_id=%s", queue_url, message["MessageId"])
 
 
 async def main() -> None:
+    sentry.init()
+
     logging.basicConfig(level=config.LOG_LEVEL)
     logging.getLogger("botocore").setLevel(logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.INFO)
@@ -76,6 +103,7 @@ async def main() -> None:
             consume(queue_url=config.SQS_NOTIFICATION_QUEUE_URL, handle=send_notification),
             consume(queue_url=config.SQS_WITHDRAWAL_QUEUE_URL, handle=process_withdrawal),
             consume(queue_url=config.SQS_PERIODIC_COMMAND_QUEUE_URL, handle=run_periodic_command),
+            consume(queue_url=config.SQS_JUDGMENT_RESULT_QUEUE_URL, handle=save_parrot_sound_detection),
         )
     except asyncio.CancelledError:
         logger.info("종료 신호를 받아 consumer를 종료함")

@@ -1,12 +1,13 @@
 import asyncio
 from contextlib import suppress
-from functools import lru_cache
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import boto3
 from botocore.config import Config
 
 from app.config import config
+from app.schemas.base import UploadDTO
 
 if TYPE_CHECKING:
     # 개발 의존성으로 선언한 S3 타입 정보다.
@@ -68,28 +69,37 @@ class S3StorageClient:
             ExpiresIn=expires_in,
         )
 
-    def generate_presigned_upload_url(self, *, path: str, file_type: str, file_size: int) -> str:
-        return self._client.generate_presigned_url(
+    def generate_presigned_upload(self, *, file_id: UUID, path: str, content_type: str, file_size: int) -> UploadDTO:
+        url = self._client.generate_presigned_url(
             ClientMethod="put_object",
             Params={
                 "Bucket": config.S3_BUCKET_NAME,
                 "Key": path,
-                "ContentType": file_type,
+                "ContentType": content_type,
                 "ContentLength": file_size,
             },
             ExpiresIn=UPLOAD_URL_EXPIRES_IN,
         )
 
-
-@lru_cache(maxsize=1)
-def get_s3() -> S3StorageClient:
-    return S3StorageClient(
-        client=boto3.client(
-            "s3",
-            endpoint_url=config.S3_ENDPOINT_URL,
-            aws_access_key_id=config.S3_ACCESS_KEY,
-            aws_secret_access_key=config.S3_SECRET_KEY,
-            region_name=config.S3_REGION,
-            config=Config(signature_version="s3v4"),
+        return UploadDTO(
+            file_id=file_id,
+            url=url,
+            headers={"Content-Type": content_type},
+            expires_in=UPLOAD_URL_EXPIRES_IN,
         )
+
+
+s3 = S3StorageClient(
+    client=boto3.client(
+        "s3",
+        endpoint_url=config.S3_ENDPOINT_URL,
+        aws_access_key_id=config.S3_ACCESS_KEY,
+        aws_secret_access_key=config.S3_SECRET_KEY,
+        region_name=config.S3_REGION,
+        config=Config(signature_version="s3v4"),
     )
+)
+
+
+async def get_s3() -> S3StorageClient:
+    return s3
