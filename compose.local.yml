@@ -1,3 +1,6 @@
+include:
+  - local/storage.compose.yml
+
 services:
   api:
     build: .
@@ -12,6 +15,8 @@ services:
       SQS_NOTIFICATION_QUEUE_URL: http://elasticmq:9324/000000000000/notification
       SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
       SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
+      SQS_PARROT_SOUND_DETECTION_QUEUE_URL: http://elasticmq:9324/000000000000/parrot-sound-detection
+      SQS_JUDGMENT_RESULT_QUEUE_URL: http://elasticmq:9324/000000000000/judgment-result
     ports:
       - "8000:8000"
     depends_on:
@@ -33,6 +38,8 @@ services:
       SQS_NOTIFICATION_QUEUE_URL: http://elasticmq:9324/000000000000/notification
       SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
       SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
+      SQS_PARROT_SOUND_DETECTION_QUEUE_URL: http://elasticmq:9324/000000000000/parrot-sound-detection
+      SQS_JUDGMENT_RESULT_QUEUE_URL: http://elasticmq:9324/000000000000/judgment-result
     command: [python, -m, app.consumer]
     depends_on:
       postgres:
@@ -63,7 +70,7 @@ services:
     ports:
       - "9324:9324"
     volumes:
-      - ./elasticmq.conf:/opt/elasticmq.conf:ro
+      - ./local/elasticmq.conf:/opt/elasticmq.conf:ro
 
 volumes:
   postgres-data:
