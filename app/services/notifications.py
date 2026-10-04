@@ -126,7 +126,7 @@ async def send(
                 body={"type": "notification.send", "notification_id": str(dto.id)},
             )
         except Exception:
-            logger.warning("알림 발송 작업 큐 전달 실패")
+            logger.exception("알림 발송 작업 큐 전달 실패; notification_id=%s", dto.id)
 
     return dto
 

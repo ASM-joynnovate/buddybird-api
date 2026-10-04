@@ -1,0 +1,16 @@
+{
+  "QueueConfigurations": [
+    {
+      "Id": "upload-originals",
+      "QueueArn": "arn:rustfs:sqs:us-east-1:primary:webhook",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": { "Key": { "FilterRules": [{ "Name": "prefix", "Value": "upload/" }] } }
+    },
+    {
+      "Id": "user-files",
+      "QueueArn": "arn:rustfs:sqs:us-east-1:primary:webhook",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": { "Key": { "FilterRules": [{ "Name": "prefix", "Value": "user/" }] } }
+    }
+  ]
+}

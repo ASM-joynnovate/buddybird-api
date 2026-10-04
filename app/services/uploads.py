@@ -68,7 +68,7 @@ async def process(*, key: str, size: int) -> None:
                     },
                 )
             except Exception:
-                logger.warning("앵무새 소리 판별 요청 큐 전달 실패; sound_id=%s", sound.id)
+                logger.exception("앵무새 소리 판별 요청 큐 전달 실패; sound_id=%s", sound.id)
 
 
 @transactional

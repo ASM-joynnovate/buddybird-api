@@ -1,0 +1,34 @@
+sources:
+  rustfs_events:
+    type: http_server
+    address: 0.0.0.0:8080
+    path: /rustfs
+    decoding:
+      codec: json
+
+transforms:
+  upload_confirmation_messages:
+    type: remap
+    inputs: [rustfs_events]
+    source: |
+      . = {
+        "detail": {
+          "object": {
+            "key": decode_percent(string!(.Records[0].s3.object.key)),
+            "size": .Records[0].s3.object.size
+          }
+        }
+      }
+
+sinks:
+  upload_confirmation_queue:
+    type: aws_sqs
+    inputs: [upload_confirmation_messages]
+    endpoint: http://elasticmq:9324
+    queue_url: http://elasticmq:9324/000000000000/upload-confirmation
+    region: ap-northeast-2
+    auth:
+      access_key_id: local
+      secret_access_key: local
+    encoding:
+      codec: json

@@ -154,6 +154,9 @@ class UserSetting(Base):
     report_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
+    marketing_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
 
 class I18n(Base):
@@ -244,6 +247,7 @@ class WordRecording(Base):
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     word_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Word.id), index=True, nullable=False)
     file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
+    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     file: Mapped[File] = relationship(lazy="selectin")
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 

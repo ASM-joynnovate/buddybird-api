@@ -49,7 +49,7 @@ def decrypt_credentials(ciphertext: str) -> dict | list:
 
 @lru_cache
 def jwks_client(url: str) -> PyJWKClient:
-    return PyJWKClient(url, cache_jwk_set=True, lifespan=300, timeout=5)
+    return PyJWKClient(url, cache_keys=True, cache_jwk_set=True, lifespan=300, timeout=5)
 
 
 async def provider_request(

@@ -15,6 +15,7 @@ from app.schemas.base import FileDTO, PageParams, UploadDTO
 from app.schemas.sessions import (
     SessionSoundDTO,
     SessionSoundJudgmentDTO,
+    SessionSoundListParams,
     SessionSoundUploadRequest,
 )
 from app.services.sessions import verify_station
@@ -53,7 +54,7 @@ async def build_sound_dtos(
 
 
 async def get_list(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: PageParams
+    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: SessionSoundListParams
 ) -> tuple[list[SessionSoundDTO], int]:
     stmt = (
         select(SessionSound)
@@ -70,6 +71,18 @@ async def get_list(
             ),
         )
     )
+
+    if query.mimicry:
+        latest_word_id = (
+            select(SoundJudgment.word_id)
+            .where(SoundJudgment.sound_id == SessionSound.id)
+            .order_by(SoundJudgment.judged_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+
+        stmt = stmt.where(latest_word_id.is_not(None))
+
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
         await db.scalars(
