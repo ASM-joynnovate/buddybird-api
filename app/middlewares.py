@@ -88,7 +88,7 @@ class IdempotencyMiddleware:
         except ValueError:
             error = IdempotencyKeyRequiredError()
             response = JSONResponse(
-                status_code=error.code, content={"error_code": error.error_code, "message": error.message}
+                status_code=error.status_code, content={"error_code": error.error_code, "message": error.message}
             )
             await response(scope, receive, send)
             return

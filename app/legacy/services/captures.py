@@ -271,7 +271,7 @@ async def batch_create_audio_capture(
             except CustomError as exc:
                 results[item.client_capture_id] = BatchCreateAudioCaptureResultDTO(
                     status="rejected",
-                    code=exc.code,
+                    code=exc.status_code,
                     error_code=exc.error_code,
                     message=exc.message,
                 )

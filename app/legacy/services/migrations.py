@@ -72,7 +72,7 @@ async def migrate_reviews(*, db: AsyncSession, data: MigrateReviewsRequest) -> d
         if capture is None or any(key not in options for key in keys):
             results[review.audio_file_id] = MigrateReviewResultDTO(
                 status="rejected",
-                code=ResourceNotFoundError.code,
+                code=ResourceNotFoundError.status_code,
                 error_code=ResourceNotFoundError.error_code,
                 message=ResourceNotFoundError.message,
             )
