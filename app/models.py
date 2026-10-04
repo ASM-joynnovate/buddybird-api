@@ -223,13 +223,22 @@ class Device(Base):
 
 class PresetWord(Base):
     __tablename__ = "preset_words"
-    __table_args__ = (UniqueConstraint("language", "name", name="uq_preset_words_language_name"),)
+    __table_args__ = (
+        Index(
+            "uq_preset_words_language_name_active",
+            "language",
+            "name",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     language: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    audio_file: Mapped[File] = relationship(lazy="selectin")
 
 
 class Word(Base):

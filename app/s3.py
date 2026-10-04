@@ -25,7 +25,14 @@ class S3StorageClient:
     def close(self) -> None:
         self._client.close()
 
-    async def upload(self, *, path: str, file: bytes, metadata: dict[str, str] | None = None) -> str:
+    async def upload(
+        self,
+        *,
+        path: str,
+        file: bytes,
+        metadata: dict[str, str] | None = None,
+        content_type: str = "binary/octet-stream",
+    ) -> str:
         if metadata is None:
             metadata = {}
 
@@ -36,6 +43,7 @@ class S3StorageClient:
                 Key=path,
                 Body=file,
                 Metadata=metadata,
+                ContentType=content_type,
             )
         )
         try:

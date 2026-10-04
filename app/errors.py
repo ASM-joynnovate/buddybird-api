@@ -220,6 +220,18 @@ class AppUpdateSaveUnavailableError(CustomError):
     message = "앱 업데이트 정보를 일시적으로 저장할 수 없습니다."
 
 
+class PresetWordSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "PRESET_WORD__SAVE_UNAVAILABLE"
+    message = "단어 프리셋을 일시적으로 저장할 수 없습니다."
+
+
+class DuplicatePresetWordError(CustomError):
+    status_code = 409
+    error_code = "PRESET_WORD__DUPLICATE_NAME"
+    message = "같은 언어에 같은 이름의 단어 프리셋이 이미 있습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:
