@@ -117,6 +117,7 @@ jobs:
           run-task-security-groups: ${{ steps.task.outputs.security_groups }}
           run-task-assign-public-IP: ENABLED
           wait-for-task-stopped: true
+          wait-max-delay-seconds: 15
 
       - name: show migration logs
         if: failure() && steps.migration.outputs.run-task-arn != ''
@@ -135,6 +136,7 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           service: ${{ env.ECS_SERVICE }}
           wait-for-service-stability: true
+          wait-max-delay-seconds: 15
 
       - name: render consumer task definition
         id: consumer-task
@@ -154,6 +156,7 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           service: ${{ env.ECS_SERVICE }}-consumer
           wait-for-service-stability: true
+          wait-max-delay-seconds: 15
 
       - name: collect result
         id: result
