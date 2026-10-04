@@ -20,7 +20,7 @@ from app.errors import (
     ResourceNotFoundError,
 )
 from app.middlewares import AuthContext
-from app.models import Consent, Device, Notice, NoticeImage, Notification, Parrot, Session, User, Word
+from app.models import Consent, Device, Notice, NoticeImage, Notification, Parrot, PresetWord, Session, User, Word
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -143,6 +143,10 @@ async def require_notice_image(
         raise ResourceNotFoundError
 
     return image
+
+
+async def require_preset_word(db: DBSession, preset_word_id: UUID) -> PresetWord:
+    return await get_or_404(db=db, model=PresetWord, id=preset_word_id)
 
 
 async def require_backoffice(

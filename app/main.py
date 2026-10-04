@@ -26,6 +26,7 @@ from app.routers import (
     notices,
     notifications,
     parrots,
+    preset_words,
     reports,
     sessions,
     settings,
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     application.include_router(devices.router, prefix="/api/v1", tags=["기기"])
     application.include_router(parrots.router, prefix="/api/v1", tags=["앵무새"])
     application.include_router(words.router, prefix="/api/v1", tags=["단어"])
+    application.include_router(preset_words.router, prefix="/api/v1", tags=["단어 프리셋"])
     application.include_router(sessions.router, prefix="/api/v1", tags=["세션"])
     application.include_router(user_parrot_sounds.router, prefix="/api/v1", tags=["세션"])
     application.include_router(feedback.router, prefix="/api/v1", tags=["피드백"])
