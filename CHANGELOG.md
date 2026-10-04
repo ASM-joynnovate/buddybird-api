@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.2.0...v1.3.0) (2026-10-04)
+
+
+### Features
+
+* **preset-words:** add backoffice API to manage word presets ([a379ae8](https://github.com/ASM-joynnovate/buddybird-api/commit/a379ae8d21bee2fbcbe332461f05ae3a54ed0392))
+* **preset-words:** add backoffice API to manage word presets ([cbd165f](https://github.com/ASM-joynnovate/buddybird-api/commit/cbd165f0dcab9d6de8d37008a7e282ada63f6bba))
+
 ## [1.2.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.1.1...v1.2.0) (2026-10-04)
 
 
