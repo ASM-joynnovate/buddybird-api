@@ -94,6 +94,15 @@ async def require_device(
 ActiveDevice = Annotated[Device, Depends(require_device)]
 
 
+async def require_user_device(user: ActiveUser, db: DBSession, device_id: UUID) -> Device:
+    device = await get_or_404(db=db, model=Device, id=device_id)
+
+    if device.user_id != user.id:
+        raise ResourceNotFoundError
+
+    return device
+
+
 async def require_parrot(user: ActiveUser, db: DBSession, parrot_id: UUID) -> Parrot:
     parrot = await get_or_404(db=db, model=Parrot, id=parrot_id)
 
