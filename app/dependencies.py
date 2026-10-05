@@ -20,7 +20,18 @@ from app.errors import (
     ResourceNotFoundError,
 )
 from app.middlewares import AuthContext
-from app.models import Consent, Device, Notice, NoticeImage, Notification, Parrot, Session, User, Word
+from app.models import (
+    Announcement,
+    AnnouncementImage,
+    Consent,
+    Device,
+    Notification,
+    Parrot,
+    PresetWord,
+    Session,
+    User,
+    Word,
+)
 from app.s3 import S3StorageClient, get_s3
 
 
@@ -94,6 +105,15 @@ async def require_device(
 ActiveDevice = Annotated[Device, Depends(require_device)]
 
 
+async def require_user_device(user: ActiveUser, db: DBSession, device_id: UUID) -> Device:
+    device = await get_or_404(db=db, model=Device, id=device_id)
+
+    if device.user_id != user.id:
+        raise ResourceNotFoundError
+
+    return device
+
+
 async def require_parrot(user: ActiveUser, db: DBSession, parrot_id: UUID) -> Parrot:
     parrot = await get_or_404(db=db, model=Parrot, id=parrot_id)
 
@@ -130,19 +150,23 @@ async def require_notification(user: ActiveUser, db: DBSession, notification_id:
     return notification
 
 
-async def require_notice(db: DBSession, notice_id: UUID) -> Notice:
-    return await get_or_404(db=db, model=Notice, id=notice_id)
+async def require_announcement(db: DBSession, announcement_id: UUID) -> Announcement:
+    return await get_or_404(db=db, model=Announcement, id=announcement_id)
 
 
-async def require_notice_image(
-    notice: Annotated[Notice, Depends(require_notice)], db: DBSession, image_id: UUID
-) -> NoticeImage:
-    image = await get_or_404(db=db, model=NoticeImage, id=image_id)
+async def require_announcement_image(
+    announcement: Annotated[Announcement, Depends(require_announcement)], db: DBSession, image_id: UUID
+) -> AnnouncementImage:
+    image = await get_or_404(db=db, model=AnnouncementImage, id=image_id)
 
-    if image.notice_id != notice.id:
+    if image.announcement_id != announcement.id:
         raise ResourceNotFoundError
 
     return image
+
+
+async def require_preset_word(db: DBSession, preset_word_id: UUID) -> PresetWord:
+    return await get_or_404(db=db, model=PresetWord, id=preset_word_id)
 
 
 async def require_backoffice(
@@ -153,6 +177,16 @@ async def require_backoffice(
 
     if not secrets.compare_digest(x_backoffice_password, config.BACKOFFICE_PASSWORD):
         raise BackofficePasswordInvalidError
+
+
+async def require_backoffice_user(db: DBSession, user_id: UUID) -> User:
+    stmt = select(User).where(User.id == user_id).execution_options(include_deleted=True)
+    user = await db.scalar(stmt)
+
+    if user is None:
+        raise ResourceNotFoundError
+
+    return user
 
 
 async def require_consent(db: DBSession, consent_id: UUID) -> Consent:

@@ -1,0 +1,74 @@
+services:
+  rustfs-permissions:
+    image: alpine:3.22
+    volumes:
+      - rustfs-data-0:/data0
+      - rustfs-data-1:/data1
+      - rustfs-data-2:/data2
+      - rustfs-data-3:/data3
+    command: sh -c "chown -R 10001:10001 /data0 /data1 /data2 /data3"
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    container_name: buddybird-rustfs
+    environment:
+      RUSTFS_VOLUMES: /data/rustfs{0...3}
+      RUSTFS_UNSAFE_BYPASS_DISK_CHECK: "true"
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: buddybird
+      RUSTFS_SECRET_KEY: buddybird-local
+      RUSTFS_NOTIFY_ENABLE: "true"
+      RUSTFS_NOTIFY_WEBHOOK_ENABLE_PRIMARY: "on"
+      RUSTFS_NOTIFY_WEBHOOK_ENDPOINT_PRIMARY: http://vector:8080/rustfs
+      RUSTFS_NOTIFY_WEBHOOK_QUEUE_DIR_PRIMARY: /tmp/rustfs-events
+      RUSTFS_OUTBOUND_ALLOW_ORIGINS: http://vector:8080
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - rustfs-data-0:/data/rustfs0
+      - rustfs-data-1:/data/rustfs1
+      - rustfs-data-2:/data/rustfs2
+      - rustfs-data-3:/data/rustfs3
+    depends_on:
+      rustfs-permissions:
+        condition: service_completed_successfully
+      vector:
+        condition: service_started
+
+  rustfs-init:
+    image: amazon/aws-cli:2.31.0
+    environment:
+      AWS_ACCESS_KEY_ID: buddybird
+      AWS_SECRET_ACCESS_KEY: buddybird-local
+      AWS_DEFAULT_REGION: ap-northeast-2
+    volumes:
+      - ./rustfs-notification.json:/config/rustfs-notification.json:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        until aws --endpoint-url http://rustfs:9000 s3api list-buckets > /dev/null 2>&1; do sleep 1; done
+        aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket buddybird-local 2> /dev/null \
+          || aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket buddybird-local
+        aws --endpoint-url http://rustfs:9000 s3api put-bucket-versioning --bucket buddybird-local \
+          --versioning-configuration Status=Enabled
+        aws --endpoint-url http://rustfs:9000 s3api put-bucket-notification-configuration --bucket buddybird-local \
+          --notification-configuration file:///config/rustfs-notification.json
+    depends_on:
+      rustfs:
+        condition: service_started
+
+  vector:
+    image: timberio/vector:0.58.0-alpine
+    container_name: buddybird-vector
+    command: ["--config", "/etc/vector/vector.yaml"]
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+
+volumes:
+  rustfs-data-0:
+  rustfs-data-1:
+  rustfs-data-2:
+  rustfs-data-3:

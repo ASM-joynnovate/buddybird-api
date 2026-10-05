@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 from contextlib import suppress
+from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -27,6 +28,7 @@ from app.oauth.google import verify_google_credential
 from app.oauth.supabase import get_social_identities
 from app.s3 import S3StorageClient
 from app.schemas.auth import LoginDTO, LoginRequest
+from app.services.devices import finish_running_sessions
 from app.services.users import delete_uploaded_photo, download_social_photo
 
 
@@ -261,18 +263,26 @@ async def save_login(
             word = Word(id=uuid7(), user_id=user.id, name=preset.name, is_deleted=False)
 
             db.add(word)
-            db.add(WordRecording(word_id=word.id, file_id=preset.audio_file_id, is_deleted=False))
+            db.add(WordRecording(word_id=word.id, file_id=preset.audio_file_id, display_order=0, is_deleted=False))
 
     return LoginDTO(user_id=user.id, is_new_user=is_new_user)
 
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)
-async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None) -> None:
+async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None) -> list[UUID]:
     if client_device_id is None:
-        return
+        return []
 
     stmt = select(Device).where(Device.user_id == user.id, Device.client_device_id == client_device_id)
     device = await db.scalar(stmt)
+    session_ids = []
 
     if device is not None:
         device.push_token = None
+
+        if not user.is_anonymous:
+            device.is_deleted = True
+
+            session_ids = await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
+
+    return session_ids

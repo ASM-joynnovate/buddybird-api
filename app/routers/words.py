@@ -5,8 +5,14 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import ActiveUser, DBSession, Storage, require_word
 from app.models import Word
-from app.schemas.base import BaseResponse, UploadRequest, UploadResponse
-from app.schemas.words import SaveWordRequest, WordListResponse, WordResponse
+from app.schemas.base import BaseResponse
+from app.schemas.words import (
+    SaveWordRequest,
+    WordListResponse,
+    WordRecordingUploadRequest,
+    WordRecordingUploadResponse,
+    WordResponse,
+)
 from app.services import words
 
 router = APIRouter(prefix="/words")
@@ -44,11 +50,11 @@ async def delete(word: Annotated[Word, Depends(require_word)], db: DBSession) ->
 @router.post("/{word_id}/recordings", name="녹음 샘플 업로드 URL 발급")
 async def add_recording(
     word: Annotated[Word, Depends(require_word)],
-    body: UploadRequest,
+    body: WordRecordingUploadRequest,
     db: DBSession,
     storage: Storage,
-) -> UploadResponse:
-    return UploadResponse(
+) -> WordRecordingUploadResponse:
+    return WordRecordingUploadResponse(
         message="녹음 샘플 업로드 URL 발급 성공",
         data=await words.add_recording(db=db, storage=storage, word=word, data=body),
     )

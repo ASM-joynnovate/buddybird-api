@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid7
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager
 
@@ -17,8 +17,14 @@ from app.errors import (
 )
 from app.models import File, User, Word, WordRecording
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
-from app.schemas.base import FileDTO, UploadDTO, UploadRequest
-from app.schemas.words import SaveWordRequest, WordDTO, WordRecordingDTO
+from app.schemas.base import FileDTO
+from app.schemas.words import (
+    SaveWordRequest,
+    WordDTO,
+    WordRecordingDTO,
+    WordRecordingUploadDTO,
+    WordRecordingUploadRequest,
+)
 
 MAX_RECORDING_BYTES = 5 * 1024 * 1024
 RECORDING_TYPES = {
@@ -42,6 +48,7 @@ def build_word_dto(word: Word, recordings: Iterable[WordRecording], storage: S3S
                     url=storage.generate_presigned_url(path=recording.file.object_key),
                     status=recording.file.status,
                 ),
+                display_order=recording.display_order,
                 created_at=recording.created_at,
             )
             for recording in recordings
@@ -64,7 +71,7 @@ async def get_recordings_by_word(*, db: AsyncSession, word_ids: Iterable[UUID]) 
                 ),
             ),
         )
-        .order_by(WordRecording.created_at)
+        .order_by(WordRecording.display_order, WordRecording.created_at)
     )
     recordings = (await db.scalars(stmt)).all()
     grouped: dict[UUID, list[WordRecording]] = {}
@@ -123,7 +130,9 @@ async def delete(*, db: AsyncSession, word: Word) -> None:
 
 
 @transactional(unavailable_error=WordSaveUnavailableError)
-async def add_recording(*, db: AsyncSession, storage: S3StorageClient, word: Word, data: UploadRequest) -> UploadDTO:
+async def add_recording(
+    *, db: AsyncSession, storage: S3StorageClient, word: Word, data: WordRecordingUploadRequest
+) -> WordRecordingUploadDTO:
     extension = RECORDING_TYPES.get(data.content_type)
 
     if extension is None:
@@ -131,6 +140,14 @@ async def add_recording(*, db: AsyncSession, storage: S3StorageClient, word: Wor
 
     if data.file_size > MAX_RECORDING_BYTES:
         raise FileSizeExceededError
+
+    display_order = data.display_order
+
+    if display_order is None:
+        stmt = select(func.coalesce(func.max(WordRecording.display_order) + 1, 0)).where(
+            WordRecording.word_id == word.id
+        )
+        display_order = await db.scalar(stmt)
 
     file_id = uuid7()
     file_path = f"user/{word.user_id}/word/{word.id}/{file_id}"
@@ -146,17 +163,21 @@ async def add_recording(*, db: AsyncSession, storage: S3StorageClient, word: Wor
         status=FileStatusEnum.PENDING.value,
     )
 
+    recording = WordRecording(word_id=word.id, file=recording_file, display_order=display_order, is_deleted=False)
+
     db.add(recording_file)
-    db.add(WordRecording(word_id=word.id, file=recording_file, is_deleted=False))
+    db.add(recording)
 
     await db.flush()
 
-    return storage.generate_presigned_upload(
+    upload = storage.generate_presigned_upload(
         file_id=file_id,
         path=recording_file.object_key,
         content_type=data.content_type,
         file_size=data.file_size,
     )
+
+    return WordRecordingUploadDTO(**upload.model_dump(), recording_id=recording.id)
 
 
 @transactional(unavailable_error=WordSaveUnavailableError)

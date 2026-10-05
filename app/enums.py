@@ -42,9 +42,10 @@ class SessionActorEnum(StrEnum):
 
 
 class NotificationKindEnum(StrEnum):
-    MIMICRY = "mimicry"
-    DAILY_SUMMARY = "daily_summary"
-    STREAK = "streak"
+    ANNOUNCEMENT = "announcement"
+    URGENT = "urgent"
+    MARKETING = "marketing"
+    REPORT = "report"
 
 
 class SessionEventKindEnum(StrEnum):

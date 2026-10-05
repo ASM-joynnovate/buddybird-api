@@ -6,10 +6,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import ReportPeriodEnum
-from app.models import LearningSegment, Session, SessionSound, SoundJudgment, User, Word
+from app.models import Session, SessionSound, SoundJudgment, User, Word
 from app.schemas.reports import (
+    ReportActiveDTO,
     ReportDTO,
-    ReportLearningDTO,
     ReportParams,
     ReportPeriodDTO,
     ReportSessionDTO,
@@ -17,11 +17,11 @@ from app.schemas.reports import (
     ReportSessionSoundsDTO,
     ReportSoundsDTO,
     ReportTrendDTO,
+    ReportWordActiveDTO,
     ReportWordDTO,
-    ReportWordLearningDTO,
 )
-from app.schemas.sessions import LearningDurationDTO, SessionJudgmentDTO
-from app.services.sessions import get_judgment_statuses
+from app.schemas.sessions import ActiveDurationDTO, SessionJudgmentDTO
+from app.services.sessions import get_active_periods, get_judgment_statuses
 
 
 async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timezone: str) -> ReportDTO:
@@ -53,17 +53,6 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
         boundaries = day_starts
 
     stmt = (
-        select(LearningSegment)
-        .join(Session, Session.id == LearningSegment.session_id)
-        .where(
-            Session.user_id == user.id,
-            LearningSegment.started_at < period_end,
-            LearningSegment.ended_at > period_start,
-        )
-    )
-    segments = (await db.scalars(stmt)).all()
-
-    stmt = (
         select(Session)
         .where(
             Session.user_id == user.id,
@@ -73,14 +62,11 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
         .order_by(Session.started_at.desc())
     )
     sessions = (await db.scalars(stmt)).all()
+    active_periods = await get_active_periods(db=db, sessions=sessions)
 
-    word_ids = {segment.word_id for segment in segments}
+    word_ids = {session.word_id for session in sessions}
 
-    stmt = (
-        select(Word)
-        .where(Word.id.in_(word_ids | {session.word_id for session in sessions}))
-        .execution_options(include_deleted=True)
-    )
+    stmt = select(Word).where(Word.id.in_(word_ids)).execution_options(include_deleted=True)
     words = {word.id: word for word in (await db.scalars(stmt)).all()}
 
     latest_word_id = (
@@ -119,45 +105,44 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
     session_parrot_counts = dict((await db.execute(stmt)).all())
     judgment_statuses = await get_judgment_statuses(db=db, sessions=sessions)
 
-    period_durations = {
-        segment.id: max(min(segment.ended_at, period_end) - max(segment.started_at, period_start), timedelta(0))
-        // timedelta(milliseconds=1)
-        for segment in segments
+    session_durations = {
+        session.id: sum(
+            max(min(ended_at, period_end) - max(started_at, period_start), timedelta(0)) // timedelta(milliseconds=1)
+            for started_at, ended_at in active_periods[session.id]
+        )
+        for session in sessions
     }
     word_durations = {
-        word_id: sum(period_durations[segment.id] for segment in segments if segment.word_id == word_id)
+        word_id: sum(session_durations[session.id] for session in sessions if session.word_id == word_id)
         for word_id in word_ids
-    }
-    session_durations = {
-        session.id: sum(period_durations[segment.id] for segment in segments if segment.session_id == session.id)
-        for session in sessions
     }
     trend = [
         ReportTrendDTO(
             start=bucket_start.astimezone(zone),
             duration_ms=sum(
-                max(min(segment.ended_at, bucket_end) - max(segment.started_at, bucket_start), timedelta(0))
+                max(min(ended_at, bucket_end) - max(started_at, bucket_start), timedelta(0))
                 // timedelta(milliseconds=1)
-                for segment in segments
+                for session in sessions
+                for started_at, ended_at in active_periods[session.id]
             ),
         )
         for bucket_start, bucket_end in pairwise(boundaries)
     ]
-    words_learning = [
-        ReportWordLearningDTO(word=ReportWordDTO(id=word_id, name=words[word_id].name), duration_ms=duration_ms)
+    words_active = [
+        ReportWordActiveDTO(word=ReportWordDTO(id=word_id, name=words[word_id].name), duration_ms=duration_ms)
         for word_id, duration_ms in sorted(word_durations.items(), key=lambda item: item[1], reverse=True)
     ]
 
     return ReportDTO(
         period=ReportPeriodDTO(unit=query.period, start=query.start, end=end_date - timedelta(days=1)),
-        learning=ReportLearningDTO(duration_ms=sum(period_durations.values()), trend=trend, words=words_learning),
+        active=ReportActiveDTO(duration_ms=sum(session_durations.values()), trend=trend, words=words_active),
         sounds=ReportSoundsDTO(parrot_count=parrot_count, mimicry_count=mimicry_count),
         sessions=[
             ReportSessionDTO(
                 id=session.id,
                 period=ReportSessionPeriodDTO(started_at=session.started_at, ended_at=session.ended_at),
                 word=ReportWordDTO(id=session.word_id, name=words[session.word_id].name),
-                learning=LearningDurationDTO(duration_ms=session_durations[session.id]),
+                active=ActiveDurationDTO(duration_ms=session_durations[session.id]),
                 sounds=ReportSessionSoundsDTO(parrot_count=session_parrot_counts.get(session.id, 0)),
                 judgment=SessionJudgmentDTO(status=judgment_statuses[session.id]),
             )

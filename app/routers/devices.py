@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+from typing import Annotated
 
-from app.dependencies import ActiveDevice, ActiveUser, DBSession
+from fastapi import APIRouter, Depends
+
+from app.dependencies import ActiveDevice, ActiveUser, DBSession, require_user_device
+from app.models import Device
 from app.schemas.base import BaseResponse
 from app.schemas.devices import (
     DeviceListResponse,
@@ -9,7 +12,7 @@ from app.schemas.devices import (
     UpdateDeviceRequest,
     UpdatePushTokenRequest,
 )
-from app.services import devices
+from app.services import devices, notifications
 
 router = APIRouter(prefix="/devices")
 
@@ -38,6 +41,17 @@ async def update_me(device: ActiveDevice, body: UpdateDeviceRequest, db: DBSessi
 
 @router.delete("/me", name="기기 해제")
 async def delete_me(device: ActiveDevice, db: DBSession) -> BaseResponse:
-    await devices.delete_me(db=db, device=device)
+    session_ids = await devices.delete(db=db, device=device)
+
+    await notifications.send_report(db=db, session_ids=session_ids)
 
     return BaseResponse(message="기기 해제 성공")
+
+
+@router.delete("/{device_id}", name="기기 삭제")
+async def delete(device: Annotated[Device, Depends(require_user_device)], db: DBSession) -> BaseResponse:
+    session_ids = await devices.delete(db=db, device=device)
+
+    await notifications.send_report(db=db, session_ids=session_ids)
+
+    return BaseResponse(message="기기 삭제 성공")

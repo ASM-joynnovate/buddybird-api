@@ -7,7 +7,7 @@ from uuid import UUID, uuid7
 
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,11 +19,20 @@ from app.errors import (
     InvalidProfilePhotoError,
     UserSaveUnavailableError,
 )
-from app.models import File, User
+from app.models import File, User, UserSetting, UserWithdrawal
 from app.oauth.base import http_client
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
 from app.schemas.base import FileDTO, UploadDTO, UploadRequest
-from app.schemas.users import UpdateUserRequest, UserDTO
+from app.schemas.users import (
+    BackofficeUserDetailDTO,
+    BackofficeUserDTO,
+    BackofficeUserListParams,
+    UpdateUserRequest,
+    UserDTO,
+)
+from app.services import devices
+from app.services.settings import build_settings_dto
+from app.services.withdrawals import build_backoffice_withdrawal_dto
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +173,65 @@ async def get_profile(*, db: AsyncSession, user: User, storage: S3StorageClient)
         nickname=user.nickname,
         photo_file=photo,
         uploading_photo_file=uploading_photo,
+    )
+
+
+def build_backoffice_user_dto(user: User) -> BackofficeUserDTO:
+    return BackofficeUserDTO(
+        id=user.id,
+        email=user.email,
+        nickname=user.nickname,
+        is_anonymous=user.is_anonymous,
+        is_deleted=user.is_deleted,
+        created_at=user.created_at,
+    )
+
+
+async def get_backoffice_list(
+    *, db: AsyncSession, query: BackofficeUserListParams
+) -> tuple[list[BackofficeUserDTO], int]:
+    stmt = select(User).execution_options(include_deleted=True)
+
+    if query.keyword is not None:
+        stmt = stmt.where(
+            or_(
+                User.nickname.icontains(query.keyword, autoescape=True),
+                User.email.icontains(query.keyword, autoescape=True),
+            )
+        )
+
+    if query.is_deleted is not None:
+        stmt = stmt.where(User.is_deleted == query.is_deleted)
+
+    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+    users = (
+        await db.scalars(
+            stmt.order_by(User.created_at.desc())
+            .offset((query.page - 1) * query.count_by_page)
+            .limit(query.count_by_page)
+        )
+    ).all()
+
+    return [build_backoffice_user_dto(user) for user in users], total
+
+
+async def get_backoffice_detail(*, db: AsyncSession, storage: S3StorageClient, user: User) -> BackofficeUserDetailDTO:
+    setting = await db.get(UserSetting, user.id)
+    withdrawal = await db.get(UserWithdrawal, user.id)
+    photo = None
+
+    if user.photo_file is not None:
+        photo = FileDTO(
+            url=storage.generate_presigned_url(path=user.photo_file.object_key),
+            status=user.photo_file.status,
+        )
+
+    return BackofficeUserDetailDTO(
+        **build_backoffice_user_dto(user).model_dump(),
+        photo_file=photo,
+        settings=build_settings_dto(setting) if setting is not None else None,
+        devices=await devices.get_list(db=db, user=user),
+        withdrawal=build_backoffice_withdrawal_dto(withdrawal) if withdrawal is not None else None,
     )
 
 

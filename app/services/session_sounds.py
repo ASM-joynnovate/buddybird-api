@@ -15,6 +15,7 @@ from app.schemas.base import FileDTO, PageParams, UploadDTO
 from app.schemas.sessions import (
     SessionSoundDTO,
     SessionSoundJudgmentDTO,
+    SessionSoundListParams,
     SessionSoundUploadRequest,
 )
 from app.services.sessions import verify_station
@@ -53,7 +54,7 @@ async def build_sound_dtos(
 
 
 async def get_list(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: PageParams
+    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: SessionSoundListParams
 ) -> tuple[list[SessionSoundDTO], int]:
     stmt = (
         select(SessionSound)
@@ -70,6 +71,18 @@ async def get_list(
             ),
         )
     )
+
+    if query.mimicry:
+        latest_word_id = (
+            select(SoundJudgment.word_id)
+            .where(SoundJudgment.sound_id == SessionSound.id)
+            .order_by(SoundJudgment.judged_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+
+        stmt = stmt.where(latest_word_id.is_not(None))
+
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
         await db.scalars(
@@ -160,10 +173,18 @@ async def upload(
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def save_parrot_detection(*, db: AsyncSession, data: list[dict]) -> None:
+async def save_parrot_detection(*, db: AsyncSession, data: list[dict]) -> list[UUID]:
+    session_ids = set()
+
     for item in data:
-        await db.execute(
+        session_id = await db.scalar(
             update(SessionSound)
             .where(SessionSound.id == UUID(item["sound_id"]))
             .values(is_parrot_sound=item["is_parrot"])
+            .returning(SessionSound.session_id)
         )
+
+        if session_id is not None:
+            session_ids.add(session_id)
+
+    return list(session_ids)

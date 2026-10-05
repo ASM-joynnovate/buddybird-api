@@ -4,6 +4,7 @@ from functools import lru_cache
 from typing import Any
 
 import boto3
+import sentry_sdk
 
 from app.config import config
 
@@ -20,8 +21,20 @@ def get_sqs() -> Any:
 
 
 async def send(*, queue_url: str, body: dict[str, Any]) -> None:
-    await asyncio.to_thread(
-        get_sqs().send_message,
-        QueueUrl=queue_url,
-        MessageBody=json.dumps(body),
-    )
+    message = json.dumps(body)
+
+    with sentry_sdk.start_span(op="queue.publish", name=queue_url.rsplit("/", 1)[-1]) as span:
+        headers = {"sentry-trace": sentry_sdk.get_traceparent(), "baggage": sentry_sdk.get_baggage()}
+
+        response = await asyncio.to_thread(
+            get_sqs().send_message,
+            QueueUrl=queue_url,
+            MessageBody=message,
+            MessageAttributes={
+                key: {"DataType": "String", "StringValue": value} for key, value in headers.items() if value
+            },
+        )
+
+        span.set_data("messaging.message.id", response["MessageId"])
+        span.set_data("messaging.destination.name", queue_url.rsplit("/", 1)[-1])
+        span.set_data("messaging.message.body.size", len(message.encode("utf-8")))

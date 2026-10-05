@@ -12,12 +12,13 @@ from app.schemas.sessions import (
     SessionEventListResponse,
     SessionListResponse,
     SessionResponse,
+    SessionSoundListParams,
     SessionSoundListResponse,
     SessionSoundUploadRequest,
     SessionSummaryResponse,
     StartSessionRequest,
 )
-from app.services import session_sounds, sessions
+from app.services import notifications, session_sounds, sessions
 
 router = APIRouter(prefix="/sessions")
 
@@ -51,7 +52,11 @@ async def get_detail(session: Annotated[Session, Depends(require_session)], db: 
     dependencies=[Depends(require_device)],
 )
 async def finish(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionResponse:
-    return SessionResponse(message="세션 종료 성공", data=await sessions.finish(db=db, session=session))
+    data = await sessions.finish(db=db, session=session)
+
+    await notifications.send_report(db=db, session_ids=[session.id])
+
+    return SessionResponse(message="세션 종료 성공", data=data)
 
 
 @router.post("/{session_id}/heartbeat", name="세션 heartbeat")
@@ -99,7 +104,7 @@ async def upload_sound(
 @router.get("/{session_id}/sounds", name="세션 소리 목록 조회")
 async def get_sounds(
     session: Annotated[Session, Depends(require_session)],
-    query: Annotated[PageParams, Query()],
+    query: Annotated[SessionSoundListParams, Query()],
     db: DBSession,
     storage: Storage,
 ) -> SessionSoundListResponse:

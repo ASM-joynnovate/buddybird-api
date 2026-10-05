@@ -1,5 +1,62 @@
 # Changelog
 
+## [2.0.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.5.0...v2.0.0) (2026-10-05)
+
+
+### Miscellaneous Chores
+
+* sync the lockfile project version ([#88](https://github.com/ASM-joynnovate/buddybird-api/issues/88)) ([1dfae38](https://github.com/ASM-joynnovate/buddybird-api/commit/1dfae38967e46bb5fce862d74d004d63f7f1d97f))
+
+## [1.5.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.4.0...v1.5.0) (2026-10-05)
+
+
+### Features
+
+* **backoffice:** move backoffice APIs and add localized, scheduled notifications [BB-601] ([#87](https://github.com/ASM-joynnovate/buddybird-api/issues/87)) ([25e131a](https://github.com/ASM-joynnovate/buddybird-api/commit/25e131a9dde260ee786defa6135aa748471e42eb))
+* **devices:** remove logged-out devices and add a device delete API ([#85](https://github.com/ASM-joynnovate/buddybird-api/issues/85)) ([13ccf13](https://github.com/ASM-joynnovate/buddybird-api/commit/13ccf135c523a0123c4ee0f6c05eaf0006f05f1d))
+
+## [1.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.3.0...v1.4.0) (2026-10-05)
+
+
+### Features
+
+* **sessions:** measure active time from the session period ([#84](https://github.com/ASM-joynnovate/buddybird-api/issues/84)) ([eb5d340](https://github.com/ASM-joynnovate/buddybird-api/commit/eb5d340ed6319e7844e6abb26248e6309bd8d478))
+
+
+### Bug Fixes
+
+* **users:** accept standalone Hangul jamo in nicknames ([#82](https://github.com/ASM-joynnovate/buddybird-api/issues/82)) ([2478ba7](https://github.com/ASM-joynnovate/buddybird-api/commit/2478ba783bd2f15bcc6a644c92a8914cb20abf6a))
+
+## [1.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.2.0...v1.3.0) (2026-10-04)
+
+
+### Features
+
+* **preset-words:** add backoffice API to manage word presets ([a379ae8](https://github.com/ASM-joynnovate/buddybird-api/commit/a379ae8d21bee2fbcbe332461f05ae3a54ed0392))
+* **preset-words:** add backoffice API to manage word presets ([cbd165f](https://github.com/ASM-joynnovate/buddybird-api/commit/cbd165f0dcab9d6de8d37008a7e282ada63f6bba))
+
+## [1.2.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.1.1...v1.2.0) (2026-10-04)
+
+
+### Features
+
+* apply app change requests and Sentry review fixes ([b976b9b](https://github.com/ASM-joynnovate/buddybird-api/commit/b976b9baaf39b48268539b75d284ab697247bfc1))
+* **consumer:** back off receive failures and trace queue messages ([acc655c](https://github.com/ASM-joynnovate/buddybird-api/commit/acc655ca478e567a187e27b42079b43f34523ae0))
+* **sessions:** filter session sounds by mimicry ([63ee49d](https://github.com/ASM-joynnovate/buddybird-api/commit/63ee49d4ed4528e97a8bc46b9e993782149dffb0))
+* **settings:** store the marketing notification setting in user settings ([a30ce5d](https://github.com/ASM-joynnovate/buddybird-api/commit/a30ce5d2f6f90733ab66e53752a4ce90e20ac23e))
+* **words:** add recording display order and return the new recording id ([1137919](https://github.com/ASM-joynnovate/buddybird-api/commit/1137919341d7c073c8be7d2f6dff9633bed9e90c))
+
+
+### Bug Fixes
+
+* **errors:** report 5xx custom errors to Sentry once ([e860249](https://github.com/ASM-joynnovate/buddybird-api/commit/e860249cda70b6b134d0b5aad030750d283a2d2d))
+* **queues:** log failed enqueues with the exception ([3df9756](https://github.com/ASM-joynnovate/buddybird-api/commit/3df97568728a0552cfc1881da138b70777c67cf2))
+
+
+### Performance Improvements
+
+* **auth:** cache JWKS signing keys per key id ([5464f3e](https://github.com/ASM-joynnovate/buddybird-api/commit/5464f3eaefdf5e43a7a337f860c2b33ad651c60c))
+
 ## [1.1.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.1.0...v1.1.1) (2026-10-03)
 
 

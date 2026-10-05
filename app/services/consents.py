@@ -65,6 +65,13 @@ async def get_detail(*, db: AsyncSession, user: User, locale: LocaleEnum, consen
     return build_consent_dto(consent, status, locale)
 
 
+async def get_backoffice_list(*, db: AsyncSession) -> list[BackofficeConsentDTO]:
+    stmt = select(Consent).order_by(Consent.kind, Consent.version.desc())
+    consents = (await db.scalars(stmt)).all()
+
+    return [build_backoffice_consent_dto(consent) for consent in consents]
+
+
 @transactional(unavailable_error=ConsentSaveUnavailableError)
 async def create(*, db: AsyncSession, data: CreateConsentRequest) -> BackofficeConsentDTO:
     latest_version = await db.scalar(

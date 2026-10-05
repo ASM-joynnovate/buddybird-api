@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomError(Exception):
-    code = 400
+    status_code = 400
     error_code = "COMMON__BAD_REQUEST"
     message = "잘못된 요청입니다."
 
@@ -23,25 +23,25 @@ class CustomError(Exception):
 
 
 class ResourceNotFoundError(CustomError):
-    code = 404
+    status_code = 404
     error_code = "COMMON__RESOURCE_NOT_FOUND"
     message = "요청한 리소스를 찾을 수 없습니다."
 
 
 class AuthenticationError(CustomError):
-    code = 401
+    status_code = 401
     error_code = "AUTH__INVALID_TOKEN"
     message = "인증에 실패했습니다."
 
 
 class AuthenticationServiceUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "AUTH__SERVICE_UNAVAILABLE"
     message = "인증 서비스를 일시적으로 사용할 수 없습니다."
 
 
 class UserSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "USER__SAVE_UNAVAILABLE"
     message = "사용자 정보를 일시적으로 저장할 수 없습니다."
 
@@ -57,7 +57,7 @@ class OAuthCredentialRequiredError(CustomError):
 
 
 class WithdrawalSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "AUTH__WITHDRAWAL_SAVE_UNAVAILABLE"
     message = "탈퇴 접수 결과를 확인할 수 없습니다. 다시 요청해 주세요."
 
@@ -70,7 +70,7 @@ class WithdrawalOperationError(Exception):
 
 
 class DuplicateNicknameError(CustomError):
-    code = 409
+    status_code = 409
     error_code = "USER__DUPLICATE_NICKNAME"
     message = "이미 사용 중인 닉네임입니다."
 
@@ -96,25 +96,25 @@ class DeviceNotRegisteredError(CustomError):
 
 
 class DeviceNotStationError(CustomError):
-    code = 403
+    status_code = 403
     error_code = "DEVICE__NOT_STATION"
     message = "station 기기만 요청할 수 있습니다."
 
 
 class DeviceSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "DEVICE__SAVE_UNAVAILABLE"
     message = "기기 정보를 일시적으로 저장할 수 없습니다."
 
 
 class ParrotSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "PARROT__SAVE_UNAVAILABLE"
     message = "앵무새 정보를 일시적으로 저장할 수 없습니다."
 
 
 class WordSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "WORD__SAVE_UNAVAILABLE"
     message = "단어 정보를 일시적으로 저장할 수 없습니다."
 
@@ -130,19 +130,19 @@ class InvalidWordRecordingError(CustomError):
 
 
 class SessionSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "SESSION__SAVE_UNAVAILABLE"
     message = "세션 정보를 일시적으로 저장할 수 없습니다."
 
 
 class SessionAlreadyRunningError(CustomError):
-    code = 409
+    status_code = 409
     error_code = "SESSION__ALREADY_RUNNING"
     message = "실행 중인 세션이 이미 있습니다."
 
 
 class SessionNotRunningError(CustomError):
-    code = 409
+    status_code = 409
     error_code = "SESSION__NOT_RUNNING"
     message = "실행 중인 세션이 아닙니다."
 
@@ -153,49 +153,55 @@ class InvalidSessionSoundError(CustomError):
 
 
 class BackofficePasswordMissingError(CustomError):
-    code = 401
+    status_code = 401
     error_code = "BACKOFFICE__PASSWORD_MISSING"
     message = "백오피스 비밀번호를 입력해 주세요."
 
 
 class BackofficePasswordInvalidError(CustomError):
-    code = 401
+    status_code = 401
     error_code = "BACKOFFICE__PASSWORD_INVALID"
     message = "백오피스 비밀번호가 올바르지 않습니다."
 
 
 class FeedbackSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "FEEDBACK__SAVE_UNAVAILABLE"
     message = "피드백을 일시적으로 저장할 수 없습니다."
 
 
-class NoticeSaveUnavailableError(CustomError):
-    code = 503
-    error_code = "NOTICE__SAVE_UNAVAILABLE"
+class AnnouncementSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "ANNOUNCEMENT__SAVE_UNAVAILABLE"
     message = "공지를 일시적으로 저장할 수 없습니다."
 
 
-class InvalidNoticePeriodError(CustomError):
-    error_code = "NOTICE__INVALID_PERIOD"
+class InvalidAnnouncementPeriodError(CustomError):
+    error_code = "ANNOUNCEMENT__INVALID_PERIOD"
     message = "게시 종료 시각은 게시 시작 시각보다 늦어야 합니다."
 
 
-class InvalidNoticeBodyError(CustomError):
-    error_code = "NOTICE__INVALID_BODY"
+class InvalidAnnouncementBodyError(CustomError):
+    error_code = "ANNOUNCEMENT__INVALID_BODY"
     message = "본문을 새로 추가할 때는 en_us가 필요합니다."
 
 
 class NotificationReadFailedError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "NOTIFICATION__READ_FAILED"
     message = "알림 읽음 처리 실패"
 
 
 class NotificationSendFailedError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "NOTIFICATION__SEND_FAILED"
     message = "알림 발송 실패"
+
+
+class NotificationSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "NOTIFICATION__SAVE_UNAVAILABLE"
+    message = "알림을 일시적으로 저장할 수 없습니다."
 
 
 class PushDeliveryRetryError(Exception):
@@ -203,28 +209,40 @@ class PushDeliveryRetryError(Exception):
 
 
 class ConsentSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "CONSENT__SAVE_UNAVAILABLE"
     message = "동의 정보를 일시적으로 저장할 수 없습니다."
 
 
 class ConsentAlreadyPublishedError(CustomError):
-    code = 409
+    status_code = 409
     error_code = "CONSENT__ALREADY_PUBLISHED"
     message = "게시된 고지문은 수정하거나 삭제할 수 없습니다."
 
 
 class AppUpdateSaveUnavailableError(CustomError):
-    code = 503
+    status_code = 503
     error_code = "APP_UPDATE__SAVE_UNAVAILABLE"
     message = "앱 업데이트 정보를 일시적으로 저장할 수 없습니다."
+
+
+class PresetWordSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "PRESET_WORD__SAVE_UNAVAILABLE"
+    message = "단어 프리셋을 일시적으로 저장할 수 없습니다."
+
+
+class DuplicatePresetWordError(CustomError):
+    status_code = 409
+    error_code = "PRESET_WORD__DUPLICATE_NAME"
+    message = "같은 언어에 같은 이름의 단어 프리셋이 이미 있습니다."
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:
         return JSONResponse(
-            status_code=exc.code,
+            status_code=exc.status_code,
             content={"error_code": exc.error_code, "message": exc.message},
         )
 
@@ -259,7 +277,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def internal_server_error_handler(request: Request, exc: Exception) -> JSONResponse:
         auth_request = request.url.path.startswith("/api/v1/auth/")
-        logger.error("서버 내부 오류", exc_info=None if auth_request else exc)
         content: dict[str, Any] = {
             "error_code": "COMMON__INTERNAL_SERVER_ERROR",
             "message": "서버 내부 오류가 발생했습니다.",

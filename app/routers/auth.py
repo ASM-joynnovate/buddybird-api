@@ -7,7 +7,7 @@ from app.dependencies import ActiveUser, Authenticated, DBSession, Storage
 from app.schemas.auth import LoginRequest, LoginResponse
 from app.schemas.base import BaseResponse
 from app.schemas.withdrawals import WithdrawalResponse
-from app.services import auth, withdrawals
+from app.services import auth, notifications, withdrawals
 
 router = APIRouter(prefix="/auth")
 
@@ -35,7 +35,9 @@ async def logout(
     db: DBSession,
     x_device_id: Annotated[UUID | None, Header(alias="X-Device-Id")] = None,
 ) -> BaseResponse:
-    await auth.logout(db=db, user=user, client_device_id=x_device_id)
+    session_ids = await auth.logout(db=db, user=user, client_device_id=x_device_id)
+
+    await notifications.send_report(db=db, session_ids=session_ids)
 
     return BaseResponse(message="로그아웃 성공")
 

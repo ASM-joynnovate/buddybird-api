@@ -68,13 +68,12 @@ class IdempotencyMiddleware:
                 (
                     "/api/v1/users/me/settings",
                     "/api/v1/users/me/consents",
-                    "/api/v1/consents",
                     "/api/v1/devices",
                     "/api/v1/parrots",
                     "/api/v1/words",
                     "/api/v1/sessions",
                     "/api/v1/feedback",
-                    "/api/v1/notices",
+                    "/api/v1/announcements",
                     "/api/v1/notifications",
                 )
             )
@@ -88,7 +87,7 @@ class IdempotencyMiddleware:
         except ValueError:
             error = IdempotencyKeyRequiredError()
             response = JSONResponse(
-                status_code=error.code, content={"error_code": error.error_code, "message": error.message}
+                status_code=error.status_code, content={"error_code": error.error_code, "message": error.message}
             )
             await response(scope, receive, send)
             return

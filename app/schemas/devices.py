@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import Field
 from pydantic.experimental.missing_sentinel import MISSING
 
+from app.enums import LocaleEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
 
@@ -21,6 +22,7 @@ class DeviceDTO(CustomBaseModel):
     id: UUID
     client_device_id: UUID
     timezone: str | None
+    locale: LocaleEnum
     last_seen_at: datetime | None
     client: DeviceClientDTO
     push_registered: bool
@@ -43,6 +45,7 @@ class RegisterDeviceRequest(BaseRequest):
     model: str = Field(..., min_length=1, max_length=100)
     app_version: str = Field(..., min_length=1, max_length=12)
     timezone: str | None = Field(None, min_length=1, max_length=64)
+    locale: LocaleEnum
 
 
 class UpdatePushTokenRequest(BaseRequest):
@@ -55,3 +58,4 @@ class UpdateDeviceRequest(BaseRequest):
     app_version: str | MISSING = Field(MISSING, min_length=1, max_length=12)
     os_version: str | MISSING = Field(MISSING, min_length=1, max_length=20)
     timezone: str | MISSING | None = Field(MISSING, min_length=1, max_length=64)
+    locale: LocaleEnum | MISSING = MISSING

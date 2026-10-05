@@ -2,16 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.db import get_or_404
-from app.dependencies import ActiveUser, DBSession, Storage, require_backoffice, require_notification
-from app.models import Notification, User
+from app.dependencies import ActiveUser, DBSession, Locale, Storage, require_notification
+from app.models import Notification
 from app.schemas.base import BaseResponse, PageParams
-from app.schemas.notifications import (
-    NotificationListResponse,
-    NotificationResponse,
-    NotificationSendResponse,
-    SendNotificationRequest,
-)
+from app.schemas.notifications import NotificationListResponse, NotificationResponse
 from app.services import notifications
 
 router = APIRouter(prefix="/notifications")
@@ -19,14 +13,24 @@ router = APIRouter(prefix="/notifications")
 
 @router.get("", name="알림 목록 조회")
 async def get_list(
-    user: ActiveUser, query: Annotated[PageParams, Query()], db: DBSession, storage: Storage
+    user: ActiveUser, locale: Locale, query: Annotated[PageParams, Query()], db: DBSession, storage: Storage
 ) -> NotificationListResponse:
-    items, total = await notifications.get_list(db=db, storage=storage, user=user, query=query)
+    items, total = await notifications.get_list(db=db, storage=storage, user=user, locale=locale, query=query)
 
     return NotificationListResponse(
         message="알림 목록 조회 성공",
         data=items,
         meta=query.meta(total),
+    )
+
+
+@router.get("/{notification_id}", name="알림 상세 조회")
+async def get_detail(
+    notification: Annotated[Notification, Depends(require_notification)], locale: Locale, storage: Storage
+) -> NotificationResponse:
+    return NotificationResponse(
+        message="알림 상세 조회 성공",
+        data=notifications.build_notification_dto(notification, locale, storage),
     )
 
 
@@ -39,20 +43,12 @@ async def mark_all_read(user: ActiveUser, db: DBSession) -> BaseResponse:
 
 @router.post("/{notification_id}/read", name="알림 읽음 처리")
 async def mark_read(
-    notification: Annotated[Notification, Depends(require_notification)], db: DBSession, storage: Storage
+    notification: Annotated[Notification, Depends(require_notification)],
+    locale: Locale,
+    db: DBSession,
+    storage: Storage,
 ) -> NotificationResponse:
     return NotificationResponse(
         message="알림 읽음 처리 성공",
-        data=await notifications.mark_read(db=db, storage=storage, notification=notification),
+        data=await notifications.mark_read(db=db, storage=storage, notification=notification, locale=locale),
     )
-
-
-@router.post("", name="알림 발송", dependencies=[Depends(require_backoffice)])
-async def send(body: SendNotificationRequest, db: DBSession, storage: Storage) -> NotificationSendResponse:
-    user = await get_or_404(db=db, model=User, id=body.user_id)
-    dto = await notifications.send(db=db, storage=storage, user=user, kind=body.kind, title=body.title, body=body.body)
-
-    if dto is None:
-        return NotificationSendResponse(message="알림 설정이 꺼져 있어 발송하지 않음", data=None)
-
-    return NotificationSendResponse(message="알림 발송 성공", data=dto)

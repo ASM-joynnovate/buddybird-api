@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import signal
+import time
 from collections.abc import Awaitable, Callable
 from uuid import UUID
 
@@ -12,7 +13,7 @@ from app import sentry
 from app.config import config
 from app.db import session_factory
 from app.services import uploads
-from app.services.notifications import deliver
+from app.services.notifications import deliver, dispatch_due_pushes, send_report
 from app.services.session_sounds import save_parrot_detection
 from app.services.sessions import finish_expired_sessions
 from app.services.withdrawals import dispatch_due_withdrawals, process_user_withdrawal
@@ -26,7 +27,7 @@ async def confirm_upload(body: dict) -> None:
 
 
 async def send_notification(body: dict) -> None:
-    await deliver(UUID(body["notification_id"]))
+    await deliver(UUID(body["delivery_id"]))
 
 
 async def process_withdrawal(body: dict) -> None:
@@ -41,16 +42,23 @@ async def run_periodic_command(body: dict) -> None:
         await dispatch_due_withdrawals()
     elif body["type"] == "session.check_heartbeats":
         async with session_factory() as db:
-            await finish_expired_sessions(db=db)
+            session_ids = await finish_expired_sessions(db=db)
+
+            await send_report(db=db, session_ids=session_ids)
+    elif body["type"] == "push.dispatch":
+        await dispatch_due_pushes()
 
 
 async def save_parrot_sound_detection(body: dict) -> None:
     async with session_factory() as db:
-        await save_parrot_detection(db=db, data=body["data"])
+        session_ids = await save_parrot_detection(db=db, data=body["data"])
+
+        await send_report(db=db, session_ids=session_ids)
 
 
 async def consume(*, queue_url: str, handle: Callable[[dict], Awaitable[None]]) -> None:
     sqs = get_sqs()
+    failures = 0
 
     while True:
         try:
@@ -59,33 +67,63 @@ async def consume(*, queue_url: str, handle: Callable[[dict], Awaitable[None]]) 
                 QueueUrl=queue_url,
                 MaxNumberOfMessages=10,
                 WaitTimeSeconds=20,
+                MessageAttributeNames=["sentry-trace", "baggage"],
+                MessageSystemAttributeNames=["ApproximateReceiveCount", "SentTimestamp"],
             )
         except BotoCoreError, ClientError:
-            logger.exception("메시지 수신 실패; queue_url=%s", queue_url)
+            failures += 1
 
-            await asyncio.sleep(5)
+            logger.exception("메시지 수신 실패; queue_url=%s failures=%s", queue_url, failures)
+
+            await asyncio.sleep(min(5 * 2 ** (failures - 1), 300))
 
             continue
 
-        for message in response.get("Messages", []):
-            with sentry_sdk.isolation_scope(), sentry_sdk.start_transaction(op="queue.process", name=handle.__name__):
-                sentry_sdk.set_attributes(
-                    {
-                        "messaging.system": "aws_sqs",
-                        "messaging.destination.name": queue_url.rsplit("/", 1)[-1],
-                        "messaging.message.id": message["MessageId"],
-                    }
-                )
+        failures = 0
 
-                try:
-                    await handle(json.loads(message["Body"]))
-                    await asyncio.to_thread(
-                        sqs.delete_message,
-                        QueueUrl=queue_url,
-                        ReceiptHandle=message["ReceiptHandle"],
+        for message in response.get("Messages", []):
+            headers = {key: value["StringValue"] for key, value in message.get("MessageAttributes", {}).items()}
+
+            with sentry_sdk.isolation_scope():
+                transaction = sentry_sdk.continue_trace(headers, op="function", name=handle.__name__)
+
+                with (
+                    sentry_sdk.start_transaction(transaction),
+                    sentry_sdk.start_span(op="queue.process", name=handle.__name__) as span,
+                ):
+                    sentry_sdk.set_attributes(
+                        {
+                            "messaging.system": "aws_sqs",
+                            "messaging.destination.name": queue_url.rsplit("/", 1)[-1],
+                            "messaging.message.id": message["MessageId"],
+                        }
                     )
-                except Exception:
-                    logger.exception("메시지 처리 실패; queue_url=%s message_id=%s", queue_url, message["MessageId"])
+
+                    span.set_data("messaging.message.id", message["MessageId"])
+                    span.set_data("messaging.destination.name", queue_url.rsplit("/", 1)[-1])
+                    span.set_data("messaging.message.body.size", len(message["Body"].encode("utf-8")))
+                    span.set_data(
+                        "messaging.message.retry.count",
+                        int(message["Attributes"]["ApproximateReceiveCount"]) - 1,
+                    )
+                    span.set_data(
+                        "messaging.message.receive.latency",
+                        time.time() * 1000 - int(message["Attributes"]["SentTimestamp"]),
+                    )
+
+                    try:
+                        await handle(json.loads(message["Body"]))
+                        await asyncio.to_thread(
+                            sqs.delete_message,
+                            QueueUrl=queue_url,
+                            ReceiptHandle=message["ReceiptHandle"],
+                        )
+                    except Exception:
+                        transaction.set_status("internal_error")
+
+                        logger.exception(
+                            "메시지 처리 실패; queue_url=%s message_id=%s", queue_url, message["MessageId"]
+                        )
 
 
 async def main() -> None:

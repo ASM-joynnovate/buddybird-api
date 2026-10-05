@@ -148,11 +148,20 @@ class UserSetting(Base):
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
     sleep_at: Mapped[time] = mapped_column(Time, nullable=False, default=time(20, 0), server_default="20:00")
     wake_at: Mapped[time] = mapped_column(Time, nullable=False, default=time(8, 0), server_default="08:00")
-    notice_notification_enabled: Mapped[bool] = mapped_column(
+    push_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    announcement_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
     report_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
+    )
+    marketing_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    marketing_night_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )
 
 
@@ -214,19 +223,31 @@ class Device(Base):
     app_version: Mapped[str] = mapped_column(String(12), nullable=False)
     push_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     timezone: Mapped[str | None] = mapped_column(Text, nullable=True)
+    locale: Mapped[str] = mapped_column(
+        Text, nullable=False, default=LocaleEnum.EN_US.value, server_default=LocaleEnum.EN_US.value
+    )
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
 
 class PresetWord(Base):
     __tablename__ = "preset_words"
-    __table_args__ = (UniqueConstraint("language", "name", name="uq_preset_words_language_name"),)
+    __table_args__ = (
+        Index(
+            "uq_preset_words_language_name_active",
+            "language",
+            "name",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     language: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    audio_file: Mapped[File] = relationship(lazy="selectin")
 
 
 class Word(Base):
@@ -244,6 +265,7 @@ class WordRecording(Base):
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     word_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Word.id), index=True, nullable=False)
     file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
+    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     file: Mapped[File] = relationship(lazy="selectin")
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
@@ -371,21 +393,24 @@ class SoundJudgment(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
-    __table_args__ = (Index("ix_notifications_user_id_sent_at", "user_id", "sent_at"),)
+    __table_args__ = (
+        UniqueConstraint("session_id", name="uq_notifications_session_id"),
+        Index("ix_notifications_user_id_sent_at", "user_id", "sent_at"),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
+    title_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    body_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
     image_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
     image_file: Mapped[File | None] = relationship(lazy="selectin")
-    sound_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=True)
-    sound: Mapped[SessionSound | None] = relationship(lazy="selectin")
-    report_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    session_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=True)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
+    body_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
 
 
 class Feedback(Base):
@@ -399,11 +424,11 @@ class Feedback(Base):
     app_version: Mapped[str] = mapped_column(String(12), nullable=False)
 
 
-class Notice(Base):
-    __tablename__ = "notices"
+class Announcement(Base):
+    __tablename__ = "announcements"
     __table_args__ = (
-        CheckConstraint("ends_at IS NULL OR ends_at > starts_at", name="ck_notices_period"),
-        Index("ix_notices_starts_at", "starts_at"),
+        CheckConstraint("ends_at IS NULL OR ends_at > starts_at", name="ck_announcements_period"),
+        Index("ix_announcements_starts_at", "starts_at"),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
@@ -411,32 +436,57 @@ class Notice(Base):
     body_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    push_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    push_local_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    push_prepared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    images: Mapped[list[NoticeImage]] = relationship(lazy="selectin", order_by="NoticeImage.display_order")
+    images: Mapped[list[AnnouncementImage]] = relationship(lazy="selectin", order_by="AnnouncementImage.display_order")
     title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
     body_i18n: Mapped[I18n | None] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
 
 
-class NoticeImage(Base):
-    __tablename__ = "notice_images"
+class AnnouncementImage(Base):
+    __tablename__ = "announcement_images"
     __table_args__ = (
-        UniqueConstraint("file_id", name="uq_notice_images_file_id"),
-        UniqueConstraint("notice_id", "display_order", name="uq_notice_images_notice_id_display_order"),
+        UniqueConstraint("file_id", name="uq_announcement_images_file_id"),
+        UniqueConstraint(
+            "announcement_id", "display_order", name="uq_announcement_images_announcement_id_display_order"
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    notice_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Notice.id), nullable=False)
+    announcement_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Announcement.id), nullable=False)
     file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     file: Mapped[File] = relationship(lazy="selectin")
 
 
-class NoticeRead(Base):
-    __tablename__ = "notice_reads"
+class AnnouncementRead(Base):
+    __tablename__ = "announcement_reads"
 
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
-    notice_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Notice.id), primary_key=True)
+    announcement_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Announcement.id), primary_key=True)
     read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class PushDelivery(Base):
+    __tablename__ = "push_deliveries"
+    __table_args__ = (
+        Index(
+            "ix_push_deliveries_scheduled_at",
+            "scheduled_at",
+            postgresql_where=text("queued_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
+    notification_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Notification.id), nullable=True)
+    announcement_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Announcement.id), nullable=True)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AppUpdate(Base):
