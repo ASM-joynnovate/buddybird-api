@@ -18,7 +18,7 @@ from app.schemas.sessions import (
     SessionSummaryResponse,
     StartSessionRequest,
 )
-from app.services import session_sounds, sessions
+from app.services import notifications, session_sounds, sessions
 
 router = APIRouter(prefix="/sessions")
 
@@ -52,7 +52,11 @@ async def get_detail(session: Annotated[Session, Depends(require_session)], db: 
     dependencies=[Depends(require_device)],
 )
 async def finish(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionResponse:
-    return SessionResponse(message="세션 종료 성공", data=await sessions.finish(db=db, session=session))
+    data = await sessions.finish(db=db, session=session)
+
+    await notifications.send_report(db=db, session_ids=[session.id])
+
+    return SessionResponse(message="세션 종료 성공", data=data)
 
 
 @router.post("/{session_id}/heartbeat", name="세션 heartbeat")

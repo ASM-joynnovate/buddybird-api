@@ -16,6 +16,18 @@ from app.schemas.app_updates import (
 from app.schemas.base import I18nDTO
 
 
+def build_backoffice_app_update_dto(app_update: AppUpdate) -> BackofficeAppUpdateDTO:
+    release_notes = None
+
+    if app_update.release_notes_i18n is not None:
+        release_notes = I18nDTO(ko_kr=app_update.release_notes_i18n.ko_kr, en_us=app_update.release_notes_i18n.en_us)
+
+    return BackofficeAppUpdateDTO(
+        latest=BackofficeAppUpdateLatestDTO(version=app_update.latest_version, release_notes=release_notes),
+        min_supported=AppUpdateMinSupportedDTO(version=app_update.min_supported_version),
+    )
+
+
 async def get_detail(*, db: AsyncSession, platform: PlatformEnum, locale: LocaleEnum) -> AppUpdateDTO:
     stmt = select(AppUpdate).where(AppUpdate.platform == platform.value)
     app_update = await db.scalar(stmt)
@@ -32,6 +44,16 @@ async def get_detail(*, db: AsyncSession, platform: PlatformEnum, locale: Locale
         latest=AppUpdateLatestDTO(version=app_update.latest_version, release_notes=release_notes),
         min_supported=AppUpdateMinSupportedDTO(version=app_update.min_supported_version),
     )
+
+
+async def get_backoffice_detail(*, db: AsyncSession, platform: PlatformEnum) -> BackofficeAppUpdateDTO:
+    stmt = select(AppUpdate).where(AppUpdate.platform == platform.value)
+    app_update = await db.scalar(stmt)
+
+    if app_update is None:
+        raise ResourceNotFoundError
+
+    return build_backoffice_app_update_dto(app_update)
 
 
 @transactional(unavailable_error=AppUpdateSaveUnavailableError)
@@ -60,12 +82,4 @@ async def save(*, db: AsyncSession, platform: PlatformEnum, data: SaveAppUpdateR
 
     await db.flush()
 
-    release_notes = None
-
-    if app_update.release_notes_i18n is not None:
-        release_notes = I18nDTO(ko_kr=app_update.release_notes_i18n.ko_kr, en_us=app_update.release_notes_i18n.en_us)
-
-    return BackofficeAppUpdateDTO(
-        latest=BackofficeAppUpdateLatestDTO(version=app_update.latest_version, release_notes=release_notes),
-        min_supported=AppUpdateMinSupportedDTO(version=app_update.min_supported_version),
-    )
+    return build_backoffice_app_update_dto(app_update)

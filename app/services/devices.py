@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,7 @@ def build_device_dto(device: Device) -> DeviceDTO:
         id=device.id,
         client_device_id=device.client_device_id,
         timezone=device.timezone,
+        locale=device.locale,
         last_seen_at=device.last_seen_at,
         client=DeviceClientDTO(
             platform=device.platform,
@@ -32,7 +34,7 @@ def build_device_dto(device: Device) -> DeviceDTO:
     )
 
 
-async def finish_running_sessions(*, db: AsyncSession, device: Device, now: datetime) -> None:
+async def finish_running_sessions(*, db: AsyncSession, device: Device, now: datetime) -> list[UUID]:
     sessions = (
         await db.scalars(
             select(Session).where(
@@ -53,6 +55,8 @@ async def finish_running_sessions(*, db: AsyncSession, device: Device, now: date
                 occurred_at=now,
             )
         )
+
+    return [session.id for session in sessions]
 
 
 async def get_list(*, db: AsyncSession, user: User) -> list[DeviceDTO]:
@@ -79,6 +83,7 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest)
             model=data.model,
             app_version=data.app_version,
             timezone=data.timezone,
+            locale=data.locale.value,
             last_seen_at=now,
             is_deleted=False,
         )
@@ -89,6 +94,7 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest)
         device.model = data.model
         device.app_version = data.app_version
         device.timezone = data.timezone
+        device.locale = data.locale.value
         device.last_seen_at = now
         device.is_deleted = False
 
@@ -117,10 +123,12 @@ async def update_me(*, db: AsyncSession, device: Device, data: UpdateDeviceReque
 
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)
-async def delete(*, db: AsyncSession, device: Device) -> None:
+async def delete(*, db: AsyncSession, device: Device) -> list[UUID]:
     device.is_deleted = True
     device.push_token = None
 
-    await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
+    session_ids = await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
 
     await db.flush()
+
+    return session_ids

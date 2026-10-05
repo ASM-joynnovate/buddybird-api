@@ -269,12 +269,13 @@ async def save_login(
 
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)
-async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None) -> None:
+async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None) -> list[UUID]:
     if client_device_id is None:
-        return
+        return []
 
     stmt = select(Device).where(Device.user_id == user.id, Device.client_device_id == client_device_id)
     device = await db.scalar(stmt)
+    session_ids = []
 
     if device is not None:
         device.push_token = None
@@ -282,4 +283,6 @@ async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None)
         if not user.is_anonymous:
             device.is_deleted = True
 
-            await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
+            session_ids = await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
+
+    return session_ids

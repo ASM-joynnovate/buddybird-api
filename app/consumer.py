@@ -13,7 +13,7 @@ from app import sentry
 from app.config import config
 from app.db import session_factory
 from app.services import uploads
-from app.services.notifications import deliver
+from app.services.notifications import deliver, dispatch_due_pushes, send_report
 from app.services.session_sounds import save_parrot_detection
 from app.services.sessions import finish_expired_sessions
 from app.services.withdrawals import dispatch_due_withdrawals, process_user_withdrawal
@@ -27,7 +27,7 @@ async def confirm_upload(body: dict) -> None:
 
 
 async def send_notification(body: dict) -> None:
-    await deliver(UUID(body["notification_id"]))
+    await deliver(UUID(body["delivery_id"]))
 
 
 async def process_withdrawal(body: dict) -> None:
@@ -42,12 +42,18 @@ async def run_periodic_command(body: dict) -> None:
         await dispatch_due_withdrawals()
     elif body["type"] == "session.check_heartbeats":
         async with session_factory() as db:
-            await finish_expired_sessions(db=db)
+            session_ids = await finish_expired_sessions(db=db)
+
+            await send_report(db=db, session_ids=session_ids)
+    elif body["type"] == "push.dispatch":
+        await dispatch_due_pushes()
 
 
 async def save_parrot_sound_detection(body: dict) -> None:
     async with session_factory() as db:
-        await save_parrot_detection(db=db, data=body["data"])
+        session_ids = await save_parrot_detection(db=db, data=body["data"])
+
+        await send_report(db=db, session_ids=session_ids)
 
 
 async def consume(*, queue_url: str, handle: Callable[[dict], Awaitable[None]]) -> None:
