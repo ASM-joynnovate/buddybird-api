@@ -117,7 +117,7 @@ async def update_me(*, db: AsyncSession, device: Device, data: UpdateDeviceReque
 
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)
-async def delete_me(*, db: AsyncSession, device: Device) -> None:
+async def delete(*, db: AsyncSession, device: Device) -> None:
     device.is_deleted = True
     device.push_token = None
 

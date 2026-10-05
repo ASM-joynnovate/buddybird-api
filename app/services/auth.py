@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 from contextlib import suppress
+from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -27,6 +28,7 @@ from app.oauth.google import verify_google_credential
 from app.oauth.supabase import get_social_identities
 from app.s3 import S3StorageClient
 from app.schemas.auth import LoginDTO, LoginRequest
+from app.services.devices import finish_running_sessions
 from app.services.users import delete_uploaded_photo, download_social_photo
 
 
@@ -276,3 +278,8 @@ async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None)
 
     if device is not None:
         device.push_token = None
+
+        if not user.is_anonymous:
+            device.is_deleted = True
+
+            await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
