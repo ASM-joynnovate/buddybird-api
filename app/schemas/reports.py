@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.enums import ReportPeriodEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
-from app.schemas.sessions import LearningDurationDTO, SessionJudgmentDTO
+from app.schemas.sessions import ActiveDurationDTO, SessionJudgmentDTO
 
 
 class ReportPeriodDTO(CustomBaseModel):
@@ -23,15 +23,15 @@ class ReportWordDTO(CustomBaseModel):
     name: str
 
 
-class ReportWordLearningDTO(CustomBaseModel):
+class ReportWordActiveDTO(CustomBaseModel):
     word: ReportWordDTO
     duration_ms: int
 
 
-class ReportLearningDTO(CustomBaseModel):
+class ReportActiveDTO(CustomBaseModel):
     duration_ms: int
     trend: list[ReportTrendDTO]
-    words: list[ReportWordLearningDTO]
+    words: list[ReportWordActiveDTO]
 
 
 class ReportSoundsDTO(CustomBaseModel):
@@ -54,14 +54,14 @@ class ReportSessionDTO(CustomBaseModel):
     id: UUID
     period: ReportSessionPeriodDTO
     word: ReportWordDTO
-    learning: LearningDurationDTO
+    active: ActiveDurationDTO
     sounds: ReportSessionSoundsDTO
     judgment: SessionJudgmentDTO
 
 
 class ReportDTO(CustomBaseModel):
     period: ReportPeriodDTO
-    learning: ReportLearningDTO
+    active: ReportActiveDTO
     sounds: ReportSoundsDTO
     sessions: list[ReportSessionDTO]
 
