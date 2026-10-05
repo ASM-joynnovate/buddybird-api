@@ -36,7 +36,7 @@ class UpdateUserRequest(BaseRequest):
 
         value = unicodedata.normalize("NFC", value).strip(" ")
 
-        if not value or not 2 <= len(value) <= 20 or re.fullmatch(r"[가-힣A-Za-z0-9_ ]+", value) is None:
+        if not value or not 2 <= len(value) <= 20 or re.fullmatch(r"[ㄱ-ㅎㅏ-ㅣ가-힣A-Za-z0-9_ ]+", value) is None:
             raise ValueError("닉네임은 한글, 영문, 숫자, 밑줄, 공백으로 구성된 2~20자여야 합니다.")
 
         return value
