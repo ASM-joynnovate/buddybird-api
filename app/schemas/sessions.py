@@ -162,23 +162,23 @@ class SessionSoundListResponse(BaseResponse):
     data: list[SessionSoundDTO]
 
 
-class LearningDurationDTO(CustomBaseModel):
+class ActiveDurationDTO(CustomBaseModel):
     duration_ms: int
 
 
 class SessionSummaryWordDTO(CustomBaseModel):
     id: UUID
     name: str
-    learning: LearningDurationDTO
+    active: ActiveDurationDTO
 
 
 class SessionSummarySessionDTO(CustomBaseModel):
     play_count: int
-    learning: LearningDurationDTO
+    active: ActiveDurationDTO
 
 
 class SessionSummaryTotalDTO(CustomBaseModel):
-    learning: LearningDurationDTO
+    active: ActiveDurationDTO
 
 
 class SessionSummaryDTO(CustomBaseModel):
