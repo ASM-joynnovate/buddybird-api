@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from typing import ClassVar
 from uuid import UUID
 
@@ -17,12 +17,12 @@ from app.schemas.base import (
 )
 
 
-class NoticeImageDTO(CustomBaseModel):
+class AnnouncementImageDTO(CustomBaseModel):
     id: UUID
     url: str
 
 
-class NoticeDTO(CustomBaseModel):
+class AnnouncementDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"body", "ends_at"}
 
     id: UUID
@@ -31,49 +31,58 @@ class NoticeDTO(CustomBaseModel):
     starts_at: datetime
     ends_at: datetime | None
     is_read: bool
-    images: list[NoticeImageDTO]
+    images: list[AnnouncementImageDTO]
 
 
-class NoticeResponse(BaseResponse):
-    data: NoticeDTO
+class AnnouncementResponse(BaseResponse):
+    data: AnnouncementDTO
 
 
-class NoticeListResponse(BaseResponse):
-    data: list[NoticeDTO]
+class AnnouncementListResponse(BaseResponse):
+    data: list[AnnouncementDTO]
 
 
-class BackofficeNoticeDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"body", "ends_at"}
+class BackofficeAnnouncementDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"body", "ends_at", "push_local_time", "push_prepared_at"}
 
     id: UUID
     title: I18nDTO
     body: I18nDTO | None
     starts_at: datetime
     ends_at: datetime | None
-    images: list[NoticeImageDTO]
+    push_enabled: bool
+    push_local_time: time | None
+    push_prepared_at: datetime | None
+    images: list[AnnouncementImageDTO]
 
 
-class BackofficeNoticeResponse(BaseResponse):
-    data: BackofficeNoticeDTO
+class BackofficeAnnouncementResponse(BaseResponse):
+    data: BackofficeAnnouncementDTO
 
 
-class CreateNoticeRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"body", "ends_at"}
+class BackofficeAnnouncementListResponse(BaseResponse):
+    data: list[BackofficeAnnouncementDTO]
+
+
+class CreateAnnouncementRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"body", "ends_at", "push_local_time"}
 
     title: I18nTitleRequest
     body: I18nBodyRequest | None = None
     starts_at: AwareDatetime
     ends_at: AwareDatetime | None = None
+    push_enabled: bool = False
+    push_local_time: time | None = None
 
     @model_validator(mode="after")
-    def validate_period(self) -> CreateNoticeRequest:
+    def validate_period(self) -> CreateAnnouncementRequest:
         if self.ends_at is not None and self.ends_at <= self.starts_at:
             raise ValueError("게시 종료 시각은 게시 시작 시각보다 늦어야 합니다.")
 
         return self
 
 
-class UpdateNoticeRequest(BaseRequest):
+class UpdateAnnouncementRequest(BaseRequest):
     null_fields: ClassVar[set] = {"body", "ends_at"}
 
     title: UpdateI18nTitleRequest | MISSING = MISSING

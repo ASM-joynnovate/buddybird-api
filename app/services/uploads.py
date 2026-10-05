@@ -9,7 +9,7 @@ from app.config import config
 from app.db import session_factory, transactional
 from app.enums import FileStatusEnum
 from app.errors import InvalidProfilePhotoError
-from app.models import File, Notice, NoticeImage, Parrot, SessionSound, User
+from app.models import Announcement, AnnouncementImage, File, Parrot, SessionSound, User
 from app.s3 import s3
 from app.services.users import prepare_uploaded_photo
 
@@ -78,18 +78,18 @@ async def confirm(*, db: AsyncSession, file: File, path: str, size: int) -> None
     file.status = FileStatusEnum.UPLOADED.value
     file.file_size = size
 
-    if parts[0] == "notice":
-        stmt = select(Notice).where(Notice.id == UUID(parts[1]))
-        notice = await db.scalar(stmt)
+    if parts[0] == "announcement":
+        stmt = select(Announcement).where(Announcement.id == UUID(parts[1]))
+        announcement = await db.scalar(stmt)
 
-        if notice is None:
+        if announcement is None:
             file.is_deleted = True
 
             return
 
-        display_order = max((image.display_order for image in notice.images), default=-1) + 1
+        display_order = max((image.display_order for image in announcement.images), default=-1) + 1
 
-        notice.images.append(NoticeImage(file=file, display_order=display_order))
+        announcement.images.append(AnnouncementImage(file=file, display_order=display_order))
 
     elif parts[2] == "profile":
         stmt = select(User).where(User.id == UUID(parts[1]))

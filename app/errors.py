@@ -170,19 +170,19 @@ class FeedbackSaveUnavailableError(CustomError):
     message = "피드백을 일시적으로 저장할 수 없습니다."
 
 
-class NoticeSaveUnavailableError(CustomError):
+class AnnouncementSaveUnavailableError(CustomError):
     status_code = 503
-    error_code = "NOTICE__SAVE_UNAVAILABLE"
+    error_code = "ANNOUNCEMENT__SAVE_UNAVAILABLE"
     message = "공지를 일시적으로 저장할 수 없습니다."
 
 
-class InvalidNoticePeriodError(CustomError):
-    error_code = "NOTICE__INVALID_PERIOD"
+class InvalidAnnouncementPeriodError(CustomError):
+    error_code = "ANNOUNCEMENT__INVALID_PERIOD"
     message = "게시 종료 시각은 게시 시작 시각보다 늦어야 합니다."
 
 
-class InvalidNoticeBodyError(CustomError):
-    error_code = "NOTICE__INVALID_BODY"
+class InvalidAnnouncementBodyError(CustomError):
+    error_code = "ANNOUNCEMENT__INVALID_BODY"
     message = "본문을 새로 추가할 때는 en_us가 필요합니다."
 
 
@@ -196,6 +196,12 @@ class NotificationSendFailedError(CustomError):
     status_code = 503
     error_code = "NOTIFICATION__SEND_FAILED"
     message = "알림 발송 실패"
+
+
+class NotificationSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "NOTIFICATION__SAVE_UNAVAILABLE"
+    message = "알림을 일시적으로 저장할 수 없습니다."
 
 
 class PushDeliveryRetryError(Exception):

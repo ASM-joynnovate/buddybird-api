@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form
 
-from app.dependencies import DBSession, Storage, require_backoffice, require_preset_word
+from app.dependencies import DBSession, Storage, require_preset_word
 from app.models import PresetWord
 from app.schemas.base import BaseResponse
 from app.schemas.preset_words import (
@@ -13,7 +13,7 @@ from app.schemas.preset_words import (
 )
 from app.services import preset_words
 
-router = APIRouter(prefix="/preset-words", dependencies=[Depends(require_backoffice)])
+router = APIRouter(prefix="/preset-words")
 
 
 @router.get("", name="단어 프리셋 목록 조회")

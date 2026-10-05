@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,9 +17,51 @@ from app.oauth.base import SocialIdentity, decrypt_credentials, encrypt_credenti
 from app.oauth.google import revoke_google
 from app.oauth.kakao import unlink_kakao
 from app.oauth.supabase import delete_supabase_user, get_social_identities
-from app.schemas.withdrawals import WithdrawalDTO
+from app.schemas.withdrawals import (
+    BackofficeWithdrawalDTO,
+    BackofficeWithdrawalListParams,
+    BackofficeWithdrawalProviderDTO,
+    WithdrawalDTO,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def build_backoffice_withdrawal_dto(withdrawal: UserWithdrawal) -> BackofficeWithdrawalDTO:
+    return BackofficeWithdrawalDTO(
+        user_id=withdrawal.user_id,
+        providers=[
+            BackofficeWithdrawalProviderDTO(provider=provider, status=getattr(withdrawal, f"{provider}_status"))
+            for provider in OAuthProviderEnum
+        ],
+        attempt_count=withdrawal.attempt_count,
+        last_error_code=withdrawal.last_error_code,
+        next_attempt_at=withdrawal.next_attempt_at,
+        completed_at=withdrawal.completed_at,
+        created_at=withdrawal.created_at,
+    )
+
+
+async def get_backoffice_list(
+    *, db: AsyncSession, query: BackofficeWithdrawalListParams
+) -> tuple[list[BackofficeWithdrawalDTO], int]:
+    stmt = select(UserWithdrawal)
+
+    if query.is_completed is True:
+        stmt = stmt.where(UserWithdrawal.completed_at.is_not(None))
+    elif query.is_completed is False:
+        stmt = stmt.where(UserWithdrawal.completed_at.is_(None))
+
+    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+    withdrawals = (
+        await db.scalars(
+            stmt.order_by(UserWithdrawal.created_at.desc())
+            .offset((query.page - 1) * query.count_by_page)
+            .limit(query.count_by_page)
+        )
+    ).all()
+
+    return [build_backoffice_withdrawal_dto(withdrawal) for withdrawal in withdrawals], total
 
 
 async def request_withdrawal(*, db: AsyncSession, auth_user_id: UUID, access_token: str) -> WithdrawalDTO:

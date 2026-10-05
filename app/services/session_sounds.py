@@ -173,10 +173,18 @@ async def upload(
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def save_parrot_detection(*, db: AsyncSession, data: list[dict]) -> None:
+async def save_parrot_detection(*, db: AsyncSession, data: list[dict]) -> list[UUID]:
+    session_ids = set()
+
     for item in data:
-        await db.execute(
+        session_id = await db.scalar(
             update(SessionSound)
             .where(SessionSound.id == UUID(item["sound_id"]))
             .values(is_parrot_sound=item["is_parrot"])
+            .returning(SessionSound.session_id)
         )
+
+        if session_id is not None:
+            session_ids.add(session_id)
+
+    return list(session_ids)

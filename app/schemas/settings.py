@@ -9,9 +9,11 @@ class SleepSettingsDTO(CustomBaseModel):
 
 
 class NotificationSettingsDTO(CustomBaseModel):
-    notice_enabled: bool
+    push_enabled: bool
+    announcement_enabled: bool
     report_enabled: bool
     marketing_enabled: bool
+    marketing_night_enabled: bool
 
 
 class SettingsDTO(CustomBaseModel):
@@ -29,6 +31,8 @@ class UpdateSleepSettingsRequest(BaseRequest):
 
 
 class UpdateNotificationSettingsRequest(BaseRequest):
-    notice_enabled: bool
+    push_enabled: bool
+    announcement_enabled: bool
     report_enabled: bool
     marketing_enabled: bool
+    marketing_night_enabled: bool

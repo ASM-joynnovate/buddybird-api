@@ -246,7 +246,7 @@ async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def finish_expired_sessions(*, db: AsyncSession) -> None:
+async def finish_expired_sessions(*, db: AsyncSession) -> list[UUID]:
     now = datetime.now(UTC)
     heartbeat_deadline = now - timedelta(minutes=10)
     stmt = select(Session).where(
@@ -283,6 +283,8 @@ async def finish_expired_sessions(*, db: AsyncSession) -> None:
         )
 
     await db.flush()
+
+    return [session.id for session in sessions]
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)

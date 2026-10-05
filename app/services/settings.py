@@ -17,9 +17,11 @@ def build_settings_dto(setting: UserSetting) -> SettingsDTO:
     return SettingsDTO(
         sleep=SleepSettingsDTO(sleep_at=setting.sleep_at, wake_at=setting.wake_at),
         notifications=NotificationSettingsDTO(
-            notice_enabled=setting.notice_notification_enabled,
+            push_enabled=setting.push_notification_enabled,
+            announcement_enabled=setting.announcement_notification_enabled,
             report_enabled=setting.report_notification_enabled,
             marketing_enabled=setting.marketing_notification_enabled,
+            marketing_night_enabled=setting.marketing_night_notification_enabled,
         ),
     )
 
@@ -59,9 +61,11 @@ async def update_sleep(*, db: AsyncSession, user: User, data: UpdateSleepSetting
 async def update_notifications(*, db: AsyncSession, user: User, data: UpdateNotificationSettingsRequest) -> SettingsDTO:
     setting = await get_or_create_settings(db=db, user=user)
 
-    setting.notice_notification_enabled = data.notice_enabled
+    setting.push_notification_enabled = data.push_enabled
+    setting.announcement_notification_enabled = data.announcement_enabled
     setting.report_notification_enabled = data.report_enabled
     setting.marketing_notification_enabled = data.marketing_enabled
+    setting.marketing_night_notification_enabled = data.marketing_night_enabled
 
     await db.flush()
 
