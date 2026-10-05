@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.3.0...v1.4.0) (2026-10-05)
+
+
+### Features
+
+* **sessions:** measure active time from the session period ([#84](https://github.com/ASM-joynnovate/buddybird-api/issues/84)) ([eb5d340](https://github.com/ASM-joynnovate/buddybird-api/commit/eb5d340ed6319e7844e6abb26248e6309bd8d478))
+
+
+### Bug Fixes
+
+* **users:** accept standalone Hangul jamo in nicknames ([#82](https://github.com/ASM-joynnovate/buddybird-api/issues/82)) ([2478ba7](https://github.com/ASM-joynnovate/buddybird-api/commit/2478ba783bd2f15bcc6a644c92a8914cb20abf6a))
+
 ## [1.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.2.0...v1.3.0) (2026-10-04)
 
 
