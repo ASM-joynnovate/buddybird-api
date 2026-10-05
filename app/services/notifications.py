@@ -40,6 +40,8 @@ from app.schemas.base import I18nDTO, I18nTitleRequest, PageParams, UploadDTO, U
 from app.schemas.notifications import (
     BackofficeNotificationDTO,
     BackofficeNotificationListParams,
+    BackofficePushDeliveryDTO,
+    BackofficePushDeliveryListParams,
     BroadcastNotificationDTO,
     BroadcastNotificationRequest,
     I18nNotificationBodyRequest,
@@ -168,7 +170,7 @@ async def create_notifications(
     body_i18n: I18n,
     image_file_id: UUID | None,
     user_ids: list[UUID] | None,
-    local_time: time | None,
+    local_datetime: datetime | None,
     session_id: UUID | None,
 ) -> tuple[list[Notification], list[UUID]]:
     image_file = None
@@ -192,15 +194,15 @@ async def create_notifications(
 
     rows = (await db.execute(stmt)).all()
     now = datetime.now(UTC)
-    default_sent_at = get_scheduled_at(timezone=None, started_at=now, local_time=local_time)
     notifications = []
     deliveries = []
 
     for (user_id, push_enabled, night_enabled), group in groupby(rows, key=lambda row: row[:3]):
         devices = [row.Device for row in group if row.Device is not None]
-        scheduled_ats = [
-            get_scheduled_at(timezone=device.timezone, started_at=now, local_time=local_time) for device in devices
-        ]
+        scheduled_ats = {
+            timezone: now if local_datetime is None else local_datetime.replace(tzinfo=get_zone(timezone))
+            for timezone in {device.timezone for device in devices} or {None}
+        }
         night_blocked = kind == NotificationKindEnum.MARKETING and not night_enabled
         notification = Notification(
             id=uuid7(),
@@ -210,16 +212,18 @@ async def create_notifications(
             body_i18n=body_i18n,
             image_file=image_file,
             session_id=session_id,
-            sent_at=min(scheduled_ats, default=default_sent_at),
+            sent_at=max(min(scheduled_ats.values()), now),
             is_deleted=False,
         )
 
         notifications.append(notification)
 
-        for device, scheduled_at in zip(devices, scheduled_ats, strict=True):
+        for device in devices:
+            scheduled_at = scheduled_ats[device.timezone]
             sendable = (
                 push_enabled
                 and device.push_token is not None
+                and scheduled_at >= now
                 and not (night_blocked and is_night_time(at=scheduled_at, timezone=device.timezone))
             )
 
@@ -230,7 +234,7 @@ async def create_notifications(
                         device_id=device.id,
                         notification_id=notification.id,
                         scheduled_at=scheduled_at,
-                        queued_at=now if local_time is None else None,
+                        queued_at=now if local_datetime is None else None,
                     )
                 )
 
@@ -254,7 +258,7 @@ async def create(
         body_i18n=body_i18n,
         image_file_id=data.image_file_id,
         user_ids=[user.id],
-        local_time=None,
+        local_datetime=None,
         session_id=None,
     )
 
@@ -284,7 +288,7 @@ async def create_broadcast(*, db: AsyncSession, data: BroadcastNotificationReque
         body_i18n=body_i18n,
         image_file_id=data.image_file_id,
         user_ids=data.user_ids,
-        local_time=data.push_local_time,
+        local_datetime=data.recipient_local_datetime,
         session_id=None,
     )
 
@@ -342,7 +346,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
         ),
         image_file_id=None,
         user_ids=[session.user_id],
-        local_time=None,
+        local_datetime=None,
         session_id=session_id,
     )
 
@@ -428,6 +432,48 @@ async def get_backoffice_list(
     ).all()
 
     return [build_backoffice_notification_dto(notification, storage) for notification in notifications], total
+
+
+async def get_backoffice_deliveries(
+    *, db: AsyncSession, query: BackofficePushDeliveryListParams
+) -> tuple[list[BackofficePushDeliveryDTO], int]:
+    stmt = (
+        select(PushDelivery, Notification, Announcement)
+        .outerjoin(Notification, Notification.id == PushDelivery.notification_id)
+        .outerjoin(Announcement, Announcement.id == PushDelivery.announcement_id)
+        .where(PushDelivery.device_id == query.device_id, PushDelivery.sent_at.is_not(None))
+        .execution_options(include_deleted=True)
+    )
+    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+    rows = (
+        await db.execute(
+            stmt.order_by(PushDelivery.sent_at.desc(), PushDelivery.id.desc())
+            .offset((query.page - 1) * query.count_by_page)
+            .limit(query.count_by_page)
+        )
+    ).all()
+    items = []
+
+    for delivery, notification, announcement in rows:
+        source = notification or announcement
+        kind = notification.kind if notification is not None else NotificationKindEnum.ANNOUNCEMENT.value
+
+        items.append(
+            BackofficePushDeliveryDTO(
+                id=delivery.id,
+                notification_id=delivery.notification_id,
+                announcement_id=delivery.announcement_id,
+                kind=kind,
+                title=I18nDTO(ko_kr=source.title_i18n.ko_kr, en_us=source.title_i18n.en_us),
+                body=I18nDTO(ko_kr=source.body_i18n.ko_kr, en_us=source.body_i18n.en_us)
+                if source.body_i18n is not None
+                else None,
+                scheduled_at=delivery.scheduled_at,
+                sent_at=delivery.sent_at,
+            )
+        )
+
+    return items, total
 
 
 @transactional(unavailable_error=NotificationReadFailedError)
@@ -586,6 +632,8 @@ async def deliver(delivery_id: UUID) -> None:
                     image_url=image_url,
                     data=data,
                 )
+
+                delivery.sent_at = datetime.now(UTC)
             except messaging.UnregisteredError, messaging.SenderIdMismatchError:
                 device.push_token = None
             except (

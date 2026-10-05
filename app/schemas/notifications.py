@@ -1,8 +1,8 @@
-from datetime import datetime, time
+from datetime import datetime
 from typing import ClassVar, Literal
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, NaiveDatetime, model_validator
 
 from app.enums import NotificationKindEnum
 from app.schemas.base import BaseRequest, BaseResponse, Body, CustomBaseModel, I18nDTO, I18nTitleRequest, PageParams
@@ -55,6 +55,23 @@ class BackofficeNotificationListResponse(BaseResponse):
     data: list[BackofficeNotificationDTO]
 
 
+class BackofficePushDeliveryDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"notification_id", "announcement_id", "body"}
+
+    id: UUID
+    notification_id: UUID | None
+    announcement_id: UUID | None
+    kind: NotificationKindEnum
+    title: I18nDTO
+    body: I18nDTO | None
+    scheduled_at: datetime
+    sent_at: datetime
+
+
+class BackofficePushDeliveryListResponse(BaseResponse):
+    data: list[BackofficePushDeliveryDTO]
+
+
 class BroadcastNotificationDTO(CustomBaseModel):
     notification_count: int
 
@@ -84,19 +101,19 @@ class SendNotificationRequest(NotificationContentRequest):
 
 
 class BroadcastNotificationRequest(NotificationContentRequest):
-    null_fields: ClassVar[set] = {"image_file_id", "push_local_time"}
+    null_fields: ClassVar[set] = {"image_file_id", "recipient_local_datetime"}
 
     user_ids: list[UUID] | None = Field(None, min_length=1, max_length=1000)
     all_users: bool = False
-    push_local_time: time | None = None
+    recipient_local_datetime: NaiveDatetime | None = None
 
     @model_validator(mode="after")
     def validate_broadcast(self) -> BroadcastNotificationRequest:
         if (self.user_ids is not None) == self.all_users:
             raise ValueError("user_ids와 all_users 중 하나만 지정해야 합니다.")
 
-        if self.kind == NotificationKindEnum.URGENT and self.push_local_time is not None:
-            raise ValueError("urgent에는 push_local_time을 지정할 수 없습니다.")
+        if self.kind == NotificationKindEnum.URGENT and self.recipient_local_datetime is not None:
+            raise ValueError("urgent에는 recipient_local_datetime을 지정할 수 없습니다.")
 
         return self
 
@@ -104,3 +121,7 @@ class BroadcastNotificationRequest(NotificationContentRequest):
 class BackofficeNotificationListParams(PageParams):
     user_id: UUID | None = None
     kind: NotificationKindEnum | None = None
+
+
+class BackofficePushDeliveryListParams(PageParams):
+    device_id: UUID

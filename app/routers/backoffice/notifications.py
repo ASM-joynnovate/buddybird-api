@@ -9,6 +9,8 @@ from app.schemas.base import UploadRequest, UploadResponse
 from app.schemas.notifications import (
     BackofficeNotificationListParams,
     BackofficeNotificationListResponse,
+    BackofficePushDeliveryListParams,
+    BackofficePushDeliveryListResponse,
     BroadcastNotificationRequest,
     BroadcastNotificationResponse,
     NotificationSendResponse,
@@ -27,6 +29,19 @@ async def get_list(
 
     return BackofficeNotificationListResponse(
         message="알림 발송 이력 조회 성공",
+        data=items,
+        meta=query.meta(total),
+    )
+
+
+@router.get("/deliveries", name="푸시 발송 기록 조회")
+async def get_deliveries(
+    query: Annotated[BackofficePushDeliveryListParams, Query()], db: DBSession
+) -> BackofficePushDeliveryListResponse:
+    items, total = await notifications.get_backoffice_deliveries(db=db, query=query)
+
+    return BackofficePushDeliveryListResponse(
+        message="푸시 발송 기록 조회 성공",
         data=items,
         meta=query.meta(total),
     )
