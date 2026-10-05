@@ -131,7 +131,6 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
     words_active = [
         ReportWordActiveDTO(word=ReportWordDTO(id=word_id, name=words[word_id].name), duration_ms=duration_ms)
         for word_id, duration_ms in sorted(word_durations.items(), key=lambda item: item[1], reverse=True)
-        if duration_ms > 0
     ]
 
     return ReportDTO(
