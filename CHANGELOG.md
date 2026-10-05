@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.4.0...v1.5.0) (2026-10-05)
+
+
+### Features
+
+* **backoffice:** move backoffice APIs and add localized, scheduled notifications [BB-601] ([#87](https://github.com/ASM-joynnovate/buddybird-api/issues/87)) ([25e131a](https://github.com/ASM-joynnovate/buddybird-api/commit/25e131a9dde260ee786defa6135aa748471e42eb))
+* **devices:** remove logged-out devices and add a device delete API ([#85](https://github.com/ASM-joynnovate/buddybird-api/issues/85)) ([13ccf13](https://github.com/ASM-joynnovate/buddybird-api/commit/13ccf135c523a0123c4ee0f6c05eaf0006f05f1d))
+
 ## [1.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.3.0...v1.4.0) (2026-10-05)
 
 
