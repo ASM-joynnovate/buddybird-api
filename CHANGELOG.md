@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.5.0...v2.0.0) (2026-10-05)
+
+
+### Miscellaneous Chores
+
+* sync the lockfile project version ([#88](https://github.com/ASM-joynnovate/buddybird-api/issues/88)) ([1dfae38](https://github.com/ASM-joynnovate/buddybird-api/commit/1dfae38967e46bb5fce862d74d004d63f7f1d97f))
+
 ## [1.5.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.4.0...v1.5.0) (2026-10-05)
 
 
