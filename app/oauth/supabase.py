@@ -44,6 +44,37 @@ async def verify_access_token(token: str) -> tuple[UUID, bool]:
     return auth_user_id, claims["is_anonymous"]
 
 
+def parse_social_identities(*, data: dict, auth_user_id: UUID) -> list[SocialIdentity]:
+    if data["id"] != str(auth_user_id):
+        raise AuthenticationServiceUnavailableError
+
+    identities = []
+
+    for item in data["identities"]:
+        if item["provider"] not in OAuthProviderEnum:
+            continue
+
+        if item["user_id"] != str(auth_user_id) or not isinstance(item["id"], str) or not item["id"]:
+            raise AuthenticationServiceUnavailableError
+
+        profile = item["identity_data"]
+        email = profile.get("email")
+        photo_url = profile.get("avatar_url") or profile.get("picture")
+
+        identities.append(
+            SocialIdentity(
+                identity_id=UUID(item["identity_id"]),
+                provider=OAuthProviderEnum(item["provider"]),
+                subject=item["id"],
+                created_at=datetime.fromisoformat(item["created_at"]),
+                email=email if isinstance(email, str) else None,
+                photo_url=photo_url if isinstance(photo_url, str) else None,
+            )
+        )
+
+    return identities
+
+
 async def get_social_identities(*, auth_user_id: UUID, access_token: str) -> list[SocialIdentity]:
     if config.SUPABASE_AUTH_URL is None or not config.SUPABASE_PUBLISHABLE_KEY:
         raise AuthenticationServiceUnavailableError
@@ -64,35 +95,9 @@ async def get_social_identities(*, auth_user_id: UUID, access_token: str) -> lis
     if response.status_code != 200:
         raise AuthenticationServiceUnavailableError
 
-    identities = []
-
     try:
         data = response_object(response, provider="supabase")
-
-        if data["id"] != str(auth_user_id):
-            raise AuthenticationServiceUnavailableError
-
-        for item in data["identities"]:
-            if item["provider"] not in OAuthProviderEnum:
-                continue
-
-            if item["user_id"] != str(auth_user_id) or not isinstance(item["id"], str) or not item["id"]:
-                raise AuthenticationServiceUnavailableError
-
-            profile = item["identity_data"]
-            email = profile.get("email")
-            photo_url = profile.get("avatar_url") or profile.get("picture")
-
-            identities.append(
-                SocialIdentity(
-                    identity_id=UUID(item["identity_id"]),
-                    provider=OAuthProviderEnum(item["provider"]),
-                    subject=item["id"],
-                    created_at=datetime.fromisoformat(item["created_at"]),
-                    email=email if isinstance(email, str) else None,
-                    photo_url=photo_url if isinstance(photo_url, str) else None,
-                )
-            )
+        identities = parse_social_identities(data=data, auth_user_id=auth_user_id)
     except WithdrawalOperationError, KeyError, TypeError, ValueError, AttributeError:
         raise AuthenticationServiceUnavailableError from None
 
@@ -100,6 +105,32 @@ async def get_social_identities(*, auth_user_id: UUID, access_token: str) -> lis
         raise AuthenticationError
 
     return identities
+
+
+async def get_admin_social_identities(auth_user_id: UUID) -> list[SocialIdentity]:
+    if config.SUPABASE_AUTH_URL is None or not config.SUPABASE_SECRET_KEY:
+        raise AuthenticationServiceUnavailableError
+
+    key = config.SUPABASE_SECRET_KEY.get_secret_value()
+
+    try:
+        response = await provider_request(
+            "GET",
+            f"{config.SUPABASE_AUTH_URL}/admin/users/{auth_user_id}",
+            provider="supabase",
+            headers={"Authorization": f"Bearer {key}", "apikey": key},
+        )
+        data = response_object(response, provider="supabase")
+
+        if response.status_code == 404 and data.get("error_code") == "user_not_found":
+            return []
+
+        if response.status_code != 200:
+            raise AuthenticationServiceUnavailableError
+
+        return parse_social_identities(data=data, auth_user_id=auth_user_id)
+    except WithdrawalOperationError, KeyError, TypeError, ValueError, AttributeError:
+        raise AuthenticationServiceUnavailableError from None
 
 
 async def delete_supabase_user(auth_user_id: UUID) -> None:

@@ -16,7 +16,7 @@ from app.oauth.apple import revoke_apple
 from app.oauth.base import SocialIdentity, decrypt_credentials, encrypt_credentials
 from app.oauth.google import revoke_google
 from app.oauth.kakao import unlink_kakao
-from app.oauth.supabase import delete_supabase_user, get_social_identities
+from app.oauth.supabase import delete_supabase_user, get_admin_social_identities, get_social_identities
 from app.schemas.withdrawals import (
     BackofficeWithdrawalDTO,
     BackofficeWithdrawalListParams,
@@ -66,6 +66,12 @@ async def get_backoffice_list(
 
 async def request_withdrawal(*, db: AsyncSession, auth_user_id: UUID, access_token: str) -> WithdrawalDTO:
     identities = await get_social_identities(auth_user_id=auth_user_id, access_token=access_token)
+
+    return await save_withdrawal(db=db, auth_user_id=auth_user_id, identities=identities)
+
+
+async def request_backoffice_withdrawal(*, db: AsyncSession, auth_user_id: UUID) -> WithdrawalDTO:
+    identities = await get_admin_social_identities(auth_user_id)
 
     return await save_withdrawal(db=db, auth_user_id=auth_user_id, identities=identities)
 
