@@ -56,11 +56,11 @@ async def process(*, key: str, size: int) -> None:
                 await sqs.send(
                     queue_url=config.SQS_PARROT_SOUND_DETECTION_QUEUE_URL,
                     body={
-                        "type": "sound.detect_parrot",
+                        "type": "audio.detect_parrot",
                         "session_id": str(sound.session_id),
                         "data": [
                             {
-                                "sound_id": str(sound.id),
+                                "audio_id": str(sound.id),
                                 "object_key": file.object_key,
                                 "captured_at": sound.captured_at.isoformat(),
                             }

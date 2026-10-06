@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from app.enums import FileStatusEnum, LocaleEnum
+from app.enums import FileStatusEnum, LocaleEnum, SoundJudgmentStatusEnum
 
 
 class Base(DeclarativeBase):
@@ -376,6 +376,12 @@ class SessionSound(Base):
     audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
     audio_file: Mapped[File] = relationship(lazy="selectin")
     is_parrot_sound: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    judgment_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SoundJudgmentStatusEnum.PENDING.value,
+        server_default=SoundJudgmentStatusEnum.PENDING.value,
+    )
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
 
@@ -389,6 +395,29 @@ class SoundJudgment(Base):
     score: Mapped[float] = mapped_column(Double, nullable=False)
     model_version: Mapped[str] = mapped_column(Text, nullable=False)
     judged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SoundAnalysis(Base):
+    __tablename__ = "sound_analyses"
+    __table_args__ = (
+        UniqueConstraint("sound_id", "analyzer_version", name="uq_sound_analyses_sound_id_analyzer_version"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=False)
+    analyzer_version: Mapped[str] = mapped_column(Text, nullable=False)
+    is_parrot: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    score: Mapped[float] = mapped_column(Double, nullable=False)
+    call_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    chirp_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SessionEventSound(Base):
+    __tablename__ = "session_event_sounds"
+
+    event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
+    sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)
 
 
 class Notification(Base):

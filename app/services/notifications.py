@@ -305,7 +305,8 @@ async def broadcast(*, db: AsyncSession, data: BroadcastNotificationRequest) -> 
 
 @transactional
 async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
-    session = await db.get(Session, session_id)
+    stmt = select(Session).where(Session.id == session_id).with_for_update(key_share=True)
+    session = await db.scalar(stmt)
     statuses = await get_judgment_statuses(db=db, sessions=[session])
 
     stmt = (

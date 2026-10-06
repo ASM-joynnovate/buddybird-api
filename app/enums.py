@@ -71,6 +71,12 @@ class JudgmentStatusEnum(StrEnum):
     DONE = "done"
 
 
+class SoundJudgmentStatusEnum(StrEnum):
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
 class LocaleEnum(StrEnum):
     KO_KR = "ko-KR"
     EN_US = "en-US"

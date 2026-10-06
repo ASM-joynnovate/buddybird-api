@@ -9,7 +9,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import FileStatusEnum, JudgmentStatusEnum, SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
+from app.enums import (
+    FileStatusEnum,
+    JudgmentStatusEnum,
+    SessionActorEnum,
+    SessionEventKindEnum,
+    SessionStatusEnum,
+    SoundJudgmentStatusEnum,
+)
 from app.errors import (
     DeviceNotStationError,
     ResourceNotFoundError,
@@ -75,7 +82,7 @@ async def get_judgment_statuses(*, db: AsyncSession, sessions: Sequence[Session]
                 [session.id for session in sessions if session.status == SessionStatusEnum.FINISHED.value]
             ),
             File.status == FileStatusEnum.UPLOADED.value,
-            SessionSound.is_parrot_sound.is_(None),
+            SessionSound.judgment_status == SoundJudgmentStatusEnum.PENDING.value,
         )
         .distinct()
     )
@@ -370,11 +377,15 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
 
 
 async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEventDTO]:
-    events = (
-        await db.scalars(
-            select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
+    stmt = (
+        select(SessionEvent)
+        .where(
+            SessionEvent.session_id == session.id,
+            SessionEvent.kind != SessionEventKindEnum.EMERGENCY_DETECTED.value,
         )
-    ).all()
+        .order_by(SessionEvent.occurred_at)
+    )
+    events = (await db.scalars(stmt)).all()
 
     return [
         SessionEventDTO(
