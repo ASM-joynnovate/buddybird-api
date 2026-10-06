@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.0.0...v2.1.0) (2026-10-06)
+
+
+### Features
+
+* **backoffice:** add a user delete API ([#91](https://github.com/ASM-joynnovate/buddybird-api/issues/91)) ([73e853b](https://github.com/ASM-joynnovate/buddybird-api/commit/73e853b9a4a1b26f1d682ba8f74e14223554f586))
+
 ## [2.0.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v1.5.0...v2.0.0) (2026-10-05)
 
 
