@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.1.0...v2.2.0) (2026-10-07)
+
+
+### Features
+
+* **sessions:** save audio-ai sound analyses and record emergency events ([#94](https://github.com/ASM-joynnovate/buddybird-api/issues/94)) ([4352f06](https://github.com/ASM-joynnovate/buddybird-api/commit/4352f06c317a6cb991e45d115ccf6c326bfc4856))
+
 ## [2.1.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.0.0...v2.1.0) (2026-10-06)
 
 
