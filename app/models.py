@@ -306,7 +306,14 @@ class Session(Base):
 
 class SessionEvent(Base):
     __tablename__ = "session_events"
-    __table_args__ = (Index("ix_session_events_session_id_occurred_at", "session_id", "occurred_at"),)
+    __table_args__ = (
+        Index("ix_session_events_session_id_occurred_at", "session_id", "occurred_at"),
+        Index(
+            "ix_session_events_occurred_at_emergency_detected",
+            "occurred_at",
+            postgresql_where=text("kind = 'emergency_detected'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     session_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=False)
@@ -368,7 +375,14 @@ class Parrot(Base):
 
 class SessionSound(Base):
     __tablename__ = "session_sounds"
-    __table_args__ = (Index("ix_session_sounds_session_id_captured_at", "session_id", "captured_at"),)
+    __table_args__ = (
+        Index("ix_session_sounds_session_id_captured_at", "session_id", "captured_at"),
+        Index(
+            "ix_session_sounds_updated_at_failed",
+            "updated_at",
+            postgresql_where=text("judgment_status = 'failed'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     session_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=False)

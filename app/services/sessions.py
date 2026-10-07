@@ -255,7 +255,7 @@ async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
 @transactional(unavailable_error=SessionSaveUnavailableError)
 async def finish_expired_sessions(*, db: AsyncSession) -> list[UUID]:
     now = datetime.now(UTC)
-    heartbeat_deadline = now - timedelta(minutes=10)
+    heartbeat_deadline = now - timedelta(minutes=1)
     stmt = select(Session).where(
         Session.status == SessionStatusEnum.RUNNING.value,
         or_(
