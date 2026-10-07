@@ -16,6 +16,7 @@ services:
       SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
       SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
       SQS_PARROT_SOUND_DETECTION_QUEUE_URL: http://elasticmq:9324/000000000000/parrot-sound-detection
+      SQS_PARROT_SOUND_DETECTION_DLQ_URL: http://elasticmq:9324/000000000000/parrot-sound-detection-dlq
       SQS_JUDGMENT_RESULT_QUEUE_URL: http://elasticmq:9324/000000000000/judgment-result
     ports:
       - "8000:8000"
@@ -39,6 +40,7 @@ services:
       SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
       SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
       SQS_PARROT_SOUND_DETECTION_QUEUE_URL: http://elasticmq:9324/000000000000/parrot-sound-detection
+      SQS_PARROT_SOUND_DETECTION_DLQ_URL: http://elasticmq:9324/000000000000/parrot-sound-detection-dlq
       SQS_JUDGMENT_RESULT_QUEUE_URL: http://elasticmq:9324/000000000000/judgment-result
     command: [python, -m, app.consumer]
     depends_on:

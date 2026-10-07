@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import ClassVar
+from typing import ClassVar, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, Field
@@ -108,7 +108,16 @@ class HeartbeatResponse(BaseResponse):
 class SessionEventRequest(BaseRequest):
     null_fields: ClassVar[set] = {"word_id"}
 
-    kind: SessionEventKindEnum
+    kind: Literal[
+        SessionEventKindEnum.SESSION_STARTED,
+        SessionEventKindEnum.LEARNING_STARTED,
+        SessionEventKindEnum.LEARNING_TOGGLED,
+        SessionEventKindEnum.LEARNING_FINISHED,
+        SessionEventKindEnum.WORD_CHANGED,
+        SessionEventKindEnum.STATION_DISCONNECTED,
+        SessionEventKindEnum.STATION_RECONNECTED,
+        SessionEventKindEnum.SESSION_FINISHED,
+    ]
     occurred_at: datetime
     word_id: UUID | None = None
 
