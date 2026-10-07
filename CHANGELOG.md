@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.2.0...v2.2.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **sentry:** disable backpressure downsampling ([#97](https://github.com/ASM-joynnovate/buddybird-api/issues/97)) ([6e8728e](https://github.com/ASM-joynnovate/buddybird-api/commit/6e8728e33ce31a2cca6019740256c7389511e920))
+
 ## [2.2.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.1.0...v2.2.0) (2026-10-07)
 
 
