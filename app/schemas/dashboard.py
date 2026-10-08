@@ -360,6 +360,53 @@ class AppUpdateDashboardResponse(BaseResponse):
     data: AppUpdateDashboardDTO
 
 
+class ConsentDashboardUsersDTO(CustomBaseModel):
+    total_count: int
+
+
+class ConsentDashboardDecisionsDTO(CustomBaseModel):
+    granted_count: int
+    denied_count: int
+    waiting_count: int
+
+
+class ConsentDashboardDailyDTO(CustomBaseModel):
+    date: date
+    granted_count: int
+    denied_count: int
+
+
+class ConsentDashboardVersionDTO(CustomBaseModel):
+    version: int
+    granted_count: int
+    user_count: int
+
+
+class ConsentDashboardPlatformDTO(CustomBaseModel):
+    platform: str
+    granted_count: int
+    user_count: int
+
+
+class ConsentDashboardLocaleDTO(CustomBaseModel):
+    locale: str
+    granted_count: int
+    user_count: int
+
+
+class ConsentDashboardDTO(CustomBaseModel):
+    users: ConsentDashboardUsersDTO
+    decisions: ConsentDashboardDecisionsDTO
+    daily: list[ConsentDashboardDailyDTO]
+    versions: list[ConsentDashboardVersionDTO]
+    platforms: list[ConsentDashboardPlatformDTO]
+    locales: list[ConsentDashboardLocaleDTO]
+
+
+class ConsentDashboardResponse(BaseResponse):
+    data: ConsentDashboardDTO
+
+
 class DashboardParams(BaseRequest):
     date_from: date
     date_to: date
