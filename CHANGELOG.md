@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.6.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.5.0...v2.6.0) (2026-10-08)
+
+
+### Features
+
+* **backoffice:** add app update tab APIs ([#110](https://github.com/ASM-joynnovate/buddybird-api/issues/110)) ([26fd7ea](https://github.com/ASM-joynnovate/buddybird-api/commit/26fd7ea7c9f5dc94b2629e0b46465c34c9237573))
+* **backoffice:** add consent dashboard API ([#111](https://github.com/ASM-joynnovate/buddybird-api/issues/111)) ([2c4ce6e](https://github.com/ASM-joynnovate/buddybird-api/commit/2c4ce6e9e2a6381d2edb6c763144db4e622349a7))
+* **backoffice:** add notification tab APIs ([#108](https://github.com/ASM-joynnovate/buddybird-api/issues/108)) ([c73f4e3](https://github.com/ASM-joynnovate/buddybird-api/commit/c73f4e3e9f1f0bd938df031f5a13ef58ba1383c2))
+
 ## [2.5.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.4.0...v2.5.0) (2026-10-08)
 
 
