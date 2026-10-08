@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, Query
 from app.dependencies import DBSession, Storage, require_announcement, require_announcement_image
 from app.models import Announcement, AnnouncementImage
 from app.schemas.announcements import (
+    BackofficeAnnouncementListParams,
     BackofficeAnnouncementListResponse,
     BackofficeAnnouncementResponse,
     CreateAnnouncementRequest,
     UpdateAnnouncementRequest,
 )
-from app.schemas.base import BaseResponse, PageParams, UploadRequest, UploadResponse
+from app.schemas.base import BaseResponse, UploadRequest, UploadResponse
 from app.services import announcements
 
 router = APIRouter(prefix="/announcements")
@@ -18,14 +19,14 @@ router = APIRouter(prefix="/announcements")
 
 @router.get("", name="공지 목록 조회")
 async def get_list(
-    query: Annotated[PageParams, Query()], db: DBSession, storage: Storage
+    query: Annotated[BackofficeAnnouncementListParams, Query()], db: DBSession, storage: Storage
 ) -> BackofficeAnnouncementListResponse:
-    items, total = await announcements.get_backoffice_list(db=db, storage=storage, query=query)
+    items, total, user_count = await announcements.get_backoffice_list(db=db, storage=storage, query=query)
 
     return BackofficeAnnouncementListResponse(
         message="공지 목록 조회 성공",
         data=items,
-        meta=query.meta(total),
+        meta={**query.meta(total), "user_count": user_count},
     )
 
 
