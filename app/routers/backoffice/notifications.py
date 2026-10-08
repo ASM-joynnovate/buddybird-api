@@ -16,11 +16,11 @@ from app.schemas.notifications import (
     BackofficeNotificationDispatchListResponse,
     BackofficeNotificationListParams,
     BackofficeNotificationListResponse,
+    BackofficeNotificationResponse,
     BackofficePushDeliveryListParams,
     BackofficePushDeliveryListResponse,
     BroadcastNotificationRequest,
     BroadcastNotificationResponse,
-    NotificationSendResponse,
     SendNotificationRequest,
 )
 from app.services import notifications
@@ -88,14 +88,14 @@ async def get_deliveries(
 
 
 @router.post("", name="알림 발송")
-async def send(body: SendNotificationRequest, db: DBSession, storage: Storage) -> NotificationSendResponse:
+async def send(body: SendNotificationRequest, db: DBSession, storage: Storage) -> BackofficeNotificationResponse:
     user = await get_or_404(db=db, model=User, id=body.user_id)
     dto = await notifications.send(db=db, storage=storage, user=user, data=body)
 
     if dto is None:
-        return NotificationSendResponse(message="알림 설정이 꺼져 있어 발송하지 않음", data=None)
+        return BackofficeNotificationResponse(message="알림 설정이 꺼져 있어 발송하지 않음", data=None)
 
-    return NotificationSendResponse(message="알림 발송 성공", data=dto)
+    return BackofficeNotificationResponse(message="알림 발송 성공", data=dto)
 
 
 @router.post("/broadcast", name="알림 일괄 발송")

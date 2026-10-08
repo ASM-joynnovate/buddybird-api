@@ -40,6 +40,15 @@ class BackofficeDeviceDTO(DeviceDTO):
     is_deleted: bool
 
 
+class BackofficeLastSeenDeviceDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"last_seen_at"}
+
+    platform: str
+    app_version: str
+    is_unsupported: bool
+    last_seen_at: datetime | None
+
+
 class RegisterDeviceRequest(BaseRequest):
     null_fields: ClassVar[set] = {"timezone"}
 

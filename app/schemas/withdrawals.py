@@ -10,6 +10,7 @@ from app.enums import (
     WithdrawalStepStatusEnum,
 )
 from app.schemas.base import BaseResponse, CustomBaseModel, FileDTO, PageParams
+from app.schemas.devices import BackofficeLastSeenDeviceDTO
 
 
 class WithdrawalDTO(CustomBaseModel):
@@ -42,15 +43,6 @@ class BackofficeWithdrawalStepDTO(CustomBaseModel):
     status: WithdrawalStepStatusEnum
 
 
-class BackofficeWithdrawalDeviceDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"last_seen_at"}
-
-    platform: str
-    app_version: str
-    is_unsupported: bool
-    last_seen_at: datetime | None
-
-
 class BackofficeWithdrawalUserDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {
         "nickname",
@@ -68,7 +60,7 @@ class BackofficeWithdrawalUserDTO(CustomBaseModel):
     created_at: datetime
     session_count: int
     last_session_started_at: datetime | None
-    last_seen_device: BackofficeWithdrawalDeviceDTO | None
+    last_seen_device: BackofficeLastSeenDeviceDTO | None
     device_count: int
     feedback_count: int
     last_feedback_message: str | None

@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -413,25 +413,6 @@ async def finish_expired_sessions(*, db: AsyncSession) -> list[UUID]:
     await db.flush()
 
     return [session.id for session in sessions]
-
-
-@transactional(unavailable_error=SessionSaveUnavailableError)
-async def backfill_ended_reasons(*, db: AsyncSession) -> None:
-    await db.execute(
-        update(Session)
-        .where(Session.status == SessionStatusEnum.FINISHED.value, Session.ended_reason.is_(None))
-        .values(
-            ended_reason=case(
-                (Session.ended_by == SessionActorEnum.USER.value, SessionEndReasonEnum.USER.value),
-                (
-                    Session.ended_at == func.coalesce(Session.last_heartbeat_at, Session.started_at),
-                    SessionEndReasonEnum.HEARTBEAT_EXPIRED.value,
-                ),
-                (Session.ended_at == Session.scheduled_end_at, SessionEndReasonEnum.SCHEDULED.value),
-                else_=SessionEndReasonEnum.DEVICE_RELEASED.value,
-            )
-        )
-    )
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)

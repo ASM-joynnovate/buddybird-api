@@ -560,7 +560,9 @@ class PushDelivery(Base):
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
-    notification_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Notification.id), nullable=True)
+    notification_id: Mapped[UUID | None] = mapped_column(
+        SQL_UUID, ForeignKey(Notification.id), index=True, nullable=True
+    )
     announcement_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Announcement.id), nullable=True)
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
