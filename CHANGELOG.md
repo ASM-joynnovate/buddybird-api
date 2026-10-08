@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.2.1...v2.3.0) (2026-10-08)
+
+
+### Features
+
+* **backoffice:** add dashboard APIs [BB-631] ([#99](https://github.com/ASM-joynnovate/buddybird-api/issues/99)) ([a25cb4c](https://github.com/ASM-joynnovate/buddybird-api/commit/a25cb4c7b9b0bc8101b2cf4ca85bfad99d7172d7))
+* **backoffice:** add user tab APIs [BB-632] ([#101](https://github.com/ASM-joynnovate/buddybird-api/issues/101)) ([ad3808c](https://github.com/ASM-joynnovate/buddybird-api/commit/ad3808cec3bd18c7ec57cfb7cdca4c67a12f31b8))
+
 ## [2.2.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.2.0...v2.2.1) (2026-10-07)
 
 
