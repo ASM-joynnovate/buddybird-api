@@ -23,6 +23,7 @@ from app.middlewares import AuthContext
 from app.models import (
     Announcement,
     AnnouncementImage,
+    AppUpdate,
     Consent,
     Device,
     Notification,
@@ -195,6 +196,10 @@ async def require_backoffice_session(db: DBSession, session_id: UUID) -> Session
 
 async def require_consent(db: DBSession, consent_id: UUID) -> Consent:
     return await get_or_404(db=db, model=Consent, id=consent_id)
+
+
+async def require_app_update(db: DBSession, app_update_id: UUID) -> AppUpdate:
+    return await get_or_404(db=db, model=AppUpdate, id=app_update_id)
 
 
 async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:

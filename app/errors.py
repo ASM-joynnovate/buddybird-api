@@ -226,6 +226,12 @@ class AppUpdateSaveUnavailableError(CustomError):
     message = "앱 업데이트 정보를 일시적으로 저장할 수 없습니다."
 
 
+class DuplicateAppUpdateVersionError(CustomError):
+    status_code = 409
+    error_code = "APP_UPDATE__DUPLICATE_VERSION"
+    message = "같은 플랫폼에 같은 버전의 앱 업데이트가 이미 있습니다."
+
+
 class PresetWordSaveUnavailableError(CustomError):
     status_code = 503
     error_code = "PRESET_WORD__SAVE_UNAVAILABLE"

@@ -5,13 +5,22 @@ from uuid import UUID, uuid7
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from firebase_admin import exceptions, messaging
-from sqlalchemy import false, func, or_, select, true, update
+from sqlalchemy import Integer, and_, cast, delete, exists, false, func, not_, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app import sqs
 from app.config import config
 from app.db import get_or_404, session_factory, transactional
-from app.enums import FileStatusEnum, JudgmentStatusEnum, LocaleEnum, NotificationKindEnum, SessionStatusEnum
+from app.enums import (
+    FileStatusEnum,
+    JudgmentStatusEnum,
+    LocaleEnum,
+    NotificationDispatchStatusEnum,
+    NotificationDispatchTargetEnum,
+    NotificationKindEnum,
+    SessionStatusEnum,
+)
 from app.errors import (
     FileSizeExceededError,
     InvalidProfilePhotoError,
@@ -28,6 +37,7 @@ from app.models import (
     File,
     I18n,
     Notification,
+    NotificationDispatch,
     Parrot,
     PushDelivery,
     Session,
@@ -38,8 +48,19 @@ from app.models import (
 from app.s3 import S3StorageClient, s3
 from app.schemas.base import I18nDTO, I18nTitleRequest, PageParams, UploadDTO, UploadRequest
 from app.schemas.notifications import (
+    BackofficeNotificationAudienceDTO,
+    BackofficeNotificationAudienceParams,
+    BackofficeNotificationDispatchCancelDTO,
+    BackofficeNotificationDispatchDetailDTO,
+    BackofficeNotificationDispatchDTO,
+    BackofficeNotificationDispatchHourlyReadDTO,
+    BackofficeNotificationDispatchListParams,
+    BackofficeNotificationDispatchRecipientDTO,
+    BackofficeNotificationDispatchSendTimeDTO,
     BackofficeNotificationDTO,
+    BackofficeNotificationListItemDTO,
     BackofficeNotificationListParams,
+    BackofficeNotificationUserDTO,
     BackofficePushDeliveryDTO,
     BackofficePushDeliveryListParams,
     BroadcastNotificationDTO,
@@ -50,7 +71,7 @@ from app.schemas.notifications import (
     SendNotificationRequest,
 )
 from app.services.sessions import get_judgment_statuses
-from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
+from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, PUSHABLE, SEOUL
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +83,30 @@ KIND_ENABLED = {
     NotificationKindEnum.MARKETING: func.coalesce(UserSetting.marketing_notification_enabled, false()),
     NotificationKindEnum.REPORT: func.coalesce(UserSetting.report_notification_enabled, true()),
 }
+NOTIFICATION_PUSH = (
+    select(
+        PushDelivery.notification_id,
+        func.min(PushDelivery.sent_at).label("sent_at"),
+        func.bool_or(PushDelivery.processed_at.is_(None)).label("is_waiting"),
+    )
+    .group_by(PushDelivery.notification_id)
+    .subquery()
+)
+DISPATCH_COUNTS = (
+    select(
+        Notification.dispatch_id,
+        func.count().label("recipient_count"),
+        func.count().filter(Notification.sent_at <= func.now()).label("sent_count"),
+        func.count(Notification.read_at).label("read_count"),
+        func.count(NOTIFICATION_PUSH.c.sent_at).label("push_sent_count"),
+        func.count().filter(NOTIFICATION_PUSH.c.is_waiting).label("push_waiting_count"),
+        func.min(Notification.sent_at).label("first_sent_at"),
+    )
+    .outerjoin(NOTIFICATION_PUSH, NOTIFICATION_PUSH.c.notification_id == Notification.id)
+    .where(Notification.dispatch_id.is_not(None), Notification.is_deleted.is_(False))
+    .group_by(Notification.dispatch_id)
+    .subquery()
+)
 
 
 def build_notification_dto(notification: Notification, locale: LocaleEnum, storage: S3StorageClient) -> NotificationDTO:
@@ -172,6 +217,7 @@ async def create_notifications(
     user_ids: list[UUID] | None,
     local_datetime: datetime | None,
     session_id: UUID | None,
+    target: NotificationDispatchTargetEnum | None,
 ) -> tuple[list[Notification], list[UUID]]:
     image_file = None
 
@@ -194,6 +240,7 @@ async def create_notifications(
 
     rows = (await db.execute(stmt)).all()
     now = datetime.now(UTC)
+    dispatch_id = uuid7() if target is not None else None
     notifications = []
     deliveries = []
 
@@ -206,6 +253,7 @@ async def create_notifications(
         night_blocked = kind == NotificationKindEnum.MARKETING and not night_enabled
         notification = Notification(
             id=uuid7(),
+            dispatch_id=dispatch_id,
             user_id=user_id,
             kind=kind.value,
             title_i18n=title_i18n,
@@ -238,6 +286,20 @@ async def create_notifications(
                     )
                 )
 
+    if target is not None and notifications:
+        db.add(
+            NotificationDispatch(
+                id=dispatch_id,
+                kind=kind.value,
+                title_i18n=title_i18n,
+                body_i18n=body_i18n,
+                image_file=image_file,
+                target=target.value,
+                recipient_local_datetime=local_datetime,
+            )
+        )
+        await db.flush()
+
     db.add_all(notifications)
     await db.flush()
 
@@ -260,6 +322,7 @@ async def create(
         user_ids=[user.id],
         local_datetime=None,
         session_id=None,
+        target=NotificationDispatchTargetEnum.SELECTED,
     )
 
     if not notifications:
@@ -290,6 +353,7 @@ async def create_broadcast(*, db: AsyncSession, data: BroadcastNotificationReque
         user_ids=data.user_ids,
         local_datetime=data.recipient_local_datetime,
         session_id=None,
+        target=NotificationDispatchTargetEnum.ALL if data.all_users else NotificationDispatchTargetEnum.SELECTED,
     )
 
     return len(notifications), delivery_ids
@@ -349,6 +413,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
         user_ids=[session.user_id],
         local_datetime=None,
         session_id=session_id,
+        target=None,
     )
 
     return delivery_ids
@@ -414,25 +479,297 @@ async def get_list(
 
 async def get_backoffice_list(
     *, db: AsyncSession, storage: S3StorageClient, query: BackofficeNotificationListParams
-) -> tuple[list[BackofficeNotificationDTO], int]:
-    stmt = select(Notification)
+) -> tuple[list[BackofficeNotificationListItemDTO], int]:
+    now = datetime.now(UTC)
+    conditions = [Notification.is_deleted.is_(False)]
 
     if query.user_id is not None:
-        stmt = stmt.where(Notification.user_id == query.user_id)
+        conditions.append(Notification.user_id == query.user_id)
 
     if query.kind is not None:
-        stmt = stmt.where(Notification.kind == query.kind.value)
+        conditions.append(Notification.kind == query.kind.value)
 
-    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
-    notifications = (
-        await db.scalars(
-            stmt.order_by(Notification.sent_at.desc(), Notification.id.desc())
-            .offset((query.page - 1) * query.count_by_page)
-            .limit(query.count_by_page)
+    if query.is_sent is not None:
+        conditions.append(Notification.sent_at <= now if query.is_sent else Notification.sent_at > now)
+
+    if query.keyword is not None:
+        matched = select(I18n.id).where(
+            or_(
+                I18n.ko_kr.icontains(query.keyword, autoescape=True),
+                I18n.en_us.icontains(query.keyword, autoescape=True),
+            )
         )
-    ).all()
 
-    return [build_backoffice_notification_dto(notification, storage) for notification in notifications], total
+        conditions.append(or_(Notification.title_i18n_id.in_(matched), Notification.body_i18n_id.in_(matched)))
+
+    if query.sent_from is not None:
+        conditions.append(Notification.sent_at >= datetime.combine(query.sent_from, time(0), tzinfo=SEOUL))
+
+    if query.sent_to is not None:
+        conditions.append(
+            Notification.sent_at < datetime.combine(query.sent_to + timedelta(days=1), time(0), tzinfo=SEOUL)
+        )
+
+    stmt = select(func.count()).select_from(Notification).where(*conditions)
+    total = await db.scalar(stmt)
+
+    push_sent_at = (
+        select(func.min(PushDelivery.sent_at)).where(PushDelivery.notification_id == Notification.id).scalar_subquery()
+    )
+    stmt = (
+        select(Notification, User, push_sent_at.label("push_sent_at"))
+        .join(User, User.id == Notification.user_id)
+        .where(*conditions)
+        .order_by(Notification.sent_at.desc(), Notification.id.desc())
+        .offset((query.page - 1) * query.count_by_page)
+        .limit(query.count_by_page)
+        .execution_options(include_deleted=True)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    items = [
+        BackofficeNotificationListItemDTO(
+            **build_backoffice_notification_dto(row.Notification, storage).model_dump(),
+            user=BackofficeNotificationUserDTO(
+                nickname=row.User.nickname,
+                email=row.User.email,
+                is_anonymous=row.User.is_anonymous,
+                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+            ),
+            push_sent_at=row.push_sent_at,
+            image_file_id=row.Notification.image_file_id,
+        )
+        for row in rows
+    ]
+
+    return items, total
+
+
+async def get_dispatches(
+    *, db: AsyncSession, storage: S3StorageClient, conditions: list, offset: int, limit: int
+) -> list[BackofficeNotificationDispatchDTO]:
+    notification = aliased(Notification)
+    stmt = (
+        select(
+            NotificationDispatch,
+            DISPATCH_COUNTS,
+            User,
+            notification.read_at,
+            NOTIFICATION_PUSH.c.sent_at.label("push_sent_at"),
+        )
+        .join(DISPATCH_COUNTS, DISPATCH_COUNTS.c.dispatch_id == NotificationDispatch.id)
+        .outerjoin(
+            notification,
+            and_(
+                DISPATCH_COUNTS.c.recipient_count == 1,
+                notification.dispatch_id == NotificationDispatch.id,
+                notification.is_deleted.is_(False),
+            ),
+        )
+        .outerjoin(User, User.id == notification.user_id)
+        .outerjoin(NOTIFICATION_PUSH, NOTIFICATION_PUSH.c.notification_id == notification.id)
+        .where(*conditions)
+        .order_by(DISPATCH_COUNTS.c.first_sent_at.desc(), NotificationDispatch.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .execution_options(include_deleted=True)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    stmt = (
+        select(Notification.dispatch_id, Notification.sent_at, func.count())
+        .where(Notification.dispatch_id.in_([row.NotificationDispatch.id for row in rows]))
+        .group_by(Notification.dispatch_id, Notification.sent_at)
+        .order_by(Notification.sent_at)
+    )
+    send_times = {}
+
+    for dispatch_id, sent_at, count in (await db.execute(stmt)).all():
+        send_times.setdefault(dispatch_id, []).append(
+            BackofficeNotificationDispatchSendTimeDTO(sent_at=sent_at, count=count)
+        )
+
+    items = []
+
+    for row in rows:
+        dispatch = row.NotificationDispatch
+        image = None
+        recipient = None
+        status = NotificationDispatchStatusEnum.SENDING
+
+        if dispatch.image_file is not None:
+            image = NotificationImageDTO(url=storage.generate_presigned_url(path=dispatch.image_file.object_key))
+
+        if row.User is not None:
+            recipient = BackofficeNotificationDispatchRecipientDTO(
+                user_id=row.User.id,
+                nickname=row.User.nickname,
+                email=row.User.email,
+                is_anonymous=row.User.is_anonymous,
+                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                read_at=row.read_at,
+                push_sent_at=row.push_sent_at,
+            )
+
+        if row.sent_count == 0:
+            status = NotificationDispatchStatusEnum.SCHEDULED
+        elif row.sent_count == row.recipient_count:
+            status = NotificationDispatchStatusEnum.SENT
+
+        items.append(
+            BackofficeNotificationDispatchDTO(
+                id=dispatch.id,
+                kind=dispatch.kind,
+                title=I18nDTO(ko_kr=dispatch.title_i18n.ko_kr, en_us=dispatch.title_i18n.en_us),
+                body=I18nDTO(ko_kr=dispatch.body_i18n.ko_kr, en_us=dispatch.body_i18n.en_us),
+                image=image,
+                image_file_id=dispatch.image_file_id,
+                target=dispatch.target,
+                recipient_local_datetime=dispatch.recipient_local_datetime,
+                created_at=dispatch.created_at,
+                status=status,
+                recipient_count=row.recipient_count,
+                sent_count=row.sent_count,
+                read_count=row.read_count,
+                push_sent_count=row.push_sent_count,
+                push_waiting_count=row.push_waiting_count,
+                send_times=send_times.get(dispatch.id, []),
+                recipient=recipient,
+            )
+        )
+
+    return items
+
+
+async def get_backoffice_dispatches(
+    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeNotificationDispatchListParams
+) -> tuple[list[BackofficeNotificationDispatchDTO], int]:
+    conditions = []
+    period = []
+
+    if query.is_sent is not None:
+        is_sent = DISPATCH_COUNTS.c.sent_count == DISPATCH_COUNTS.c.recipient_count
+
+        conditions.append(is_sent if query.is_sent else not_(is_sent))
+
+    if query.kind is not None:
+        conditions.append(NotificationDispatch.kind == query.kind.value)
+
+    if query.keyword is not None:
+        matched = select(I18n.id).where(
+            or_(
+                I18n.ko_kr.icontains(query.keyword, autoescape=True),
+                I18n.en_us.icontains(query.keyword, autoescape=True),
+            )
+        )
+
+        conditions.append(
+            or_(NotificationDispatch.title_i18n_id.in_(matched), NotificationDispatch.body_i18n_id.in_(matched))
+        )
+
+    if query.sent_from is not None:
+        period.append(Notification.sent_at >= datetime.combine(query.sent_from, time(0), tzinfo=SEOUL))
+
+    if query.sent_to is not None:
+        period.append(Notification.sent_at < datetime.combine(query.sent_to + timedelta(days=1), time(0), tzinfo=SEOUL))
+
+    if period:
+        conditions.append(
+            exists().where(
+                Notification.dispatch_id == NotificationDispatch.id,
+                Notification.is_deleted.is_(False),
+                *period,
+            )
+        )
+
+    stmt = (
+        select(func.count())
+        .select_from(NotificationDispatch)
+        .join(DISPATCH_COUNTS, DISPATCH_COUNTS.c.dispatch_id == NotificationDispatch.id)
+        .where(*conditions)
+    )
+    total = await db.scalar(stmt)
+
+    items = await get_dispatches(
+        db=db,
+        storage=storage,
+        conditions=conditions,
+        offset=(query.page - 1) * query.count_by_page,
+        limit=query.count_by_page,
+    )
+
+    return items, total
+
+
+async def get_backoffice_dispatch(
+    *, db: AsyncSession, storage: S3StorageClient, dispatch_id: UUID
+) -> BackofficeNotificationDispatchDetailDTO:
+    items = await get_dispatches(
+        db=db,
+        storage=storage,
+        conditions=[NotificationDispatch.id == dispatch_id],
+        offset=0,
+        limit=1,
+    )
+
+    if not items:
+        raise ResourceNotFoundError
+
+    read_hour = cast(func.floor(func.extract("epoch", Notification.read_at - Notification.sent_at) / 3600), Integer)
+    stmt = (
+        select(read_hour.label("read_hour"), func.count())
+        .where(
+            Notification.dispatch_id == dispatch_id,
+            Notification.read_at < Notification.sent_at + timedelta(hours=48),
+        )
+        .group_by("read_hour")
+    )
+    read_counts = dict((await db.execute(stmt)).all())
+
+    return BackofficeNotificationDispatchDetailDTO(
+        **items[0].model_dump(),
+        hourly_reads=[
+            BackofficeNotificationDispatchHourlyReadDTO(hour=hour, count=read_counts.get(hour, 0)) for hour in range(48)
+        ],
+    )
+
+
+@transactional(unavailable_error=NotificationSaveUnavailableError)
+async def cancel_dispatch(*, db: AsyncSession, dispatch_id: UUID) -> BackofficeNotificationDispatchCancelDTO:
+    unsent = [
+        Notification.dispatch_id == dispatch_id,
+        Notification.sent_at > datetime.now(UTC),
+        Notification.is_deleted.is_(False),
+    ]
+
+    await db.execute(
+        delete(PushDelivery).where(PushDelivery.notification_id.in_(select(Notification.id).where(*unsent)))
+    )
+
+    result = await db.execute(update(Notification).where(*unsent).values(is_deleted=True))
+
+    return BackofficeNotificationDispatchCancelDTO(canceled_count=result.rowcount)
+
+
+async def get_backoffice_audience(
+    *, db: AsyncSession, query: BackofficeNotificationAudienceParams
+) -> BackofficeNotificationAudienceDTO:
+    stmt = (
+        select(
+            func.count(),
+            func.count().filter(KIND_ENABLED[query.kind]),
+            func.count().filter(KIND_ENABLED[query.kind], PUSHABLE),
+        )
+        .select_from(User)
+        .outerjoin(UserSetting, UserSetting.user_id == User.id)
+    )
+    user_count, recipient_count, pushable_count = (await db.execute(stmt)).one()
+
+    return BackofficeNotificationAudienceDTO(
+        user_count=user_count,
+        recipient_count=recipient_count,
+        pushable_count=pushable_count,
+    )
 
 
 async def get_backoffice_deliveries(
@@ -567,6 +904,10 @@ async def deliver(delivery_id: UUID) -> None:
 
         if delivery.notification_id is not None:
             notification = await db.get(Notification, delivery.notification_id)
+
+            if notification is None:
+                return
+
             kind = notification.kind
             title_i18n = notification.title_i18n
             body_i18n = notification.body_i18n

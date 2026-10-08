@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import ARRAY, BigInteger, and_, case, cast, false, func, select
+from sqlalchemy import ARRAY, BigInteger, Case, and_, case, cast, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app.db import transactional
 from app.enums import SessionActorEnum, SessionEndReasonEnum, SessionEventKindEnum, SessionStatusEnum
@@ -18,22 +19,30 @@ from app.schemas.devices import (
 )
 
 VERSION_PATTERN = r"^[0-9]+(\.[0-9]+)*$"
-LATEST_APP_UPDATE = (
-    select(AppUpdate.platform, AppUpdate.min_supported_version)
+APP_UPDATE_VERSION_NUMBERS = cast(func.string_to_array(AppUpdate.version, "."), ARRAY(BigInteger))
+MIN_SUPPORTED_APP_UPDATE = (
+    select(AppUpdate.platform, AppUpdate.version)
+    .where(AppUpdate.is_forced.is_(True))
     .distinct(AppUpdate.platform)
-    .order_by(AppUpdate.platform, AppUpdate.created_at.desc())
+    .order_by(AppUpdate.platform, APP_UPDATE_VERSION_NUMBERS.desc())
     .subquery()
 )
-VERSION_UNSUPPORTED = case(
-    (
-        and_(
-            Device.app_version.regexp_match(VERSION_PATTERN),
-            LATEST_APP_UPDATE.c.min_supported_version.regexp_match(VERSION_PATTERN),
-        ),
-        cast(func.string_to_array(Device.app_version, "."), ARRAY(BigInteger))
-        < cast(func.string_to_array(LATEST_APP_UPDATE.c.min_supported_version, "."), ARRAY(BigInteger)),
+
+
+def is_version_unsupported(version: InstrumentedAttribute) -> Case:
+    return case(
+        (
+            and_(
+                version.regexp_match(VERSION_PATTERN),
+                MIN_SUPPORTED_APP_UPDATE.c.version.regexp_match(VERSION_PATTERN),
+            ),
+            cast(func.string_to_array(version, "."), ARRAY(BigInteger))
+            < cast(func.string_to_array(MIN_SUPPORTED_APP_UPDATE.c.version, "."), ARRAY(BigInteger)),
+        )
     )
-)
+
+
+VERSION_UNSUPPORTED = is_version_unsupported(Device.app_version)
 DEVICE_COUNT = (
     select(func.count())
     .select_from(Device)
@@ -47,7 +56,7 @@ LAST_SEEN_DEVICE = (
         Device.last_seen_at,
         func.coalesce(VERSION_UNSUPPORTED, false()).label("is_unsupported"),
     )
-    .outerjoin(LATEST_APP_UPDATE, LATEST_APP_UPDATE.c.platform == Device.platform)
+    .outerjoin(MIN_SUPPORTED_APP_UPDATE, MIN_SUPPORTED_APP_UPDATE.c.platform == Device.platform)
     .where(Device.user_id == User.id, Device.is_deleted.is_(False))
     .order_by(Device.last_seen_at.desc().nulls_last())
     .limit(1)

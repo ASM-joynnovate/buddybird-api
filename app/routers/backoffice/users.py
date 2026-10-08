@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.dependencies import DBSession, Storage, require_backoffice_user
 from app.models import User
-from app.schemas.base import BaseResponse, PageParams
+from app.schemas.base import PageParams
 from app.schemas.consents import BackofficeUserConsentListResponse
 from app.schemas.sessions import BackofficeSessionListResponse
 from app.schemas.users import BackofficeUserDetailResponse, BackofficeUserListParams, BackofficeUserListResponse
@@ -79,10 +79,3 @@ async def get_consents(
         message="사용자 동의 내역 조회 성공",
         data=await user_consents.get_backoffice_list(db=db, user=user),
     )
-
-
-@router.post("/identities/sync", name="사용자 연결 계정 동기화", status_code=202)
-async def sync_identities(background_tasks: BackgroundTasks) -> BaseResponse:
-    background_tasks.add_task(users.sync_identities)
-
-    return BaseResponse(message="사용자 연결 계정 동기화 요청이 접수되었습니다.")

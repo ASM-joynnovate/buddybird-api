@@ -1,11 +1,20 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import ClassVar, Literal
 from uuid import UUID
 
 from pydantic import Field, NaiveDatetime, model_validator
 
-from app.enums import NotificationKindEnum
-from app.schemas.base import BaseRequest, BaseResponse, Body, CustomBaseModel, I18nDTO, I18nTitleRequest, PageParams
+from app.enums import NotificationDispatchStatusEnum, NotificationDispatchTargetEnum, NotificationKindEnum
+from app.schemas.base import (
+    BaseRequest,
+    BaseResponse,
+    Body,
+    CustomBaseModel,
+    FileDTO,
+    I18nDTO,
+    I18nTitleRequest,
+    PageParams,
+)
 
 
 class NotificationImageDTO(CustomBaseModel):
@@ -47,12 +56,103 @@ class BackofficeNotificationDTO(CustomBaseModel):
     read_at: datetime | None
 
 
-class NotificationSendResponse(BaseResponse):
+class BackofficeNotificationResponse(BaseResponse):
     data: BackofficeNotificationDTO | None
 
 
+class BackofficeNotificationUserDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"nickname", "email", "photo_file"}
+
+    nickname: str | None
+    email: str | None
+    is_anonymous: bool
+    photo_file: FileDTO | None
+
+
+class BackofficeNotificationListItemDTO(BackofficeNotificationDTO):
+    allow_null_fields: ClassVar[set] = {"image", "data_id", "read_at", "push_sent_at", "image_file_id"}
+
+    user: BackofficeNotificationUserDTO
+    push_sent_at: datetime | None
+    image_file_id: UUID | None
+
+
 class BackofficeNotificationListResponse(BaseResponse):
-    data: list[BackofficeNotificationDTO]
+    data: list[BackofficeNotificationListItemDTO]
+
+
+class BackofficeNotificationDispatchSendTimeDTO(CustomBaseModel):
+    sent_at: datetime
+    count: int
+
+
+class BackofficeNotificationDispatchRecipientDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"nickname", "email", "photo_file", "read_at", "push_sent_at"}
+
+    user_id: UUID
+    nickname: str | None
+    email: str | None
+    is_anonymous: bool
+    photo_file: FileDTO | None
+    read_at: datetime | None
+    push_sent_at: datetime | None
+
+
+class BackofficeNotificationDispatchDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"image", "image_file_id", "recipient_local_datetime", "recipient"}
+
+    id: UUID
+    kind: NotificationKindEnum
+    title: I18nDTO
+    body: I18nDTO
+    image: NotificationImageDTO | None
+    image_file_id: UUID | None
+    target: NotificationDispatchTargetEnum
+    recipient_local_datetime: NaiveDatetime | None
+    created_at: datetime
+    status: NotificationDispatchStatusEnum
+    recipient_count: int
+    sent_count: int
+    read_count: int
+    push_sent_count: int
+    push_waiting_count: int
+    send_times: list[BackofficeNotificationDispatchSendTimeDTO]
+    recipient: BackofficeNotificationDispatchRecipientDTO | None
+
+
+class BackofficeNotificationDispatchListResponse(BaseResponse):
+    data: list[BackofficeNotificationDispatchDTO]
+
+
+class BackofficeNotificationDispatchHourlyReadDTO(CustomBaseModel):
+    hour: int
+    count: int
+
+
+class BackofficeNotificationDispatchDetailDTO(BackofficeNotificationDispatchDTO):
+    hourly_reads: list[BackofficeNotificationDispatchHourlyReadDTO]
+
+
+class BackofficeNotificationDispatchDetailResponse(BaseResponse):
+    data: BackofficeNotificationDispatchDetailDTO
+
+
+class BackofficeNotificationDispatchCancelDTO(CustomBaseModel):
+    canceled_count: int
+
+
+class BackofficeNotificationDispatchCancelResponse(BaseResponse):
+    data: BackofficeNotificationDispatchCancelDTO
+
+
+class BackofficeNotificationAudienceDTO(CustomBaseModel):
+    user_count: int
+    recipient_count: int
+    pushable_count: int
+
+
+class BackofficeNotificationAudienceResponse(BaseResponse):
+    data: BackofficeNotificationAudienceDTO
 
 
 class BackofficePushDeliveryDTO(CustomBaseModel):
@@ -121,6 +221,24 @@ class BroadcastNotificationRequest(NotificationContentRequest):
 class BackofficeNotificationListParams(PageParams):
     user_id: UUID | None = None
     kind: NotificationKindEnum | None = None
+    is_sent: bool | None = None
+    keyword: str | None = Field(None, min_length=1, max_length=100)
+    sent_from: date | None = None
+    sent_to: date | None = None
+
+
+class BackofficeNotificationDispatchListParams(PageParams):
+    is_sent: bool | None = None
+    kind: (
+        Literal[NotificationKindEnum.ANNOUNCEMENT, NotificationKindEnum.URGENT, NotificationKindEnum.MARKETING] | None
+    ) = None
+    keyword: str | None = Field(None, min_length=1, max_length=100)
+    sent_from: date | None = None
+    sent_to: date | None = None
+
+
+class BackofficeNotificationAudienceParams(BaseRequest):
+    kind: Literal[NotificationKindEnum.ANNOUNCEMENT, NotificationKindEnum.URGENT, NotificationKindEnum.MARKETING]
 
 
 class BackofficePushDeliveryListParams(PageParams):

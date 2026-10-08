@@ -1,13 +1,18 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import DBSession
+from app.dependencies import DBSession, require_consent
+from app.models import Consent
 from app.schemas.dashboard import (
+    AppUpdateDashboardParams,
+    AppUpdateDashboardResponse,
+    ConsentDashboardResponse,
     DashboardLiveResponse,
     DashboardParams,
     DashboardResponse,
     FeedbackDashboardResponse,
+    NotificationDashboardResponse,
     UserDashboardResponse,
     WithdrawalDashboardResponse,
 )
@@ -57,4 +62,34 @@ async def get_withdrawal_dashboard(
     return WithdrawalDashboardResponse(
         message="탈퇴 대시보드 조회 성공",
         data=await dashboard.get_withdrawal_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/notifications", name="알림 대시보드 조회")
+async def get_notification_dashboard(
+    query: Annotated[DashboardParams, Query()], db: DBSession
+) -> NotificationDashboardResponse:
+    return NotificationDashboardResponse(
+        message="알림 대시보드 조회 성공",
+        data=await dashboard.get_notification_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/app-updates", name="앱 업데이트 대시보드 조회")
+async def get_app_update_dashboard(
+    query: Annotated[AppUpdateDashboardParams, Query()], db: DBSession
+) -> AppUpdateDashboardResponse:
+    return AppUpdateDashboardResponse(
+        message="앱 업데이트 대시보드 조회 성공",
+        data=await dashboard.get_app_update_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/consents/{consent_id}", name="고지문 대시보드 조회")
+async def get_consent_dashboard(
+    consent: Annotated[Consent, Depends(require_consent)], query: Annotated[DashboardParams, Query()], db: DBSession
+) -> ConsentDashboardResponse:
+    return ConsentDashboardResponse(
+        message="고지문 대시보드 조회 성공",
+        data=await dashboard.get_consent_dashboard(db=db, consent=consent, query=query),
     )
