@@ -1,16 +1,19 @@
 from datetime import UTC, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
-from sqlalchemy import ARRAY, BigInteger, Date, and_, case, cast, func, or_, select
+from sqlalchemy import Date, Row, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app.enums import (
     NotificationKindEnum,
-    SessionActorEnum,
+    OAuthProviderEnum,
+    SessionEndReasonEnum,
     SessionEventKindEnum,
     SessionPhaseEnum,
     SessionStatusEnum,
     SoundJudgmentStatusEnum,
+    UserIssueEnum,
+    UserLastSessionEnum,
 )
 from app.models import (
     Announcement,
@@ -20,10 +23,12 @@ from app.models import (
     Feedback,
     I18n,
     Notification,
+    Parrot,
     Session,
     SessionEvent,
     SessionSound,
     User,
+    UserIdentity,
     UserWithdrawal,
 )
 from app.schemas.base import I18nDTO
@@ -49,9 +54,53 @@ from app.schemas.dashboard import (
     DashboardSessionsDTO,
     DashboardUsersDTO,
     DashboardWithdrawalsDTO,
+    UserDashboardAccountsDTO,
+    UserDashboardDailyDTO,
+    UserDashboardDTO,
+    UserDashboardIssueDTO,
+    UserDashboardLastSessionDTO,
+    UserDashboardParrotsDTO,
+    UserDashboardPlatformDTO,
+    UserDashboardProviderDTO,
+    UserDashboardPushDTO,
+    UserDashboardSpeciesDTO,
+    UserDashboardUsersDTO,
+    UserDashboardWithdrawalsDTO,
 )
+from app.services.devices import VERSION_UNSUPPORTED
+from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
 
-SEOUL = ZoneInfo("Asia/Seoul")
+
+async def get_user_counts(
+    *, db: AsyncSession, period_start: datetime, period_end: datetime, previous_start: datetime
+) -> Row:
+    stmt = (
+        select(
+            func.count().filter(User.is_deleted.is_(False)).label("total_count"),
+            func.count().filter(User.created_at >= period_start, User.created_at < period_end).label("signup_count"),
+            func.count()
+            .filter(User.created_at >= previous_start, User.created_at < period_start)
+            .label("previous_signup_count"),
+        )
+        .select_from(User)
+        .execution_options(include_deleted=True)
+    )
+
+    return (await db.execute(stmt)).one()
+
+
+async def get_daily_counts(
+    *, db: AsyncSession, column: InstrumentedAttribute, period_start: datetime, period_end: datetime
+) -> dict:
+    local_date = cast(func.timezone(SEOUL.key, column), Date)
+    stmt = (
+        select(local_date, func.count())
+        .where(column >= period_start, column < period_end)
+        .group_by(local_date)
+        .execution_options(include_deleted=True)
+    )
+
+    return dict((await db.execute(stmt)).all())
 
 
 async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> DashboardDTO:
@@ -77,18 +126,9 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
     )
     session_totals = (await db.execute(stmt)).one()
 
-    stmt = (
-        select(
-            func.count().filter(User.is_deleted.is_(False)).label("total_count"),
-            func.count().filter(User.created_at >= period_start, User.created_at < period_end).label("signup_count"),
-            func.count()
-            .filter(User.created_at >= previous_start, User.created_at < period_start)
-            .label("previous_signup_count"),
-        )
-        .select_from(User)
-        .execution_options(include_deleted=True)
+    user_counts = await get_user_counts(
+        db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
-    user_counts = (await db.execute(stmt)).one()
 
     stmt = (
         select(func.count())
@@ -110,14 +150,9 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
     daily_counts = {}
 
     for column in (Session.started_at, User.created_at, UserWithdrawal.created_at):
-        local_date = cast(func.timezone(SEOUL.key, column), Date)
-        stmt = (
-            select(local_date, func.count())
-            .where(column >= period_start, column < period_end)
-            .group_by(local_date)
-            .execution_options(include_deleted=True)
+        daily_counts[column.class_] = await get_daily_counts(
+            db=db, column=column, period_start=period_start, period_end=period_end
         )
-        daily_counts[column.class_] = dict((await db.execute(stmt)).all())
 
     stmt = (
         select(Notification.kind, func.count(), func.count(Notification.read_at))
@@ -185,24 +220,12 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
     stmt = select(Device.app_version, func.count()).join(User, User.id == Device.user_id).group_by(Device.app_version)
     device_versions = (await db.execute(stmt)).all()
 
-    version_pattern = r"^[0-9]+(\.[0-9]+)*$"
     stmt = (
         select(func.count())
         .select_from(Device)
         .join(User, User.id == Device.user_id)
         .join(AppUpdate, AppUpdate.platform == Device.platform)
-        .where(
-            case(
-                (
-                    and_(
-                        Device.app_version.regexp_match(version_pattern),
-                        AppUpdate.min_supported_version.regexp_match(version_pattern),
-                    ),
-                    cast(func.string_to_array(Device.app_version, "."), ARRAY(BigInteger))
-                    < cast(func.string_to_array(AppUpdate.min_supported_version, "."), ARRAY(BigInteger)),
-                )
-            )
-        )
+        .where(VERSION_UNSUPPORTED)
     )
     unsupported_device_count = await db.scalar(stmt)
 
@@ -276,12 +299,11 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         func.count().filter(Session.ended_at >= today_start).label("ended_count"),
         func.count()
         .filter(
-            Session.ended_by == SessionActorEnum.SERVER.value,
-            Session.ended_at == func.coalesce(Session.last_heartbeat_at, Session.started_at),
+            Session.ended_reason == SessionEndReasonEnum.HEARTBEAT_EXPIRED.value,
             Session.ended_at >= since,
         )
         .label("heartbeat_expired_count"),
-    ).select_from(Session)
+    ).where(or_(is_running, Session.ended_at >= since))
     session_counts = (await db.execute(stmt)).one()
 
     hours = func.generate_series(today_start, now, timedelta(hours=1)).table_valued("hour_start").render_derived()
@@ -293,6 +315,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             and_(
                 Session.started_at < hours.c.hour_start + timedelta(hours=1),
                 func.coalesce(Session.ended_at, now) > hours.c.hour_start,
+                or_(is_running, Session.ended_at >= since),
             ),
         )
         .group_by(hours.c.hour_start)
@@ -352,4 +375,142 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             ),
         ),
         withdrawals=DashboardLiveWithdrawalsDTO(failed_count=failed_withdrawal_count),
+    )
+
+
+async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> UserDashboardDTO:
+    now = datetime.now(UTC)
+    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
+    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
+    period_end = period_start + timedelta(days=len(dates))
+    previous_start = period_start - timedelta(days=len(dates))
+
+    user_counts = await get_user_counts(
+        db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
+    )
+
+    stmt = (
+        select(
+            func.count().filter(UserWithdrawal.created_at >= period_start).label("withdrawal_count"),
+            func.count().filter(UserWithdrawal.created_at < period_start).label("previous_withdrawal_count"),
+        )
+        .select_from(UserWithdrawal)
+        .where(UserWithdrawal.created_at >= previous_start, UserWithdrawal.created_at < period_end)
+    )
+    withdrawal_counts = (await db.execute(stmt)).one()
+
+    daily_signup_counts = await get_daily_counts(
+        db=db, column=User.created_at, period_start=period_start, period_end=period_end
+    )
+    daily_withdrawal_counts = await get_daily_counts(
+        db=db, column=UserWithdrawal.created_at, period_start=period_start, period_end=period_end
+    )
+
+    days = (
+        func.generate_series(period_start, period_end - timedelta(days=1), timedelta(days=1))
+        .table_valued("day_start")
+        .render_derived()
+    )
+    day_end = days.c.day_start + timedelta(days=1)
+    running_user_count = (
+        select(func.count(Session.user_id.distinct()))
+        .where(Session.started_at < day_end, func.coalesce(Session.ended_at, now) > days.c.day_start)
+        .scalar_subquery()
+    )
+    stmt = select(running_user_count).select_from(days).order_by(days.c.day_start)
+    running_user_counts = (await db.scalars(stmt)).all()
+
+    stmt = select(
+        select(func.count()).select_from(User).where(User.created_at < period_start).scalar_subquery()
+        - select(func.count())
+        .select_from(UserWithdrawal)
+        .where(UserWithdrawal.created_at < period_start)
+        .scalar_subquery()
+    ).execution_options(include_deleted=True)
+    total_count = await db.scalar(stmt)
+    daily = []
+
+    for day, count in zip(dates, running_user_counts, strict=True):
+        total_count += daily_signup_counts.get(day, 0) - daily_withdrawal_counts.get(day, 0)
+
+        daily.append(
+            UserDashboardDailyDTO(
+                date=day,
+                total_count=total_count,
+                signup_count=daily_signup_counts.get(day, 0),
+                withdrawal_count=daily_withdrawal_counts.get(day, 0),
+                running_user_count=count,
+            )
+        )
+
+    stmt = select(LAST_SESSION.label("last_session"), func.count()).select_from(User).group_by("last_session")
+    last_session_counts = dict((await db.execute(stmt)).all())
+
+    stmt = (
+        select(UserIdentity.provider, func.count())
+        .join(User, User.id == UserIdentity.user_id)
+        .group_by(UserIdentity.provider)
+    )
+    provider_counts = dict((await db.execute(stmt)).all())
+
+    stmt = select(func.count().filter(User.is_anonymous), func.count().filter(PUSHABLE)).select_from(User)
+    anonymous_count, pushable_count = (await db.execute(stmt)).one()
+
+    stmt = (
+        select(func.count().filter(User.is_deleted), *(func.count().filter(ISSUES[issue]) for issue in UserIssueEnum))
+        .select_from(User)
+        .execution_options(include_deleted=True)
+    )
+    deleted_count, *issue_counts = (await db.execute(stmt)).one()
+
+    stmt = select(Device.platform, func.count()).join(User, User.id == Device.user_id).group_by(Device.platform)
+    platform_counts = (await db.execute(stmt)).all()
+
+    stmt = (
+        select(Parrot.species, func.count())
+        .join(User, User.id == Parrot.user_id)
+        .group_by(Parrot.species)
+        .order_by(func.count().desc())
+    )
+    species_counts = (await db.execute(stmt)).all()
+
+    stmt = select(func.count()).select_from(Parrot).join(User, User.id == Parrot.user_id)
+    parrot_count = await db.scalar(stmt)
+
+    return UserDashboardDTO(
+        users=UserDashboardUsersDTO(
+            total_count=user_counts.total_count,
+            signup_count=user_counts.signup_count,
+            previous_signup_count=user_counts.previous_signup_count,
+            deleted_count=deleted_count,
+        ),
+        withdrawals=UserDashboardWithdrawalsDTO(
+            count=withdrawal_counts.withdrawal_count,
+            previous_count=withdrawal_counts.previous_withdrawal_count,
+        ),
+        daily=daily,
+        issues=[
+            UserDashboardIssueDTO(issue=issue, count=count)
+            for issue, count in zip(UserIssueEnum, issue_counts, strict=True)
+        ],
+        last_sessions=[
+            UserDashboardLastSessionDTO(last_session=last_session, count=last_session_counts.get(last_session.value, 0))
+            for last_session in UserLastSessionEnum
+        ],
+        accounts=UserDashboardAccountsDTO(
+            providers=[
+                UserDashboardProviderDTO(provider=provider, count=provider_counts.get(provider.value, 0))
+                for provider in OAuthProviderEnum
+            ],
+            anonymous_count=anonymous_count,
+        ),
+        platforms=[UserDashboardPlatformDTO(platform=platform, count=count) for platform, count in platform_counts],
+        push=UserDashboardPushDTO(
+            pushable_count=pushable_count,
+            unpushable_count=user_counts.total_count - pushable_count,
+        ),
+        parrots=UserDashboardParrotsDTO(
+            total_count=parrot_count,
+            species=[UserDashboardSpeciesDTO(species=species, count=count) for species, count in species_counts],
+        ),
     )

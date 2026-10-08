@@ -106,6 +106,13 @@ class UserOAuthCredential(Base):
     proof_digest: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class UserIdentity(Base):
+    __tablename__ = "user_identities"
+
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)
+
+
 class UserWithdrawal(Base):
     __tablename__ = "user_withdrawals"
     __table_args__ = (
@@ -298,9 +305,10 @@ class Session(Base):
     current_phase: Mapped[str | None] = mapped_column(Text, nullable=True)
     phase_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
     ended_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ended_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
 
@@ -363,7 +371,7 @@ class Parrot(Base):
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     species: Mapped[str] = mapped_column(String(50), nullable=False)
     birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -439,6 +447,7 @@ class Notification(Base):
     __table_args__ = (
         UniqueConstraint("session_id", name="uq_notifications_session_id"),
         Index("ix_notifications_user_id_sent_at", "user_id", "sent_at"),
+        Index("ix_notifications_sent_at", "sent_at"),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
@@ -461,7 +470,7 @@ class Feedback(Base):
     __table_args__ = (Index("ix_feedbacks_created_at", "created_at"),)
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), index=True, nullable=False)
     device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
     message: Mapped[str] = mapped_column(String(1000), nullable=False)
     app_version: Mapped[str] = mapped_column(String(12), nullable=False)
@@ -515,6 +524,7 @@ class AnnouncementRead(Base):
 class PushDelivery(Base):
     __tablename__ = "push_deliveries"
     __table_args__ = (
+        Index("ix_push_deliveries_device_id_sent_at", "device_id", "sent_at"),
         Index(
             "ix_push_deliveries_scheduled_at",
             "scheduled_at",

@@ -4,8 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import transactional
 from app.errors import FeedbackSaveUnavailableError
 from app.models import Device, Feedback, User
-from app.schemas.base import PageParams
-from app.schemas.feedback import CreateFeedbackRequest, FeedbackDTO
+from app.schemas.feedback import BackofficeFeedbackListParams, CreateFeedbackRequest, FeedbackDTO
 
 
 def build_feedback_dto(feedback: Feedback) -> FeedbackDTO:
@@ -29,8 +28,12 @@ async def create(*, db: AsyncSession, user: User, device: Device, data: CreateFe
     return build_feedback_dto(feedback)
 
 
-async def get_list(*, db: AsyncSession, query: PageParams) -> tuple[list[FeedbackDTO], int]:
+async def get_list(*, db: AsyncSession, query: BackofficeFeedbackListParams) -> tuple[list[FeedbackDTO], int]:
     stmt = select(Feedback)
+
+    if query.user_id is not None:
+        stmt = stmt.where(Feedback.user_id == query.user_id)
+
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     feedbacks = (
         await db.scalars(

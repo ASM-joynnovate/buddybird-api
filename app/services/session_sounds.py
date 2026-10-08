@@ -24,12 +24,13 @@ from app.models import (
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
 from app.schemas.base import FileDTO, PageParams, UploadDTO
 from app.schemas.sessions import (
+    BackofficeSessionSoundDTO,
     SessionSoundDTO,
     SessionSoundJudgmentDTO,
     SessionSoundListParams,
     SessionSoundUploadRequest,
 )
-from app.services.sessions import verify_station
+from app.services.sessions import LATEST_JUDGED_WORD_ID, verify_station
 
 MAX_SOUND_BYTES = 5 * 1024 * 1024
 SOUND_TYPES = {"audio/wav", "audio/x-wav"}
@@ -85,15 +86,7 @@ async def get_list(
     )
 
     if query.mimicry:
-        latest_word_id = (
-            select(SoundJudgment.word_id)
-            .where(SoundJudgment.sound_id == SessionSound.id)
-            .order_by(SoundJudgment.judged_at.desc())
-            .limit(1)
-            .scalar_subquery()
-        )
-
-        stmt = stmt.where(latest_word_id.is_not(None))
+        stmt = stmt.where(LATEST_JUDGED_WORD_ID.is_not(None))
 
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
@@ -133,6 +126,19 @@ async def get_user_list(
     ).all()
 
     return await build_sound_dtos(db=db, storage=storage, sounds=sounds), total
+
+
+async def get_backoffice_list(*, db: AsyncSession, session: Session) -> list[BackofficeSessionSoundDTO]:
+    stmt = (
+        select(SessionSound.captured_at, LATEST_JUDGED_WORD_ID.is_not(None))
+        .where(SessionSound.session_id == session.id, SessionSound.is_parrot_sound.is_(True))
+        .order_by(SessionSound.captured_at)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    return [
+        BackofficeSessionSoundDTO(captured_at=captured_at, is_mimicry=is_mimicry) for captured_at, is_mimicry in rows
+    ]
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)

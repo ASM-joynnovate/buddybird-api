@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import StringConstraints
 
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, PageParams
 
 
 class FeedbackDTO(CustomBaseModel):
@@ -26,3 +26,7 @@ class FeedbackListResponse(BaseResponse):
 
 class CreateFeedbackRequest(BaseRequest):
     message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class BackofficeFeedbackListParams(PageParams):
+    user_id: UUID | None = None

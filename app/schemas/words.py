@@ -28,6 +28,18 @@ class WordListResponse(BaseResponse):
     data: list[WordDTO]
 
 
+class BackofficeWordRecordingDTO(WordRecordingDTO):
+    is_preset: bool
+
+
+class BackofficeWordDTO(WordDTO):
+    recordings: list[BackofficeWordRecordingDTO]
+
+
+class BackofficeWordListResponse(BaseResponse):
+    data: list[BackofficeWordDTO]
+
+
 class SaveWordRequest(BaseRequest):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
