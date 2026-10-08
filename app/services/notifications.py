@@ -137,7 +137,7 @@ def build_notification_i18n(
 
     if kind == NotificationKindEnum.MARKETING:
         title_prefix = "(광고) "
-        body_prefix = f"(광고) {config.MARKETING_CONTACT}\n"
+        body_prefix = "(광고) "
 
     return (
         I18n(
