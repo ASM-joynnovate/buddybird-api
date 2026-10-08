@@ -4,6 +4,8 @@ from fastapi import APIRouter, Query
 
 from app.dependencies import DBSession
 from app.schemas.dashboard import (
+    AppUpdateDashboardParams,
+    AppUpdateDashboardResponse,
     DashboardLiveResponse,
     DashboardParams,
     DashboardResponse,
@@ -68,4 +70,14 @@ async def get_notification_dashboard(
     return NotificationDashboardResponse(
         message="알림 대시보드 조회 성공",
         data=await dashboard.get_notification_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/app-updates", name="앱 업데이트 대시보드 조회")
+async def get_app_update_dashboard(
+    query: Annotated[AppUpdateDashboardParams, Query()], db: DBSession
+) -> AppUpdateDashboardResponse:
+    return AppUpdateDashboardResponse(
+        message="앱 업데이트 대시보드 조회 성공",
+        data=await dashboard.get_app_update_dashboard(db=db, query=query),
     )

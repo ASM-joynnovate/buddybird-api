@@ -1,9 +1,16 @@
 from datetime import datetime
-from typing import ClassVar
+from typing import Annotated, ClassVar
+from uuid import UUID
 
-from pydantic import Field
+from pydantic import StringConstraints
+from pydantic.experimental.missing_sentinel import MISSING
 
+from app.enums import PlatformEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, I18nBodyRequest, I18nDTO
+
+Version = Annotated[
+    str, StringConstraints(max_length=12, pattern=r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+]
 
 
 class AppUpdateLatestDTO(CustomBaseModel):
@@ -24,41 +31,41 @@ class AppUpdateResponse(BaseResponse):
     data: AppUpdateDTO
 
 
-class BackofficeAppUpdateLatestDTO(CustomBaseModel):
+class BackofficeAppUpdateDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"release_notes"}
 
+    id: UUID
+    platform: PlatformEnum
     version: str
+    is_forced: bool
     release_notes: I18nDTO | None
-
-
-class BackofficeAppUpdateDTO(CustomBaseModel):
-    latest: BackofficeAppUpdateLatestDTO
-    min_supported: AppUpdateMinSupportedDTO
+    created_at: datetime
 
 
 class BackofficeAppUpdateResponse(BaseResponse):
     data: BackofficeAppUpdateDTO
 
 
-class BackofficeAppUpdateHistoryDTO(BackofficeAppUpdateDTO):
-    created_at: datetime
+class BackofficeAppUpdateListResponse(BaseResponse):
+    data: list[BackofficeAppUpdateDTO]
 
 
-class BackofficeAppUpdateHistoryListResponse(BaseResponse):
-    data: list[BackofficeAppUpdateHistoryDTO]
+class BackofficeAppUpdateListParams(BaseRequest):
+    platform: PlatformEnum
 
 
-class SaveAppUpdateLatestRequest(BaseRequest):
+class CreateAppUpdateRequest(BaseRequest):
     null_fields: ClassVar[set] = {"release_notes"}
 
-    version: str = Field(..., min_length=1, max_length=12)
+    platform: PlatformEnum
+    version: Version
+    is_forced: bool
     release_notes: I18nBodyRequest | None
 
 
-class SaveAppUpdateMinSupportedRequest(BaseRequest):
-    version: str = Field(..., min_length=1, max_length=12)
+class UpdateAppUpdateRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"release_notes"}
 
-
-class SaveAppUpdateRequest(BaseRequest):
-    latest: SaveAppUpdateLatestRequest
-    min_supported: SaveAppUpdateMinSupportedRequest
+    version: Version | MISSING = MISSING
+    is_forced: bool | MISSING = MISSING
+    release_notes: I18nBodyRequest | MISSING | None = MISSING

@@ -570,10 +570,11 @@ class PushDelivery(Base):
 
 class AppUpdate(Base):
     __tablename__ = "app_updates"
+    __table_args__ = (UniqueConstraint("platform", "version", name="uq_app_updates_platform_version"),)
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     platform: Mapped[str] = mapped_column(Text, nullable=False)
-    latest_version: Mapped[str] = mapped_column(String(12), nullable=False)
-    min_supported_version: Mapped[str] = mapped_column(String(12), nullable=False)
+    version: Mapped[str] = mapped_column(String(12), nullable=False)
+    is_forced: Mapped[bool] = mapped_column(Boolean, nullable=False)
     release_notes_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
     release_notes_i18n: Mapped[I18n | None] = relationship(lazy="selectin")

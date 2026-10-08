@@ -7,6 +7,7 @@ from pydantic import model_validator
 from app.enums import (
     NotificationKindEnum,
     OAuthProviderEnum,
+    PlatformEnum,
     SessionPhaseEnum,
     UserIssueEnum,
     UserLastSessionEnum,
@@ -351,6 +352,14 @@ class NotificationDashboardResponse(BaseResponse):
     data: NotificationDashboardDTO
 
 
+class AppUpdateDashboardDTO(CustomBaseModel):
+    versions: list[DashboardDeviceVersionDTO]
+
+
+class AppUpdateDashboardResponse(BaseResponse):
+    data: AppUpdateDashboardDTO
+
+
 class DashboardParams(BaseRequest):
     date_from: date
     date_to: date
@@ -361,3 +370,7 @@ class DashboardParams(BaseRequest):
             raise ValueError("조회 기간은 1일 이상 180일 이하여야 합니다.")
 
         return self
+
+
+class AppUpdateDashboardParams(BaseRequest):
+    platform: PlatformEnum
