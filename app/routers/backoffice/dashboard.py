@@ -3,7 +3,13 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.dependencies import DBSession
-from app.schemas.dashboard import DashboardLiveResponse, DashboardParams, DashboardResponse, UserDashboardResponse
+from app.schemas.dashboard import (
+    DashboardLiveResponse,
+    DashboardParams,
+    DashboardResponse,
+    FeedbackDashboardResponse,
+    UserDashboardResponse,
+)
 from app.services import dashboard
 
 router = APIRouter(prefix="/dashboard")
@@ -30,4 +36,14 @@ async def get_user_dashboard(query: Annotated[DashboardParams, Query()], db: DBS
     return UserDashboardResponse(
         message="사용자 대시보드 조회 성공",
         data=await dashboard.get_user_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/feedback", name="피드백 대시보드 조회")
+async def get_feedback_dashboard(
+    query: Annotated[DashboardParams, Query()], db: DBSession
+) -> FeedbackDashboardResponse:
+    return FeedbackDashboardResponse(
+        message="피드백 대시보드 조회 성공",
+        data=await dashboard.get_feedback_dashboard(db=db, query=query),
     )
