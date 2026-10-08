@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
 from app.errors import FeedbackSaveUnavailableError
-from app.models import AppUpdate, Device, Feedback, User
+from app.models import Device, Feedback, User
 from app.s3 import S3StorageClient
 from app.schemas.base import FileDTO
 from app.schemas.feedback import (
@@ -16,7 +16,7 @@ from app.schemas.feedback import (
     CreateFeedbackRequest,
     FeedbackDTO,
 )
-from app.services.devices import VERSION_PATTERN
+from app.services.devices import LATEST_APP_UPDATE, VERSION_PATTERN
 from app.services.users import SEOUL
 
 
@@ -89,10 +89,10 @@ async def get_list(
         (
             and_(
                 Feedback.app_version.regexp_match(VERSION_PATTERN),
-                AppUpdate.min_supported_version.regexp_match(VERSION_PATTERN),
+                LATEST_APP_UPDATE.c.min_supported_version.regexp_match(VERSION_PATTERN),
             ),
             cast(func.string_to_array(Feedback.app_version, "."), ARRAY(BigInteger))
-            < cast(func.string_to_array(AppUpdate.min_supported_version, "."), ARRAY(BigInteger)),
+            < cast(func.string_to_array(LATEST_APP_UPDATE.c.min_supported_version, "."), ARRAY(BigInteger)),
         ),
         else_=false(),
     )
@@ -101,7 +101,7 @@ async def get_list(
         .select_from(Feedback)
         .join(User, User.id == Feedback.user_id)
         .join(Device, Device.id == Feedback.device_id)
-        .outerjoin(AppUpdate, AppUpdate.platform == Device.platform)
+        .outerjoin(LATEST_APP_UPDATE, LATEST_APP_UPDATE.c.platform == Device.platform)
         .where(*conditions)
         .order_by(Feedback.created_at.desc())
         .offset((query.page - 1) * query.count_by_page)

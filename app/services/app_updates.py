@@ -10,6 +10,7 @@ from app.schemas.app_updates import (
     AppUpdateLatestDTO,
     AppUpdateMinSupportedDTO,
     BackofficeAppUpdateDTO,
+    BackofficeAppUpdateHistoryDTO,
     BackofficeAppUpdateLatestDTO,
     SaveAppUpdateRequest,
 )
@@ -29,7 +30,7 @@ def build_backoffice_app_update_dto(app_update: AppUpdate) -> BackofficeAppUpdat
 
 
 async def get_detail(*, db: AsyncSession, platform: PlatformEnum, locale: LocaleEnum) -> AppUpdateDTO:
-    stmt = select(AppUpdate).where(AppUpdate.platform == platform.value)
+    stmt = select(AppUpdate).where(AppUpdate.platform == platform.value).order_by(AppUpdate.created_at.desc()).limit(1)
     app_update = await db.scalar(stmt)
 
     if app_update is None:
@@ -47,7 +48,7 @@ async def get_detail(*, db: AsyncSession, platform: PlatformEnum, locale: Locale
 
 
 async def get_backoffice_detail(*, db: AsyncSession, platform: PlatformEnum) -> BackofficeAppUpdateDTO:
-    stmt = select(AppUpdate).where(AppUpdate.platform == platform.value)
+    stmt = select(AppUpdate).where(AppUpdate.platform == platform.value).order_by(AppUpdate.created_at.desc()).limit(1)
     app_update = await db.scalar(stmt)
 
     if app_update is None:
@@ -56,30 +57,34 @@ async def get_backoffice_detail(*, db: AsyncSession, platform: PlatformEnum) -> 
     return build_backoffice_app_update_dto(app_update)
 
 
+async def get_backoffice_history(*, db: AsyncSession, platform: PlatformEnum) -> list[BackofficeAppUpdateHistoryDTO]:
+    stmt = select(AppUpdate).where(AppUpdate.platform == platform.value).order_by(AppUpdate.created_at.desc())
+    app_updates = (await db.scalars(stmt)).all()
+
+    return [
+        BackofficeAppUpdateHistoryDTO(
+            **build_backoffice_app_update_dto(app_update).model_dump(),
+            created_at=app_update.created_at,
+        )
+        for app_update in app_updates
+    ]
+
+
 @transactional(unavailable_error=AppUpdateSaveUnavailableError)
 async def save(*, db: AsyncSession, platform: PlatformEnum, data: SaveAppUpdateRequest) -> BackofficeAppUpdateDTO:
-    stmt = select(AppUpdate).where(AppUpdate.platform == platform.value)
-    app_update = await db.scalar(stmt)
+    release_notes_i18n = None
 
-    if app_update is None:
-        app_update = AppUpdate(platform=platform.value)
+    if data.latest.release_notes is not None:
+        release_notes_i18n = I18n(ko_kr=data.latest.release_notes.ko_kr, en_us=data.latest.release_notes.en_us)
 
-        db.add(app_update)
+    app_update = AppUpdate(
+        platform=platform.value,
+        latest_version=data.latest.version,
+        min_supported_version=data.min_supported.version,
+        release_notes_i18n=release_notes_i18n,
+    )
 
-    app_update.latest_version = data.latest.version
-    app_update.min_supported_version = data.min_supported.version
-
-    if data.latest.release_notes is None:
-        app_update.release_notes_i18n = None
-    elif app_update.release_notes_i18n is not None:
-        app_update.release_notes_i18n.ko_kr = data.latest.release_notes.ko_kr
-        app_update.release_notes_i18n.en_us = data.latest.release_notes.en_us
-    else:
-        app_update.release_notes_i18n = I18n(
-            ko_kr=data.latest.release_notes.ko_kr,
-            en_us=data.latest.release_notes.en_us,
-        )
-
+    db.add(app_update)
     await db.flush()
 
     return build_backoffice_app_update_dto(app_update)

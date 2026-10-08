@@ -544,7 +544,6 @@ class PushDelivery(Base):
 
 class AppUpdate(Base):
     __tablename__ = "app_updates"
-    __table_args__ = (UniqueConstraint("platform", name="uq_app_updates_platform"),)
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     platform: Mapped[str] = mapped_column(Text, nullable=False)
