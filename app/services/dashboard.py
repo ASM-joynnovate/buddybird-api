@@ -62,6 +62,10 @@ from app.schemas.dashboard import (
     FeedbackDashboardFeedbackDTO,
     FeedbackDashboardLocaleDTO,
     FeedbackDashboardPlatformDTO,
+    NotificationDashboardDailyDTO,
+    NotificationDashboardDTO,
+    NotificationDashboardKindDTO,
+    NotificationDashboardNotificationsDTO,
     UserDashboardAccountsDTO,
     UserDashboardDailyDTO,
     UserDashboardDTO,
@@ -86,6 +90,7 @@ from app.schemas.dashboard import (
     WithdrawalDashboardWithdrawalsDTO,
 )
 from app.services.devices import LAST_SEEN_DEVICE, LATEST_APP_UPDATE, VERSION_UNSUPPORTED
+from app.services.notifications import NOTIFICATION_PUSH
 from app.services.sessions import SESSION_COUNT
 from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
 
@@ -137,6 +142,26 @@ async def get_withdrawal_counts(
     )
 
     return (await db.execute(stmt)).one()
+
+
+async def get_notification_counts(*, db: AsyncSession, period_start: datetime, period_end: datetime) -> list[Row]:
+    stmt = (
+        select(
+            Notification.kind,
+            func.count().label("sent_count"),
+            func.count(Notification.read_at).label("read_count"),
+            func.count(NOTIFICATION_PUSH.c.sent_at).label("push_sent_count"),
+        )
+        .outerjoin(NOTIFICATION_PUSH, NOTIFICATION_PUSH.c.notification_id == Notification.id)
+        .where(
+            Notification.sent_at >= period_start,
+            Notification.sent_at < period_end,
+            Notification.sent_at <= func.now(),
+        )
+        .group_by(Notification.kind)
+    )
+
+    return (await db.execute(stmt)).all()
 
 
 async def get_daily_counts(
@@ -198,16 +223,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             db=db, column=column, period_start=period_start, period_end=period_end
         )
 
-    stmt = (
-        select(Notification.kind, func.count(), func.count(Notification.read_at))
-        .where(
-            Notification.sent_at >= period_start,
-            Notification.sent_at < period_end,
-            Notification.sent_at <= now,
-        )
-        .group_by(Notification.kind)
-    )
-    notification_counts = (await db.execute(stmt)).all()
+    notification_counts = await get_notification_counts(db=db, period_start=period_start, period_end=period_end)
 
     sent_at = func.min(Notification.sent_at)
     stmt = (
@@ -302,8 +318,8 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
         ),
         notifications=DashboardNotificationsDTO(
             kinds=[
-                DashboardNotificationKindDTO(kind=kind, sent_count=sent_count, read_count=read_count)
-                for kind, sent_count, read_count in notification_counts
+                DashboardNotificationKindDTO(kind=row.kind, sent_count=row.sent_count, read_count=row.read_count)
+                for row in notification_counts
             ],
             recent=notification_lists["recent"],
             scheduled=notification_lists["scheduled"],
@@ -722,4 +738,52 @@ async def get_withdrawal_dashboard(*, db: AsyncSession, query: DashboardParams) 
             unregistered_count=withdrawal_counts.withdrawal_count - registered_parrot_count,
         ),
         errors=[WithdrawalDashboardErrorDTO(error_code=error_code, count=count) for error_code, count in error_counts],
+    )
+
+
+async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams) -> NotificationDashboardDTO:
+    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
+    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
+    period_end = period_start + timedelta(days=len(dates))
+    previous_start = period_start - timedelta(days=len(dates))
+
+    notification_counts = await get_notification_counts(db=db, period_start=period_start, period_end=period_end)
+    previous_counts = await get_notification_counts(db=db, period_start=previous_start, period_end=period_start)
+
+    local_date = cast(func.timezone(SEOUL.key, Notification.sent_at), Date)
+    stmt = (
+        select(local_date, Notification.kind, func.count())
+        .where(
+            Notification.sent_at >= period_start,
+            Notification.sent_at < period_end,
+            Notification.sent_at <= func.now(),
+        )
+        .group_by(local_date, Notification.kind)
+    )
+    daily_counts = {(date, kind): count for date, kind, count in (await db.execute(stmt)).all()}
+
+    return NotificationDashboardDTO(
+        notifications=NotificationDashboardNotificationsDTO(
+            count=sum(row.sent_count for row in notification_counts),
+            previous_count=sum(row.sent_count for row in previous_counts),
+        ),
+        kinds=[
+            NotificationDashboardKindDTO(
+                kind=row.kind,
+                sent_count=row.sent_count,
+                read_count=row.read_count,
+                push_sent_count=row.push_sent_count,
+            )
+            for row in notification_counts
+        ],
+        daily=[
+            NotificationDashboardDailyDTO(
+                date=date,
+                report_count=daily_counts.get((date, NotificationKindEnum.REPORT.value), 0),
+                announcement_count=daily_counts.get((date, NotificationKindEnum.ANNOUNCEMENT.value), 0),
+                marketing_count=daily_counts.get((date, NotificationKindEnum.MARKETING.value), 0),
+                urgent_count=daily_counts.get((date, NotificationKindEnum.URGENT.value), 0),
+            )
+            for date in dates
+        ],
     )

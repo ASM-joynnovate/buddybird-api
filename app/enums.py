@@ -57,6 +57,17 @@ class NotificationKindEnum(StrEnum):
     REPORT = "report"
 
 
+class NotificationDispatchTargetEnum(StrEnum):
+    ALL = "all"
+    SELECTED = "selected"
+
+
+class NotificationDispatchStatusEnum(StrEnum):
+    SCHEDULED = "scheduled"
+    SENDING = "sending"
+    SENT = "sent"
+
+
 class SessionEventKindEnum(StrEnum):
     SESSION_STARTED = "session_started"
     LEARNING_STARTED = "learning_started"

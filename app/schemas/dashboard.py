@@ -321,6 +321,36 @@ class WithdrawalDashboardResponse(BaseResponse):
     data: WithdrawalDashboardDTO
 
 
+class NotificationDashboardNotificationsDTO(CustomBaseModel):
+    count: int
+    previous_count: int
+
+
+class NotificationDashboardKindDTO(CustomBaseModel):
+    kind: NotificationKindEnum
+    sent_count: int
+    read_count: int
+    push_sent_count: int
+
+
+class NotificationDashboardDailyDTO(CustomBaseModel):
+    date: date
+    report_count: int
+    announcement_count: int
+    marketing_count: int
+    urgent_count: int
+
+
+class NotificationDashboardDTO(CustomBaseModel):
+    notifications: NotificationDashboardNotificationsDTO
+    kinds: list[NotificationDashboardKindDTO]
+    daily: list[NotificationDashboardDailyDTO]
+
+
+class NotificationDashboardResponse(BaseResponse):
+    data: NotificationDashboardDTO
+
+
 class DashboardParams(BaseRequest):
     date_from: date
     date_to: date

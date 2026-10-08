@@ -93,6 +93,9 @@ class BackofficeUserListItemDTO(BackofficeUserDTO):
     device_count: int
     session_count: int
     daily_durations: list[BackofficeUserDailyDurationDTO]
+    is_pushable: bool
+    is_announcement_enabled: bool
+    is_marketing_enabled: bool
 
 
 class BackofficeUserDetailDTO(BackofficeUserDTO):
@@ -115,6 +118,7 @@ class BackofficeUserDetailResponse(BaseResponse):
 
 
 class BackofficeUserListParams(PageParams):
+    user_ids: list[UUID] | None = Field(None, min_length=1, max_length=100)
     keyword: str | None = Field(None, min_length=1, max_length=100)
     is_deleted: bool | None = None
     last_session: UserLastSessionEnum | None = None
