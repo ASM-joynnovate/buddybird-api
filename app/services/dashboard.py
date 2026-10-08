@@ -54,6 +54,11 @@ from app.schemas.dashboard import (
     DashboardSessionsDTO,
     DashboardUsersDTO,
     DashboardWithdrawalsDTO,
+    FeedbackDashboardAppVersionDTO,
+    FeedbackDashboardDTO,
+    FeedbackDashboardFeedbackDTO,
+    FeedbackDashboardLocaleDTO,
+    FeedbackDashboardPlatformDTO,
     UserDashboardAccountsDTO,
     UserDashboardDailyDTO,
     UserDashboardDTO,
@@ -84,6 +89,22 @@ async def get_user_counts(
         )
         .select_from(User)
         .execution_options(include_deleted=True)
+    )
+
+    return (await db.execute(stmt)).one()
+
+
+async def get_feedback_counts(
+    *, db: AsyncSession, period_start: datetime, period_end: datetime, previous_start: datetime
+) -> Row:
+    stmt = (
+        select(
+            func.count().filter(Feedback.created_at >= period_start).label("feedback_count"),
+            func.count().filter(Feedback.created_at < period_start).label("previous_feedback_count"),
+            func.count(Feedback.user_id.distinct()).filter(Feedback.created_at >= period_start).label("writer_count"),
+        )
+        .select_from(Feedback)
+        .where(Feedback.created_at >= previous_start, Feedback.created_at < period_end)
     )
 
     return (await db.execute(stmt)).one()
@@ -137,15 +158,9 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
     )
     withdrawal_count = await db.scalar(stmt)
 
-    stmt = (
-        select(
-            func.count().filter(Feedback.created_at >= period_start).label("feedback_count"),
-            func.count().filter(Feedback.created_at < period_start).label("previous_feedback_count"),
-        )
-        .select_from(Feedback)
-        .where(Feedback.created_at >= previous_start, Feedback.created_at < period_end)
+    feedback_counts = await get_feedback_counts(
+        db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
-    feedback_counts = (await db.execute(stmt)).one()
 
     daily_counts = {}
 
@@ -513,4 +528,49 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
             total_count=parrot_count,
             species=[UserDashboardSpeciesDTO(species=species, count=count) for species, count in species_counts],
         ),
+    )
+
+
+async def get_feedback_dashboard(*, db: AsyncSession, query: DashboardParams) -> FeedbackDashboardDTO:
+    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
+    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
+    period_end = period_start + timedelta(days=len(dates))
+    previous_start = period_start - timedelta(days=len(dates))
+
+    feedback_counts = await get_feedback_counts(
+        db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
+    )
+
+    daily_counts = await get_daily_counts(
+        db=db, column=Feedback.created_at, period_start=period_start, period_end=period_end
+    )
+
+    group_counts = {}
+
+    for column in (Feedback.app_version, Device.platform, Device.locale):
+        stmt = (
+            select(column, func.count())
+            .select_from(Feedback)
+            .join(Device, Device.id == Feedback.device_id)
+            .where(Feedback.created_at >= period_start, Feedback.created_at < period_end)
+            .group_by(column)
+            .execution_options(include_deleted=True)
+        )
+        group_counts[column.key] = (await db.execute(stmt)).all()
+
+    return FeedbackDashboardDTO(
+        feedback=FeedbackDashboardFeedbackDTO(
+            count=feedback_counts.feedback_count,
+            previous_count=feedback_counts.previous_feedback_count,
+            writer_count=feedback_counts.writer_count,
+        ),
+        daily=[DashboardDailyCountDTO(date=date, count=daily_counts.get(date, 0)) for date in dates],
+        app_versions=[
+            FeedbackDashboardAppVersionDTO(app_version=app_version, count=count)
+            for app_version, count in group_counts["app_version"]
+        ],
+        platforms=[
+            FeedbackDashboardPlatformDTO(platform=platform, count=count) for platform, count in group_counts["platform"]
+        ],
+        locales=[FeedbackDashboardLocaleDTO(locale=locale, count=count) for locale, count in group_counts["locale"]],
     )

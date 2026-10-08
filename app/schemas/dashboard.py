@@ -218,6 +218,39 @@ class UserDashboardResponse(BaseResponse):
     data: UserDashboardDTO
 
 
+class FeedbackDashboardFeedbackDTO(CustomBaseModel):
+    count: int
+    previous_count: int
+    writer_count: int
+
+
+class FeedbackDashboardAppVersionDTO(CustomBaseModel):
+    app_version: str
+    count: int
+
+
+class FeedbackDashboardPlatformDTO(CustomBaseModel):
+    platform: str
+    count: int
+
+
+class FeedbackDashboardLocaleDTO(CustomBaseModel):
+    locale: str
+    count: int
+
+
+class FeedbackDashboardDTO(CustomBaseModel):
+    feedback: FeedbackDashboardFeedbackDTO
+    daily: list[DashboardDailyCountDTO]
+    app_versions: list[FeedbackDashboardAppVersionDTO]
+    platforms: list[FeedbackDashboardPlatformDTO]
+    locales: list[FeedbackDashboardLocaleDTO]
+
+
+class FeedbackDashboardResponse(BaseResponse):
+    data: FeedbackDashboardDTO
+
+
 class DashboardParams(BaseRequest):
     date_from: date
     date_to: date
