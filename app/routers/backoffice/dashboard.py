@@ -9,6 +9,7 @@ from app.schemas.dashboard import (
     DashboardResponse,
     FeedbackDashboardResponse,
     UserDashboardResponse,
+    WithdrawalDashboardResponse,
 )
 from app.services import dashboard
 
@@ -46,4 +47,14 @@ async def get_feedback_dashboard(
     return FeedbackDashboardResponse(
         message="피드백 대시보드 조회 성공",
         data=await dashboard.get_feedback_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/withdrawals", name="탈퇴 대시보드 조회")
+async def get_withdrawal_dashboard(
+    query: Annotated[DashboardParams, Query()], db: DBSession
+) -> WithdrawalDashboardResponse:
+    return WithdrawalDashboardResponse(
+        message="탈퇴 대시보드 조회 성공",
+        data=await dashboard.get_withdrawal_dashboard(db=db, query=query),
     )

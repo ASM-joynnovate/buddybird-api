@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, time, timedelta
 
-from sqlalchemy import Date, Row, and_, cast, func, or_, select
+from sqlalchemy import Date, Row, and_, case, cast, exists, func, not_, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -14,6 +14,9 @@ from app.enums import (
     SoundJudgmentStatusEnum,
     UserIssueEnum,
     UserLastSessionEnum,
+    WithdrawalSessionRangeEnum,
+    WithdrawalStatusEnum,
+    WithdrawalUsagePeriodEnum,
 )
 from app.models import (
     Announcement,
@@ -29,6 +32,7 @@ from app.models import (
     User,
     UserIdentity,
     UserWithdrawal,
+    UserWithdrawalFailure,
 )
 from app.schemas.base import I18nDTO
 from app.schemas.dashboard import (
@@ -70,8 +74,19 @@ from app.schemas.dashboard import (
     UserDashboardSpeciesDTO,
     UserDashboardUsersDTO,
     UserDashboardWithdrawalsDTO,
+    WithdrawalDashboardAccountsDTO,
+    WithdrawalDashboardAppVersionDTO,
+    WithdrawalDashboardDTO,
+    WithdrawalDashboardErrorDTO,
+    WithdrawalDashboardParrotsDTO,
+    WithdrawalDashboardPlatformDTO,
+    WithdrawalDashboardProviderDTO,
+    WithdrawalDashboardSessionRangeDTO,
+    WithdrawalDashboardUsagePeriodDTO,
+    WithdrawalDashboardWithdrawalsDTO,
 )
-from app.services.devices import LATEST_APP_UPDATE, VERSION_UNSUPPORTED
+from app.services.devices import LAST_SEEN_DEVICE, LATEST_APP_UPDATE, VERSION_UNSUPPORTED
+from app.services.sessions import SESSION_COUNT
 from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
 
 
@@ -104,6 +119,21 @@ async def get_feedback_counts(
         )
         .select_from(Feedback)
         .where(Feedback.created_at >= previous_start, Feedback.created_at < period_end)
+    )
+
+    return (await db.execute(stmt)).one()
+
+
+async def get_withdrawal_counts(
+    *, db: AsyncSession, period_start: datetime, period_end: datetime, previous_start: datetime
+) -> Row:
+    stmt = (
+        select(
+            func.count().filter(UserWithdrawal.created_at >= period_start).label("withdrawal_count"),
+            func.count().filter(UserWithdrawal.created_at < period_start).label("previous_withdrawal_count"),
+        )
+        .select_from(UserWithdrawal)
+        .where(UserWithdrawal.created_at >= previous_start, UserWithdrawal.created_at < period_end)
     )
 
     return (await db.execute(stmt)).one()
@@ -403,15 +433,9 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
 
-    stmt = (
-        select(
-            func.count().filter(UserWithdrawal.created_at >= period_start).label("withdrawal_count"),
-            func.count().filter(UserWithdrawal.created_at < period_start).label("previous_withdrawal_count"),
-        )
-        .select_from(UserWithdrawal)
-        .where(UserWithdrawal.created_at >= previous_start, UserWithdrawal.created_at < period_end)
+    withdrawal_counts = await get_withdrawal_counts(
+        db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
-    withdrawal_counts = (await db.execute(stmt)).one()
 
     daily_signup_counts = await get_daily_counts(
         db=db, column=User.created_at, period_start=period_start, period_end=period_end
@@ -572,4 +596,130 @@ async def get_feedback_dashboard(*, db: AsyncSession, query: DashboardParams) ->
             FeedbackDashboardPlatformDTO(platform=platform, count=count) for platform, count in group_counts["platform"]
         ],
         locales=[FeedbackDashboardLocaleDTO(locale=locale, count=count) for locale, count in group_counts["locale"]],
+    )
+
+
+async def get_withdrawal_dashboard(*, db: AsyncSession, query: DashboardParams) -> WithdrawalDashboardDTO:
+    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
+    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
+    period_end = period_start + timedelta(days=len(dates))
+    previous_start = period_start - timedelta(days=len(dates))
+    in_period = and_(UserWithdrawal.created_at >= period_start, UserWithdrawal.created_at < period_end)
+
+    withdrawal_counts = await get_withdrawal_counts(
+        db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
+    )
+
+    user_counts = await get_user_counts(
+        db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
+    )
+
+    daily_counts = await get_daily_counts(
+        db=db, column=UserWithdrawal.created_at, period_start=period_start, period_end=period_end
+    )
+
+    has_provider = [
+        getattr(UserWithdrawal, f"{provider}_status") != WithdrawalStatusEnum.NOT_REQUIRED.value
+        for provider in OAuthProviderEnum
+    ]
+    has_parrot = exists().where(Parrot.user_id == UserWithdrawal.user_id, Parrot.is_deleted.is_(False))
+    stmt = (
+        select(
+            *(func.count().filter(condition) for condition in has_provider),
+            func.count().filter(not_(or_(*has_provider))),
+            func.count().filter(has_parrot),
+        )
+        .select_from(UserWithdrawal)
+        .where(in_period)
+    )
+    *provider_counts, anonymous_count, registered_parrot_count = (await db.execute(stmt)).one()
+
+    usage_days = cast(func.timezone(SEOUL.key, UserWithdrawal.created_at), Date) - cast(
+        func.timezone(SEOUL.key, User.created_at), Date
+    )
+    ranges = {
+        "usage_period": case(
+            (usage_days <= 0, WithdrawalUsagePeriodEnum.SAME_DAY.value),
+            (usage_days <= 7, WithdrawalUsagePeriodEnum.WITHIN_7_DAYS.value),
+            (usage_days <= 30, WithdrawalUsagePeriodEnum.WITHIN_30_DAYS.value),
+            else_=WithdrawalUsagePeriodEnum.OVER_30_DAYS.value,
+        ),
+        "session_range": case(
+            (SESSION_COUNT == 0, WithdrawalSessionRangeEnum.NONE.value),
+            (SESSION_COUNT <= 4, WithdrawalSessionRangeEnum.ONE_TO_FOUR.value),
+            else_=WithdrawalSessionRangeEnum.FIVE_OR_MORE.value,
+        ),
+    }
+    group_counts = {}
+
+    for name, column in ranges.items():
+        stmt = (
+            select(column.label(name), func.count())
+            .select_from(UserWithdrawal)
+            .join(User, User.id == UserWithdrawal.user_id)
+            .where(in_period)
+            .group_by(name)
+            .execution_options(include_deleted=True)
+        )
+        group_counts[name] = dict((await db.execute(stmt)).all())
+
+    for column in (LAST_SEEN_DEVICE.c.platform, LAST_SEEN_DEVICE.c.app_version):
+        stmt = (
+            select(column, func.count())
+            .select_from(UserWithdrawal)
+            .join(User, User.id == UserWithdrawal.user_id)
+            .join(LAST_SEEN_DEVICE, true())
+            .where(in_period)
+            .group_by(column)
+            .execution_options(include_deleted=True)
+        )
+        group_counts[column.key] = (await db.execute(stmt)).all()
+
+    stmt = (
+        select(UserWithdrawalFailure.error_code, func.count())
+        .where(UserWithdrawalFailure.created_at >= period_start, UserWithdrawalFailure.created_at < period_end)
+        .group_by(UserWithdrawalFailure.error_code)
+        .order_by(func.count().desc(), UserWithdrawalFailure.error_code)
+    )
+    error_counts = (await db.execute(stmt)).all()
+
+    return WithdrawalDashboardDTO(
+        withdrawals=WithdrawalDashboardWithdrawalsDTO(
+            count=withdrawal_counts.withdrawal_count,
+            previous_count=withdrawal_counts.previous_withdrawal_count,
+        ),
+        signup_count=user_counts.signup_count,
+        daily=[DashboardDailyCountDTO(date=date, count=daily_counts.get(date, 0)) for date in dates],
+        accounts=WithdrawalDashboardAccountsDTO(
+            providers=[
+                WithdrawalDashboardProviderDTO(provider=provider, count=count)
+                for provider, count in zip(OAuthProviderEnum, provider_counts, strict=True)
+            ],
+            anonymous_count=anonymous_count,
+        ),
+        platforms=[
+            WithdrawalDashboardPlatformDTO(platform=platform, count=count)
+            for platform, count in group_counts["platform"]
+        ],
+        app_versions=[
+            WithdrawalDashboardAppVersionDTO(app_version=app_version, count=count)
+            for app_version, count in group_counts["app_version"]
+        ],
+        usage_periods=[
+            WithdrawalDashboardUsagePeriodDTO(
+                usage_period=usage_period, count=group_counts["usage_period"].get(usage_period.value, 0)
+            )
+            for usage_period in WithdrawalUsagePeriodEnum
+        ],
+        session_ranges=[
+            WithdrawalDashboardSessionRangeDTO(
+                session_range=session_range, count=group_counts["session_range"].get(session_range.value, 0)
+            )
+            for session_range in WithdrawalSessionRangeEnum
+        ],
+        parrots=WithdrawalDashboardParrotsDTO(
+            registered_count=registered_parrot_count,
+            unregistered_count=withdrawal_counts.withdrawal_count - registered_parrot_count,
+        ),
+        errors=[WithdrawalDashboardErrorDTO(error_code=error_code, count=count) for error_code, count in error_counts],
     )
