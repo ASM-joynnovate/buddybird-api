@@ -8,7 +8,8 @@ from sqlalchemy.orm import contains_eager
 from app.db import get_or_404, transactional
 from app.errors import ConsentSaveUnavailableError, ResourceNotFoundError
 from app.models import Consent, User, UserConsent
-from app.schemas.consents import SaveUserConsentRequest, UserConsentDTO
+from app.schemas.base import I18nDTO
+from app.schemas.consents import BackofficeUserConsentDTO, SaveUserConsentRequest, UserConsentDTO
 
 
 def build_user_consent_dto(user_consent: UserConsent) -> UserConsentDTO:
@@ -32,6 +33,25 @@ async def get_list(*, db: AsyncSession, user: User) -> list[UserConsentDTO]:
     user_consents = (await db.scalars(stmt)).all()
 
     return [build_user_consent_dto(user_consent) for user_consent in user_consents]
+
+
+async def get_backoffice_list(*, db: AsyncSession, user: User) -> list[BackofficeUserConsentDTO]:
+    stmt = (
+        select(UserConsent)
+        .join(Consent, Consent.id == UserConsent.consent_id)
+        .options(contains_eager(UserConsent.consent))
+        .where(UserConsent.user_id == user.id)
+        .order_by(UserConsent.decided_at.desc())
+    )
+    user_consents = (await db.scalars(stmt)).all()
+
+    return [
+        BackofficeUserConsentDTO(
+            **build_user_consent_dto(user_consent).model_dump(),
+            title=I18nDTO(ko_kr=user_consent.consent.title_i18n.ko_kr, en_us=user_consent.consent.title_i18n.en_us),
+        )
+        for user_consent in user_consents
+    ]
 
 
 @transactional(unavailable_error=ConsentSaveUnavailableError)

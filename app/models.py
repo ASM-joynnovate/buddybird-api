@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from app.enums import FileStatusEnum, LocaleEnum
+from app.enums import FileStatusEnum, LocaleEnum, SoundJudgmentStatusEnum
 
 
 class Base(DeclarativeBase):
@@ -104,6 +104,13 @@ class UserOAuthCredential(Base):
     provider: Mapped[str] = mapped_column(Text, nullable=False)
     credentials_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
     proof_digest: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class UserIdentity(Base):
+    __tablename__ = "user_identities"
+
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)
 
 
 class UserWithdrawal(Base):
@@ -298,15 +305,23 @@ class Session(Base):
     current_phase: Mapped[str | None] = mapped_column(Text, nullable=True)
     phase_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
     ended_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ended_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
 
 class SessionEvent(Base):
     __tablename__ = "session_events"
-    __table_args__ = (Index("ix_session_events_session_id_occurred_at", "session_id", "occurred_at"),)
+    __table_args__ = (
+        Index("ix_session_events_session_id_occurred_at", "session_id", "occurred_at"),
+        Index(
+            "ix_session_events_occurred_at_emergency_detected",
+            "occurred_at",
+            postgresql_where=text("kind = 'emergency_detected'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     session_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=False)
@@ -356,7 +371,7 @@ class Parrot(Base):
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     species: Mapped[str] = mapped_column(String(50), nullable=False)
     birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -368,7 +383,14 @@ class Parrot(Base):
 
 class SessionSound(Base):
     __tablename__ = "session_sounds"
-    __table_args__ = (Index("ix_session_sounds_session_id_captured_at", "session_id", "captured_at"),)
+    __table_args__ = (
+        Index("ix_session_sounds_session_id_captured_at", "session_id", "captured_at"),
+        Index(
+            "ix_session_sounds_updated_at_failed",
+            "updated_at",
+            postgresql_where=text("judgment_status = 'failed'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     session_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=False)
@@ -376,6 +398,12 @@ class SessionSound(Base):
     audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
     audio_file: Mapped[File] = relationship(lazy="selectin")
     is_parrot_sound: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    judgment_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SoundJudgmentStatusEnum.PENDING.value,
+        server_default=SoundJudgmentStatusEnum.PENDING.value,
+    )
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
 
@@ -391,11 +419,35 @@ class SoundJudgment(Base):
     judged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class SoundAnalysis(Base):
+    __tablename__ = "sound_analyses"
+    __table_args__ = (
+        UniqueConstraint("sound_id", "analyzer_version", name="uq_sound_analyses_sound_id_analyzer_version"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=False)
+    analyzer_version: Mapped[str] = mapped_column(Text, nullable=False)
+    is_parrot: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    score: Mapped[float] = mapped_column(Double, nullable=False)
+    call_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    chirp_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SessionEventSound(Base):
+    __tablename__ = "session_event_sounds"
+
+    event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
+    sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)
+
+
 class Notification(Base):
     __tablename__ = "notifications"
     __table_args__ = (
         UniqueConstraint("session_id", name="uq_notifications_session_id"),
         Index("ix_notifications_user_id_sent_at", "user_id", "sent_at"),
+        Index("ix_notifications_sent_at", "sent_at"),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
@@ -418,7 +470,7 @@ class Feedback(Base):
     __table_args__ = (Index("ix_feedbacks_created_at", "created_at"),)
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), index=True, nullable=False)
     device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
     message: Mapped[str] = mapped_column(String(1000), nullable=False)
     app_version: Mapped[str] = mapped_column(String(12), nullable=False)
@@ -472,6 +524,7 @@ class AnnouncementRead(Base):
 class PushDelivery(Base):
     __tablename__ = "push_deliveries"
     __table_args__ = (
+        Index("ix_push_deliveries_device_id_sent_at", "device_id", "sent_at"),
         Index(
             "ix_push_deliveries_scheduled_at",
             "scheduled_at",
@@ -491,7 +544,6 @@ class PushDelivery(Base):
 
 class AppUpdate(Base):
     __tablename__ = "app_updates"
-    __table_args__ = (UniqueConstraint("platform", name="uq_app_updates_platform"),)
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     platform: Mapped[str] = mapped_column(Text, nullable=False)

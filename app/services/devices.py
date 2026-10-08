@@ -1,19 +1,38 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import ARRAY, BigInteger, and_, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import SessionActorEnum, SessionEventKindEnum, SessionStatusEnum
+from app.enums import SessionActorEnum, SessionEndReasonEnum, SessionEventKindEnum, SessionStatusEnum
 from app.errors import DeviceSaveUnavailableError
-from app.models import Device, Session, SessionEvent, User
+from app.models import AppUpdate, Device, Session, SessionEvent, User
 from app.schemas.devices import (
+    BackofficeDeviceDTO,
     DeviceClientDTO,
     DeviceDTO,
     RegisterDeviceRequest,
     UpdateDeviceRequest,
     UpdatePushTokenRequest,
+)
+
+VERSION_PATTERN = r"^[0-9]+(\.[0-9]+)*$"
+LATEST_APP_UPDATE = (
+    select(AppUpdate.platform, AppUpdate.min_supported_version)
+    .distinct(AppUpdate.platform)
+    .order_by(AppUpdate.platform, AppUpdate.created_at.desc())
+    .subquery()
+)
+VERSION_UNSUPPORTED = case(
+    (
+        and_(
+            Device.app_version.regexp_match(VERSION_PATTERN),
+            LATEST_APP_UPDATE.c.min_supported_version.regexp_match(VERSION_PATTERN),
+        ),
+        cast(func.string_to_array(Device.app_version, "."), ARRAY(BigInteger))
+        < cast(func.string_to_array(LATEST_APP_UPDATE.c.min_supported_version, "."), ARRAY(BigInteger)),
+    )
 )
 
 
@@ -34,7 +53,9 @@ def build_device_dto(device: Device) -> DeviceDTO:
     )
 
 
-async def finish_running_sessions(*, db: AsyncSession, device: Device, now: datetime) -> list[UUID]:
+async def finish_running_sessions(
+    *, db: AsyncSession, device: Device, now: datetime, ended_reason: SessionEndReasonEnum
+) -> list[UUID]:
     sessions = (
         await db.scalars(
             select(Session).where(
@@ -47,6 +68,7 @@ async def finish_running_sessions(*, db: AsyncSession, device: Device, now: date
         session.status = SessionStatusEnum.FINISHED.value
         session.ended_at = now
         session.ended_by = SessionActorEnum.SERVER.value
+        session.ended_reason = ended_reason.value
 
         db.add(
             SessionEvent(
@@ -63,6 +85,20 @@ async def get_list(*, db: AsyncSession, user: User) -> list[DeviceDTO]:
     devices = (await db.scalars(select(Device).where(Device.user_id == user.id).order_by(Device.created_at))).all()
 
     return [build_device_dto(device) for device in devices]
+
+
+async def get_backoffice_list(*, db: AsyncSession, user: User) -> list[BackofficeDeviceDTO]:
+    stmt = (
+        select(Device)
+        .where(Device.user_id == user.id)
+        .order_by(Device.created_at)
+        .execution_options(include_deleted=True)
+    )
+    devices = (await db.scalars(stmt)).all()
+
+    return [
+        BackofficeDeviceDTO(**build_device_dto(device).model_dump(), is_deleted=device.is_deleted) for device in devices
+    ]
 
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)
@@ -127,7 +163,9 @@ async def delete(*, db: AsyncSession, device: Device) -> list[UUID]:
     device.is_deleted = True
     device.push_token = None
 
-    session_ids = await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
+    session_ids = await finish_running_sessions(
+        db=db, device=device, now=datetime.now(UTC), ended_reason=SessionEndReasonEnum.DEVICE_DELETED
+    )
 
     await db.flush()
 

@@ -4,6 +4,7 @@ import logging
 import signal
 import time
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from uuid import UUID
 
 import sentry_sdk
@@ -14,7 +15,7 @@ from app.config import config
 from app.db import session_factory
 from app.services import uploads
 from app.services.notifications import deliver, dispatch_due_pushes, send_report
-from app.services.session_sounds import save_parrot_detection
+from app.services.session_sounds import mark_parrot_detection_failed, save_parrot_detection
 from app.services.sessions import finish_expired_sessions
 from app.services.withdrawals import dispatch_due_withdrawals, process_user_withdrawal
 from app.sqs import get_sqs
@@ -51,9 +52,23 @@ async def run_periodic_command(body: dict) -> None:
 
 async def save_parrot_sound_detection(body: dict) -> None:
     async with session_factory() as db:
-        session_ids = await save_parrot_detection(db=db, data=body["data"])
+        session_ids = await save_parrot_detection(
+            db=db,
+            analyzer_version=body["analyzer_version"],
+            analyzed_at=datetime.fromisoformat(body["analyzed_at"]),
+            data=body["data"],
+        )
 
         await send_report(db=db, session_ids=session_ids)
+
+
+async def mark_parrot_sound_detection_failed(body: dict) -> None:
+    async with session_factory() as db:
+        await mark_parrot_detection_failed(db=db, data=body["data"])
+
+        logger.error("앵무새 소리 판별 실패; session_id=%s data=%s", body["session_id"], body["data"])
+
+        await send_report(db=db, session_ids=[UUID(body["session_id"])])
 
 
 async def consume(*, queue_url: str, handle: Callable[[dict], Awaitable[None]]) -> None:
@@ -142,6 +157,7 @@ async def main() -> None:
             consume(queue_url=config.SQS_WITHDRAWAL_QUEUE_URL, handle=process_withdrawal),
             consume(queue_url=config.SQS_PERIODIC_COMMAND_QUEUE_URL, handle=run_periodic_command),
             consume(queue_url=config.SQS_JUDGMENT_RESULT_QUEUE_URL, handle=save_parrot_sound_detection),
+            consume(queue_url=config.SQS_PARROT_SOUND_DETECTION_DLQ_URL, handle=mark_parrot_sound_detection_failed),
         )
     except asyncio.CancelledError:
         logger.info("종료 신호를 받아 consumer를 종료함")

@@ -29,6 +29,7 @@ def init() -> None:
         environment=config.ENV,
         release=f"buddybird-api@{config.VERSION}",
         traces_sampler=traces_sampler,
+        enable_backpressure_handling=False,
         profile_session_sample_rate=1.0,
         profile_lifecycle="trace",
         integrations=[LoggingIntegration(capture_sentry_logs=True)],

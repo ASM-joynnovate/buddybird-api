@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import ReportPeriodEnum
-from app.models import Session, SessionSound, SoundJudgment, User, Word
+from app.models import Session, SessionSound, User, Word
 from app.schemas.reports import (
     ReportActiveDTO,
     ReportDTO,
@@ -21,7 +21,7 @@ from app.schemas.reports import (
     ReportWordDTO,
 )
 from app.schemas.sessions import ActiveDurationDTO, SessionJudgmentDTO
-from app.services.sessions import get_active_periods, get_judgment_statuses
+from app.services.sessions import LATEST_JUDGED_WORD_ID, get_active_periods, get_judgment_statuses
 
 
 async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timezone: str) -> ReportDTO:
@@ -69,13 +69,6 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
     stmt = select(Word).where(Word.id.in_(word_ids)).execution_options(include_deleted=True)
     words = {word.id: word for word in (await db.scalars(stmt)).all()}
 
-    latest_word_id = (
-        select(SoundJudgment.word_id)
-        .where(SoundJudgment.sound_id == SessionSound.id)
-        .order_by(SoundJudgment.judged_at.desc())
-        .limit(1)
-        .scalar_subquery()
-    )
     stmt = (
         select(SessionSound)
         .join(Session, Session.id == SessionSound.session_id)
@@ -89,7 +82,7 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
         stmt.where(SessionSound.is_parrot_sound.is_(True)).with_only_columns(func.count(), maintain_column_froms=True)
     )
     mimicry_count = await db.scalar(
-        stmt.where(latest_word_id.is_not(None)).with_only_columns(func.count(), maintain_column_froms=True)
+        stmt.where(LATEST_JUDGED_WORD_ID.is_not(None)).with_only_columns(func.count(), maintain_column_froms=True)
     )
 
     stmt = (
