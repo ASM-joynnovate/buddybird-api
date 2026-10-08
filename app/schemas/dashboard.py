@@ -4,7 +4,15 @@ from uuid import UUID
 
 from pydantic import model_validator
 
-from app.enums import NotificationKindEnum, OAuthProviderEnum, SessionPhaseEnum, UserIssueEnum, UserLastSessionEnum
+from app.enums import (
+    NotificationKindEnum,
+    OAuthProviderEnum,
+    SessionPhaseEnum,
+    UserIssueEnum,
+    UserLastSessionEnum,
+    WithdrawalSessionRangeEnum,
+    WithdrawalUsagePeriodEnum,
+)
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, I18nDTO
 
 
@@ -249,6 +257,68 @@ class FeedbackDashboardDTO(CustomBaseModel):
 
 class FeedbackDashboardResponse(BaseResponse):
     data: FeedbackDashboardDTO
+
+
+class WithdrawalDashboardWithdrawalsDTO(CustomBaseModel):
+    count: int
+    previous_count: int
+
+
+class WithdrawalDashboardProviderDTO(CustomBaseModel):
+    provider: OAuthProviderEnum
+    count: int
+
+
+class WithdrawalDashboardAccountsDTO(CustomBaseModel):
+    providers: list[WithdrawalDashboardProviderDTO]
+    anonymous_count: int
+
+
+class WithdrawalDashboardPlatformDTO(CustomBaseModel):
+    platform: str
+    count: int
+
+
+class WithdrawalDashboardAppVersionDTO(CustomBaseModel):
+    app_version: str
+    count: int
+
+
+class WithdrawalDashboardUsagePeriodDTO(CustomBaseModel):
+    usage_period: WithdrawalUsagePeriodEnum
+    count: int
+
+
+class WithdrawalDashboardSessionRangeDTO(CustomBaseModel):
+    session_range: WithdrawalSessionRangeEnum
+    count: int
+
+
+class WithdrawalDashboardParrotsDTO(CustomBaseModel):
+    registered_count: int
+    unregistered_count: int
+
+
+class WithdrawalDashboardErrorDTO(CustomBaseModel):
+    error_code: str
+    count: int
+
+
+class WithdrawalDashboardDTO(CustomBaseModel):
+    withdrawals: WithdrawalDashboardWithdrawalsDTO
+    signup_count: int
+    daily: list[DashboardDailyCountDTO]
+    accounts: WithdrawalDashboardAccountsDTO
+    platforms: list[WithdrawalDashboardPlatformDTO]
+    app_versions: list[WithdrawalDashboardAppVersionDTO]
+    usage_periods: list[WithdrawalDashboardUsagePeriodDTO]
+    session_ranges: list[WithdrawalDashboardSessionRangeDTO]
+    parrots: WithdrawalDashboardParrotsDTO
+    errors: list[WithdrawalDashboardErrorDTO]
+
+
+class WithdrawalDashboardResponse(BaseResponse):
+    data: WithdrawalDashboardDTO
 
 
 class DashboardParams(BaseRequest):

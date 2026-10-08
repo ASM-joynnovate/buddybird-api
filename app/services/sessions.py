@@ -64,6 +64,12 @@ LATEST_JUDGED_WORD_ID = (
     .limit(1)
     .scalar_subquery()
 )
+SESSION_COUNT = (
+    select(func.count())
+    .select_from(Session)
+    .where(Session.user_id == User.id, Session.is_deleted.is_(False))
+    .scalar_subquery()
+)
 
 
 def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum) -> SessionDTO:

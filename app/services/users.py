@@ -60,6 +60,7 @@ from app.schemas.users import (
     UserDTO,
 )
 from app.services import devices
+from app.services.sessions import SESSION_COUNT
 from app.services.settings import build_settings_dto
 from app.services.withdrawals import build_backoffice_withdrawal_dto
 
@@ -336,12 +337,6 @@ async def get_backoffice_list(
     total = await db.scalar(stmt)
 
     session_end = func.coalesce(Session.ended_at, now)
-    session_count = (
-        select(func.count())
-        .select_from(Session)
-        .where(Session.user_id == User.id, Session.is_deleted.is_(False))
-        .scalar_subquery()
-    )
     order_by = [User.created_at.desc()]
 
     if query.sort == UserSortEnum.RECENT_DURATION:
@@ -352,7 +347,7 @@ async def get_backoffice_list(
         )
         order_by = [recent_duration.desc().nulls_last(), User.created_at.desc()]
     elif query.sort == UserSortEnum.SESSION_COUNT:
-        order_by = [session_count.desc(), User.created_at.desc()]
+        order_by = [SESSION_COUNT.desc(), User.created_at.desc()]
 
     days = (
         func.generate_series(recent_start, recent_start + timedelta(days=13), timedelta(days=1))
@@ -386,30 +381,11 @@ async def get_backoffice_list(
         .where(Parrot.user_id == User.id, Parrot.is_deleted.is_(False))
         .scalar_subquery()
     )
-    device_count = (
-        select(func.count())
-        .select_from(Device)
-        .where(Device.user_id == User.id, Device.is_deleted.is_(False))
-        .scalar_subquery()
-    )
 
     first_parrot = (
         select(Parrot.name, Parrot.species, Parrot.photo_file_id)
         .where(Parrot.user_id == User.id, Parrot.is_deleted.is_(False))
         .order_by(Parrot.created_at)
-        .limit(1)
-        .lateral()
-    )
-    last_seen_device = (
-        select(
-            Device.platform,
-            Device.app_version,
-            Device.last_seen_at,
-            func.coalesce(devices.VERSION_UNSUPPORTED, false()).label("is_unsupported"),
-        )
-        .outerjoin(devices.LATEST_APP_UPDATE, devices.LATEST_APP_UPDATE.c.platform == Device.platform)
-        .where(Device.user_id == User.id, Device.is_deleted.is_(False))
-        .order_by(Device.last_seen_at.desc().nulls_last())
         .limit(1)
         .lateral()
     )
@@ -425,12 +401,12 @@ async def get_backoffice_list(
             parrot_count.label("parrot_count"),
             running_session.id.label("running_session_id"),
             running_session.current_phase,
-            last_seen_device.c.platform,
-            last_seen_device.c.app_version,
-            last_seen_device.c.last_seen_at,
-            last_seen_device.c.is_unsupported,
-            device_count.label("device_count"),
-            session_count.label("session_count"),
+            devices.LAST_SEEN_DEVICE.c.platform,
+            devices.LAST_SEEN_DEVICE.c.app_version,
+            devices.LAST_SEEN_DEVICE.c.last_seen_at,
+            devices.LAST_SEEN_DEVICE.c.is_unsupported,
+            devices.DEVICE_COUNT.label("device_count"),
+            SESSION_COUNT.label("session_count"),
             daily_durations.label("daily_durations"),
         )
         .select_from(User)
@@ -445,7 +421,7 @@ async def get_backoffice_list(
                 running_session.is_deleted.is_(False),
             ),
         )
-        .outerjoin(last_seen_device, true())
+        .outerjoin(devices.LAST_SEEN_DEVICE, true())
         .where(*conditions)
         .order_by(*order_by)
         .offset((query.page - 1) * query.count_by_page)

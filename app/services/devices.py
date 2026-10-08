@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import ARRAY, BigInteger, and_, case, cast, func, select
+from sqlalchemy import ARRAY, BigInteger, and_, case, cast, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
@@ -33,6 +33,25 @@ VERSION_UNSUPPORTED = case(
         cast(func.string_to_array(Device.app_version, "."), ARRAY(BigInteger))
         < cast(func.string_to_array(LATEST_APP_UPDATE.c.min_supported_version, "."), ARRAY(BigInteger)),
     )
+)
+DEVICE_COUNT = (
+    select(func.count())
+    .select_from(Device)
+    .where(Device.user_id == User.id, Device.is_deleted.is_(False))
+    .scalar_subquery()
+)
+LAST_SEEN_DEVICE = (
+    select(
+        Device.platform,
+        Device.app_version,
+        Device.last_seen_at,
+        func.coalesce(VERSION_UNSUPPORTED, false()).label("is_unsupported"),
+    )
+    .outerjoin(LATEST_APP_UPDATE, LATEST_APP_UPDATE.c.platform == Device.platform)
+    .where(Device.user_id == User.id, Device.is_deleted.is_(False))
+    .order_by(Device.last_seen_at.desc().nulls_last())
+    .limit(1)
+    .lateral()
 )
 
 

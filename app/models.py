@@ -149,6 +149,14 @@ class UserWithdrawal(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class UserWithdrawalFailure(Base):
+    __tablename__ = "user_withdrawal_failures"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    error_code: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class UserSetting(Base):
     __tablename__ = "user_settings"
 
