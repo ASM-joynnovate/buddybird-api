@@ -18,14 +18,20 @@ from app.schemas.devices import (
 )
 
 VERSION_PATTERN = r"^[0-9]+(\.[0-9]+)*$"
+LATEST_APP_UPDATE = (
+    select(AppUpdate.platform, AppUpdate.min_supported_version)
+    .distinct(AppUpdate.platform)
+    .order_by(AppUpdate.platform, AppUpdate.created_at.desc())
+    .subquery()
+)
 VERSION_UNSUPPORTED = case(
     (
         and_(
             Device.app_version.regexp_match(VERSION_PATTERN),
-            AppUpdate.min_supported_version.regexp_match(VERSION_PATTERN),
+            LATEST_APP_UPDATE.c.min_supported_version.regexp_match(VERSION_PATTERN),
         ),
         cast(func.string_to_array(Device.app_version, "."), ARRAY(BigInteger))
-        < cast(func.string_to_array(AppUpdate.min_supported_version, "."), ARRAY(BigInteger)),
+        < cast(func.string_to_array(LATEST_APP_UPDATE.c.min_supported_version, "."), ARRAY(BigInteger)),
     )
 )
 

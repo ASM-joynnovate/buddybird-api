@@ -32,7 +32,6 @@ from app.errors import (
     UserSaveUnavailableError,
 )
 from app.models import (
-    AppUpdate,
     Device,
     File,
     Parrot,
@@ -313,7 +312,7 @@ async def get_backoffice_list(
     if query.has_unsupported_device is not None:
         has_unsupported_device = exists(
             select(Device.id)
-            .join(AppUpdate, AppUpdate.platform == Device.platform)
+            .join(devices.LATEST_APP_UPDATE, devices.LATEST_APP_UPDATE.c.platform == Device.platform)
             .where(Device.user_id == User.id, Device.is_deleted.is_(False), devices.VERSION_UNSUPPORTED)
         )
 
@@ -408,7 +407,7 @@ async def get_backoffice_list(
             Device.last_seen_at,
             func.coalesce(devices.VERSION_UNSUPPORTED, false()).label("is_unsupported"),
         )
-        .outerjoin(AppUpdate, AppUpdate.platform == Device.platform)
+        .outerjoin(devices.LATEST_APP_UPDATE, devices.LATEST_APP_UPDATE.c.platform == Device.platform)
         .where(Device.user_id == User.id, Device.is_deleted.is_(False))
         .order_by(Device.last_seen_at.desc().nulls_last())
         .limit(1)

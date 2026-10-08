@@ -18,7 +18,6 @@ from app.enums import (
 from app.models import (
     Announcement,
     AnnouncementRead,
-    AppUpdate,
     Device,
     Feedback,
     I18n,
@@ -72,7 +71,7 @@ from app.schemas.dashboard import (
     UserDashboardUsersDTO,
     UserDashboardWithdrawalsDTO,
 )
-from app.services.devices import VERSION_UNSUPPORTED
+from app.services.devices import LATEST_APP_UPDATE, VERSION_UNSUPPORTED
 from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
 
 
@@ -239,7 +238,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
         select(func.count())
         .select_from(Device)
         .join(User, User.id == Device.user_id)
-        .join(AppUpdate, AppUpdate.platform == Device.platform)
+        .join(LATEST_APP_UPDATE, LATEST_APP_UPDATE.c.platform == Device.platform)
         .where(VERSION_UNSUPPORTED)
     )
     unsupported_device_count = await db.scalar(stmt)

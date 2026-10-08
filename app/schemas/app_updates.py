@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import ClassVar
 
 from pydantic import Field
@@ -37,6 +38,14 @@ class BackofficeAppUpdateDTO(CustomBaseModel):
 
 class BackofficeAppUpdateResponse(BaseResponse):
     data: BackofficeAppUpdateDTO
+
+
+class BackofficeAppUpdateHistoryDTO(BackofficeAppUpdateDTO):
+    created_at: datetime
+
+
+class BackofficeAppUpdateHistoryListResponse(BaseResponse):
+    data: list[BackofficeAppUpdateHistoryDTO]
 
 
 class SaveAppUpdateLatestRequest(BaseRequest):
