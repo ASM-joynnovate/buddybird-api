@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.5.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.4.0...v2.5.0) (2026-10-08)
+
+
+### Features
+
+* **app-updates:** keep update history ([#104](https://github.com/ASM-joynnovate/buddybird-api/issues/104)) ([514ffba](https://github.com/ASM-joynnovate/buddybird-api/commit/514ffba77331804616401a4e15fc57a84e013c49))
+* **backoffice:** add announcement tab APIs ([#107](https://github.com/ASM-joynnovate/buddybird-api/issues/107)) ([711c9f8](https://github.com/ASM-joynnovate/buddybird-api/commit/711c9f879c7708bfb439dba011c8916cbe642d8d))
+* **backoffice:** add withdrawal tab APIs ([#106](https://github.com/ASM-joynnovate/buddybird-api/issues/106)) ([46b5066](https://github.com/ASM-joynnovate/buddybird-api/commit/46b5066964afefc61ac6dd7dab20d7d6e2cfb077))
+
 ## [2.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.3.0...v2.4.0) (2026-10-08)
 
 
