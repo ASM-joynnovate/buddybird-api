@@ -1,30 +1,56 @@
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, true, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app import sqs
 from app.config import config
 from app.db import session_factory, transactional
-from app.enums import OAuthProviderEnum, WithdrawalStatusEnum
+from app.enums import (
+    OAuthProviderEnum,
+    WithdrawalProgressEnum,
+    WithdrawalStatusEnum,
+    WithdrawalStepEnum,
+    WithdrawalStepStatusEnum,
+)
 from app.errors import AuthenticationError, WithdrawalOperationError, WithdrawalSaveUnavailableError
-from app.models import File, User, UserOAuthCredential, UserWithdrawal
+from app.models import (
+    Feedback,
+    File,
+    Session,
+    User,
+    UserOAuthCredential,
+    UserWithdrawal,
+    UserWithdrawalFailure,
+)
 from app.oauth.apple import revoke_apple
 from app.oauth.base import SocialIdentity, decrypt_credentials, encrypt_credentials
 from app.oauth.google import revoke_google
 from app.oauth.kakao import unlink_kakao
 from app.oauth.supabase import delete_supabase_user, get_admin_social_identities, get_social_identities
+from app.s3 import S3StorageClient
+from app.schemas.base import FileDTO
 from app.schemas.withdrawals import (
+    BackofficeWithdrawalDeviceDTO,
     BackofficeWithdrawalDTO,
+    BackofficeWithdrawalListItemDTO,
     BackofficeWithdrawalListParams,
     BackofficeWithdrawalProviderDTO,
+    BackofficeWithdrawalStepDTO,
+    BackofficeWithdrawalUserDTO,
     WithdrawalDTO,
 )
+from app.services.devices import DEVICE_COUNT, LAST_SEEN_DEVICE
+from app.services.sessions import SESSION_COUNT
 
 logger = logging.getLogger(__name__)
+
+SEOUL = ZoneInfo("Asia/Seoul")
 
 
 def build_backoffice_withdrawal_dto(withdrawal: UserWithdrawal) -> BackofficeWithdrawalDTO:
@@ -43,8 +69,8 @@ def build_backoffice_withdrawal_dto(withdrawal: UserWithdrawal) -> BackofficeWit
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, query: BackofficeWithdrawalListParams
-) -> tuple[list[BackofficeWithdrawalDTO], int]:
+    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeWithdrawalListParams
+) -> tuple[list[BackofficeWithdrawalListItemDTO], int]:
     stmt = select(UserWithdrawal)
 
     if query.is_completed is True:
@@ -52,16 +78,128 @@ async def get_backoffice_list(
     elif query.is_completed is False:
         stmt = stmt.where(UserWithdrawal.completed_at.is_(None))
 
-    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
-    withdrawals = (
-        await db.scalars(
-            stmt.order_by(UserWithdrawal.created_at.desc())
-            .offset((query.page - 1) * query.count_by_page)
-            .limit(query.count_by_page)
-        )
-    ).all()
+    if query.created_from is not None:
+        stmt = stmt.where(UserWithdrawal.created_at >= datetime.combine(query.created_from, time(0), tzinfo=SEOUL))
 
-    return [build_backoffice_withdrawal_dto(withdrawal) for withdrawal in withdrawals], total
+    if query.created_to is not None:
+        stmt = stmt.where(
+            UserWithdrawal.created_at < datetime.combine(query.created_to + timedelta(days=1), time(0), tzinfo=SEOUL)
+        )
+
+    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+
+    last_session_started_at = (
+        select(func.max(Session.started_at))
+        .where(Session.user_id == User.id, Session.is_deleted.is_(False))
+        .scalar_subquery()
+    )
+    feedback_count = select(func.count()).select_from(Feedback).where(Feedback.user_id == User.id).scalar_subquery()
+    last_feedback_message = (
+        select(Feedback.message)
+        .where(Feedback.user_id == User.id)
+        .order_by(Feedback.created_at.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+    stmt = (
+        stmt.add_columns(
+            User,
+            SESSION_COUNT.label("session_count"),
+            last_session_started_at.label("last_session_started_at"),
+            LAST_SEEN_DEVICE.c.platform,
+            LAST_SEEN_DEVICE.c.app_version,
+            LAST_SEEN_DEVICE.c.last_seen_at,
+            LAST_SEEN_DEVICE.c.is_unsupported,
+            DEVICE_COUNT.label("device_count"),
+            feedback_count.label("feedback_count"),
+            last_feedback_message.label("last_feedback_message"),
+        )
+        .join(User, User.id == UserWithdrawal.user_id)
+        .options(joinedload(User.photo_file))
+        .outerjoin(LAST_SEEN_DEVICE, true())
+        .order_by(UserWithdrawal.created_at.desc())
+        .offset((query.page - 1) * query.count_by_page)
+        .limit(query.count_by_page)
+        .execution_options(include_deleted=True)
+    )
+    rows = (await db.execute(stmt)).all()
+    items = []
+
+    for row in rows:
+        withdrawal = row.UserWithdrawal
+        photo = None
+
+        if row.User.photo_file is not None:
+            photo = FileDTO(
+                url=storage.generate_presigned_url(path=row.User.photo_file.object_key),
+                status=row.User.photo_file.status,
+            )
+
+        status = WithdrawalProgressEnum.STOPPED
+
+        if withdrawal.completed_at is not None:
+            status = WithdrawalProgressEnum.COMPLETED
+        elif withdrawal.last_error_code is None:
+            status = WithdrawalProgressEnum.RUNNING
+        elif withdrawal.next_attempt_at is not None:
+            status = WithdrawalProgressEnum.RETRYING
+
+        step_statuses = {
+            WithdrawalStepEnum.APPLE: withdrawal.apple_status,
+            WithdrawalStepEnum.GOOGLE: withdrawal.google_status,
+            WithdrawalStepEnum.KAKAO: withdrawal.kakao_status,
+            WithdrawalStepEnum.ACCOUNT: WithdrawalStatusEnum.COMPLETED.value
+            if withdrawal.completed_at is not None
+            else WithdrawalStatusEnum.PENDING.value,
+        }
+        pending_status = (
+            WithdrawalStepStatusEnum.FAILED
+            if withdrawal.last_error_code is not None
+            else WithdrawalStepStatusEnum.RUNNING
+        )
+        steps = []
+
+        for step, step_status in step_statuses.items():
+            if step_status == WithdrawalStatusEnum.NOT_REQUIRED.value:
+                continue
+
+            if step_status == WithdrawalStatusEnum.PENDING.value:
+                steps.append(BackofficeWithdrawalStepDTO(step=step, status=pending_status))
+
+                pending_status = WithdrawalStepStatusEnum.WAITING
+            else:
+                steps.append(BackofficeWithdrawalStepDTO(step=step, status=step_status))
+
+        items.append(
+            BackofficeWithdrawalListItemDTO(
+                **build_backoffice_withdrawal_dto(withdrawal).model_dump(),
+                status=status,
+                steps=steps,
+                user=BackofficeWithdrawalUserDTO(
+                    nickname=row.User.nickname,
+                    email=row.User.email,
+                    is_anonymous=row.User.is_anonymous,
+                    photo_file=photo,
+                    created_at=row.User.created_at,
+                    session_count=row.session_count,
+                    last_session_started_at=row.last_session_started_at,
+                    last_seen_device=BackofficeWithdrawalDeviceDTO(
+                        platform=row.platform,
+                        app_version=row.app_version,
+                        is_unsupported=row.is_unsupported,
+                        last_seen_at=row.last_seen_at,
+                    )
+                    if row.platform is not None
+                    else None,
+                    device_count=row.device_count,
+                    feedback_count=row.feedback_count,
+                    last_feedback_message=row.last_feedback_message,
+                ),
+            )
+        )
+
+    return items, total
 
 
 async def request_withdrawal(*, db: AsyncSession, auth_user_id: UUID, access_token: str) -> WithdrawalDTO:
@@ -239,7 +377,7 @@ async def process_withdrawal_step(*, withdrawal: UserWithdrawal, user: User, db:
     withdrawal.next_attempt_at = None
 
 
-def record_failure(withdrawal: UserWithdrawal, error: WithdrawalOperationError) -> None:
+def record_failure(*, db: AsyncSession, withdrawal: UserWithdrawal, error: WithdrawalOperationError) -> None:
     withdrawal.attempt_count += 1
     withdrawal.last_error_code = error.error_code
     withdrawal.next_attempt_at = (
@@ -247,6 +385,8 @@ def record_failure(withdrawal: UserWithdrawal, error: WithdrawalOperationError) 
         if error.retryable
         else None
     )
+
+    db.add(UserWithdrawalFailure(user_id=withdrawal.user_id, error_code=error.error_code))
 
 
 async def process_user_withdrawal(user_id: UUID) -> None:
@@ -283,7 +423,7 @@ async def process_user_withdrawal(user_id: UUID) -> None:
                 try:
                     await process_withdrawal_step(withdrawal=withdrawal, user=user, db=db)
                 except WithdrawalOperationError as exc:
-                    record_failure(withdrawal, exc)
+                    record_failure(db=db, withdrawal=withdrawal, error=exc)
 
                     return
 
@@ -313,7 +453,7 @@ async def process_user_withdrawal(user_id: UUID) -> None:
                     )
 
                     if recordable:
-                        record_failure(withdrawal, error)
+                        record_failure(db=db, withdrawal=withdrawal, error=error)
             except Exception:
                 logger.exception("탈퇴 처리 오류 기록 실패")
 

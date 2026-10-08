@@ -12,6 +12,7 @@ from app.schemas.base import (
     I18nBodyRequest,
     I18nDTO,
     I18nTitleRequest,
+    PageParams,
     UpdateI18nBodyRequest,
     UpdateI18nTitleRequest,
 )
@@ -60,8 +61,12 @@ class BackofficeAnnouncementResponse(BaseResponse):
     data: BackofficeAnnouncementDTO
 
 
+class BackofficeAnnouncementListItemDTO(BackofficeAnnouncementDTO):
+    read_count: int
+
+
 class BackofficeAnnouncementListResponse(BaseResponse):
-    data: list[BackofficeAnnouncementDTO]
+    data: list[BackofficeAnnouncementListItemDTO]
 
 
 class CreateAnnouncementRequest(BaseRequest):
@@ -83,9 +88,15 @@ class CreateAnnouncementRequest(BaseRequest):
 
 
 class UpdateAnnouncementRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"body", "ends_at"}
+    null_fields: ClassVar[set] = {"body", "ends_at", "push_local_time"}
 
     title: UpdateI18nTitleRequest | MISSING = MISSING
     body: UpdateI18nBodyRequest | MISSING | None = MISSING
     starts_at: AwareDatetime | MISSING = MISSING
     ends_at: AwareDatetime | MISSING | None = MISSING
+    push_enabled: bool | MISSING = MISSING
+    push_local_time: time | MISSING | None = MISSING
+
+
+class BackofficeAnnouncementListParams(PageParams):
+    is_ended: bool | None = None

@@ -41,6 +41,15 @@ class SessionActorEnum(StrEnum):
     SERVER = "server"
 
 
+class SessionEndReasonEnum(StrEnum):
+    USER = "user"
+    SCHEDULED = "scheduled"
+    HEARTBEAT_EXPIRED = "heartbeat_expired"
+    LOGOUT = "logout"
+    DEVICE_DELETED = "device_deleted"
+    DEVICE_RELEASED = "device_released"
+
+
 class NotificationKindEnum(StrEnum):
     ANNOUNCEMENT = "announcement"
     URGENT = "urgent"
@@ -71,6 +80,12 @@ class JudgmentStatusEnum(StrEnum):
     DONE = "done"
 
 
+class SoundJudgmentStatusEnum(StrEnum):
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
 class LocaleEnum(StrEnum):
     KO_KR = "ko-KR"
     EN_US = "en-US"
@@ -85,3 +100,58 @@ class ReportPeriodEnum(StrEnum):
     DAY = "day"
     WEEK = "week"
     MONTH = "month"
+
+
+class UserLastSessionEnum(StrEnum):
+    TODAY = "today"
+    WITHIN_7_DAYS = "within_7_days"
+    WITHIN_30_DAYS = "within_30_days"
+    OVER_30_DAYS = "over_30_days"
+    NONE = "none"
+
+
+class UserIssueEnum(StrEnum):
+    HEARTBEAT_EXPIRED = "heartbeat_expired"
+    EMERGENCY_DETECTED = "emergency_detected"
+    WITHDRAWAL_FAILED = "withdrawal_failed"
+
+
+class UserSortEnum(StrEnum):
+    CREATED_AT = "created_at"
+    RECENT_DURATION = "recent_duration"
+    SESSION_COUNT = "session_count"
+
+
+class WithdrawalProgressEnum(StrEnum):
+    RUNNING = "running"
+    RETRYING = "retrying"
+    STOPPED = "stopped"
+    COMPLETED = "completed"
+
+
+class WithdrawalStepEnum(StrEnum):
+    APPLE = "apple"
+    GOOGLE = "google"
+    KAKAO = "kakao"
+    ACCOUNT = "account"
+
+
+class WithdrawalStepStatusEnum(StrEnum):
+    WAITING = "waiting"
+    RUNNING = "running"
+    FAILED = "failed"
+    COMPLETED = "completed"
+    UNCONFIRMED = "unconfirmed"
+
+
+class WithdrawalUsagePeriodEnum(StrEnum):
+    SAME_DAY = "same_day"
+    WITHIN_7_DAYS = "within_7_days"
+    WITHIN_30_DAYS = "within_30_days"
+    OVER_30_DAYS = "over_30_days"
+
+
+class WithdrawalSessionRangeEnum(StrEnum):
+    NONE = "none"
+    ONE_TO_FOUR = "one_to_four"
+    FIVE_OR_MORE = "five_or_more"

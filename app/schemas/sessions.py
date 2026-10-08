@@ -1,10 +1,17 @@
 from datetime import datetime
-from typing import ClassVar
+from typing import ClassVar, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, Field
 
-from app.enums import JudgmentStatusEnum, SessionActorEnum, SessionEventKindEnum, SessionPhaseEnum, SessionStatusEnum
+from app.enums import (
+    JudgmentStatusEnum,
+    SessionActorEnum,
+    SessionEndReasonEnum,
+    SessionEventKindEnum,
+    SessionPhaseEnum,
+    SessionStatusEnum,
+)
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams, UploadRequest
 from app.schemas.settings import SleepSettingsDTO, UpdateSleepSettingsRequest
 
@@ -63,6 +70,41 @@ class SessionListResponse(BaseResponse):
     data: list[SessionDTO]
 
 
+class BackofficeSessionWordDTO(CustomBaseModel):
+    id: UUID
+    name: str
+
+
+class BackofficeSessionPeriodDTO(SessionPeriodDTO):
+    allow_null_fields: ClassVar[set] = {"ended_at", "ended_by", "ended_reason"}
+
+    ended_reason: SessionEndReasonEnum | None
+
+
+class BackofficeSessionSoundsDTO(CustomBaseModel):
+    parrot_count: int
+    mimicry_count: int
+
+
+class BackofficeSessionDisconnectionDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"ended_at"}
+
+    started_at: datetime
+    ended_at: datetime | None
+
+
+class BackofficeSessionDTO(SessionDTO):
+    word: BackofficeSessionWordDTO
+    period: BackofficeSessionPeriodDTO
+    sounds: BackofficeSessionSoundsDTO
+    disconnections: list[BackofficeSessionDisconnectionDTO]
+    emergency_detections: list[datetime]
+
+
+class BackofficeSessionListResponse(BaseResponse):
+    data: list[BackofficeSessionDTO]
+
+
 class StartSessionRequest(BaseRequest):
     null_fields: ClassVar[set] = {"ends_at", "sleep"}
 
@@ -108,7 +150,16 @@ class HeartbeatResponse(BaseResponse):
 class SessionEventRequest(BaseRequest):
     null_fields: ClassVar[set] = {"word_id"}
 
-    kind: SessionEventKindEnum
+    kind: Literal[
+        SessionEventKindEnum.SESSION_STARTED,
+        SessionEventKindEnum.LEARNING_STARTED,
+        SessionEventKindEnum.LEARNING_TOGGLED,
+        SessionEventKindEnum.LEARNING_FINISHED,
+        SessionEventKindEnum.WORD_CHANGED,
+        SessionEventKindEnum.STATION_DISCONNECTED,
+        SessionEventKindEnum.STATION_RECONNECTED,
+        SessionEventKindEnum.SESSION_FINISHED,
+    ]
     occurred_at: datetime
     word_id: UUID | None = None
 
@@ -132,6 +183,17 @@ class SessionEventDTO(CustomBaseModel):
 
 class SessionEventListResponse(BaseResponse):
     data: list[SessionEventDTO]
+
+
+class BackofficeSessionEventDTO(SessionEventDTO):
+    allow_null_fields: ClassVar[set] = {"word", "is_learning"}
+
+    word: BackofficeSessionWordDTO | None
+    is_learning: bool | None
+
+
+class BackofficeSessionEventListResponse(BaseResponse):
+    data: list[BackofficeSessionEventDTO]
 
 
 class SessionSoundJudgmentDTO(CustomBaseModel):
@@ -160,6 +222,15 @@ class SessionSoundListParams(PageParams):
 
 class SessionSoundListResponse(BaseResponse):
     data: list[SessionSoundDTO]
+
+
+class BackofficeSessionSoundDTO(CustomBaseModel):
+    captured_at: datetime
+    is_mimicry: bool
+
+
+class BackofficeSessionSoundListResponse(BaseResponse):
+    data: list[BackofficeSessionSoundDTO]
 
 
 class ActiveDurationDTO(CustomBaseModel):

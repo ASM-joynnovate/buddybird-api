@@ -50,8 +50,6 @@ class Settings(BaseSettings):
 
     FCM_SERVICE_ACCOUNT_JSON: SecretStr | None = None
 
-    MARKETING_CONTACT: str
-
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str | None = None
     S3_SECRET_KEY: str | None = None
@@ -64,6 +62,7 @@ class Settings(BaseSettings):
     SQS_WITHDRAWAL_QUEUE_URL: str
     SQS_PERIODIC_COMMAND_QUEUE_URL: str
     SQS_PARROT_SOUND_DETECTION_QUEUE_URL: str
+    SQS_PARROT_SOUND_DETECTION_DLQ_URL: str
     SQS_JUDGMENT_RESULT_QUEUE_URL: str
 
     FRONTEND_CORS_ORIGIN: list[str] = Field(
