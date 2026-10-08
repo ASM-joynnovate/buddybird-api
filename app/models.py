@@ -450,6 +450,21 @@ class SessionEventSound(Base):
     sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)
 
 
+class NotificationDispatch(Base):
+    __tablename__ = "notification_dispatches"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    title_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    body_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    image_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    image_file: Mapped[File | None] = relationship(lazy="selectin")
+    target: Mapped[str] = mapped_column(Text, nullable=False)
+    recipient_local_datetime: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
+    body_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
+
+
 class Notification(Base):
     __tablename__ = "notifications"
     __table_args__ = (
@@ -459,6 +474,9 @@ class Notification(Base):
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    dispatch_id: Mapped[UUID | None] = mapped_column(
+        SQL_UUID, ForeignKey(NotificationDispatch.id), index=True, nullable=True
+    )
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     title_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)

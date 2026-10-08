@@ -8,6 +8,7 @@ from app.schemas.dashboard import (
     DashboardParams,
     DashboardResponse,
     FeedbackDashboardResponse,
+    NotificationDashboardResponse,
     UserDashboardResponse,
     WithdrawalDashboardResponse,
 )
@@ -57,4 +58,14 @@ async def get_withdrawal_dashboard(
     return WithdrawalDashboardResponse(
         message="탈퇴 대시보드 조회 성공",
         data=await dashboard.get_withdrawal_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/notifications", name="알림 대시보드 조회")
+async def get_notification_dashboard(
+    query: Annotated[DashboardParams, Query()], db: DBSession
+) -> NotificationDashboardResponse:
+    return NotificationDashboardResponse(
+        message="알림 대시보드 조회 성공",
+        data=await dashboard.get_notification_dashboard(db=db, query=query),
     )

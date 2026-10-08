@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Query
 
@@ -7,6 +8,12 @@ from app.dependencies import DBSession, Storage
 from app.models import User
 from app.schemas.base import UploadRequest, UploadResponse
 from app.schemas.notifications import (
+    BackofficeNotificationAudienceParams,
+    BackofficeNotificationAudienceResponse,
+    BackofficeNotificationDispatchCancelResponse,
+    BackofficeNotificationDispatchDetailResponse,
+    BackofficeNotificationDispatchListParams,
+    BackofficeNotificationDispatchListResponse,
     BackofficeNotificationListParams,
     BackofficeNotificationListResponse,
     BackofficePushDeliveryListParams,
@@ -30,7 +37,40 @@ async def get_list(
     return BackofficeNotificationListResponse(
         message="알림 발송 이력 조회 성공",
         data=items,
-        meta=query.meta(total),
+        meta={**query.meta(total), "total_count": total},
+    )
+
+
+@router.get("/dispatches", name="발송 목록 조회")
+async def get_dispatches(
+    query: Annotated[BackofficeNotificationDispatchListParams, Query()], db: DBSession, storage: Storage
+) -> BackofficeNotificationDispatchListResponse:
+    items, total = await notifications.get_backoffice_dispatches(db=db, storage=storage, query=query)
+
+    return BackofficeNotificationDispatchListResponse(
+        message="발송 목록 조회 성공",
+        data=items,
+        meta={**query.meta(total), "total_count": total},
+    )
+
+
+@router.get("/dispatches/{dispatch_id}", name="발송 상세 조회")
+async def get_dispatch(
+    dispatch_id: UUID, db: DBSession, storage: Storage
+) -> BackofficeNotificationDispatchDetailResponse:
+    return BackofficeNotificationDispatchDetailResponse(
+        message="발송 상세 조회 성공",
+        data=await notifications.get_backoffice_dispatch(db=db, storage=storage, dispatch_id=dispatch_id),
+    )
+
+
+@router.get("/audience", name="받는 사람 수 조회")
+async def get_audience(
+    query: Annotated[BackofficeNotificationAudienceParams, Query()], db: DBSession
+) -> BackofficeNotificationAudienceResponse:
+    return BackofficeNotificationAudienceResponse(
+        message="받는 사람 수 조회 성공",
+        data=await notifications.get_backoffice_audience(db=db, query=query),
     )
 
 
@@ -62,6 +102,14 @@ async def send(body: SendNotificationRequest, db: DBSession, storage: Storage) -
 async def broadcast(body: BroadcastNotificationRequest, db: DBSession) -> BroadcastNotificationResponse:
     return BroadcastNotificationResponse(
         message="알림 일괄 발송 성공", data=await notifications.broadcast(db=db, data=body)
+    )
+
+
+@router.post("/dispatches/{dispatch_id}/cancel", name="발송 예약 취소")
+async def cancel_dispatch(dispatch_id: UUID, db: DBSession) -> BackofficeNotificationDispatchCancelResponse:
+    return BackofficeNotificationDispatchCancelResponse(
+        message="발송 예약 취소 성공",
+        data=await notifications.cancel_dispatch(db=db, dispatch_id=dispatch_id),
     )
 
 

@@ -92,7 +92,10 @@ LAST_SESSION = case(
 )
 PUSHABLE = and_(
     func.coalesce(
-        select(UserSetting.push_notification_enabled).where(UserSetting.user_id == User.id).scalar_subquery(),
+        select(UserSetting.push_notification_enabled)
+        .where(UserSetting.user_id == User.id)
+        .correlate(User)
+        .scalar_subquery(),
         true(),
     ),
     exists().where(Device.user_id == User.id, Device.push_token.is_not(None), Device.is_deleted.is_(False)),
@@ -271,6 +274,9 @@ async def get_backoffice_list(
     recent_start = datetime.combine(dates[0], time(0), tzinfo=SEOUL)
     conditions = []
 
+    if query.user_ids is not None:
+        conditions.append(User.id.in_(query.user_ids))
+
     if query.keyword is not None:
         conditions.append(
             or_(
@@ -322,12 +328,16 @@ async def get_backoffice_list(
     if query.is_pushable is not None:
         conditions.append(PUSHABLE if query.is_pushable else not_(PUSHABLE))
 
-    if query.is_marketing_enabled is not None:
-        is_marketing_enabled = func.coalesce(
-            select(UserSetting.marketing_notification_enabled).where(UserSetting.user_id == User.id).scalar_subquery(),
-            false(),
-        )
+    is_announcement_enabled = func.coalesce(
+        select(UserSetting.announcement_notification_enabled).where(UserSetting.user_id == User.id).scalar_subquery(),
+        true(),
+    )
+    is_marketing_enabled = func.coalesce(
+        select(UserSetting.marketing_notification_enabled).where(UserSetting.user_id == User.id).scalar_subquery(),
+        false(),
+    )
 
+    if query.is_marketing_enabled is not None:
         conditions.append(is_marketing_enabled if query.is_marketing_enabled else not_(is_marketing_enabled))
 
     if query.issue is not None:
@@ -408,6 +418,9 @@ async def get_backoffice_list(
             devices.DEVICE_COUNT.label("device_count"),
             SESSION_COUNT.label("session_count"),
             daily_durations.label("daily_durations"),
+            PUSHABLE.label("is_pushable"),
+            is_announcement_enabled.label("is_announcement_enabled"),
+            is_marketing_enabled.label("is_marketing_enabled"),
         )
         .select_from(User)
         .options(joinedload(User.photo_file))
@@ -476,6 +489,9 @@ async def get_backoffice_list(
                     BackofficeUserDailyDurationDTO(date=date, duration_ms=duration // timedelta(milliseconds=1))
                     for date, duration in zip(dates, row.daily_durations, strict=True)
                 ],
+                is_pushable=row.is_pushable,
+                is_announcement_enabled=row.is_announcement_enabled,
+                is_marketing_enabled=row.is_marketing_enabled,
             )
         )
 
