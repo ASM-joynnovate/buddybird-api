@@ -21,6 +21,8 @@ from app.schemas.announcements import (
     AnnouncementDTO,
     AnnouncementImageDTO,
     BackofficeAnnouncementDTO,
+    BackofficeAnnouncementListItemDTO,
+    BackofficeAnnouncementListParams,
     CreateAnnouncementRequest,
     UpdateAnnouncementRequest,
 )
@@ -103,19 +105,41 @@ async def get_detail(
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: PageParams
-) -> tuple[list[BackofficeAnnouncementDTO], int]:
+    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeAnnouncementListParams
+) -> tuple[list[BackofficeAnnouncementListItemDTO], int, int]:
+    now = datetime.now(UTC)
     stmt = select(Announcement)
-    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
-    announcements = (
-        await db.scalars(
-            stmt.order_by(Announcement.starts_at.desc())
-            .offset((query.page - 1) * query.count_by_page)
-            .limit(query.count_by_page)
-        )
-    ).all()
 
-    return [build_backoffice_announcement_dto(announcement, storage) for announcement in announcements], total
+    if query.is_ended is True:
+        stmt = stmt.where(Announcement.ends_at <= now)
+    elif query.is_ended is False:
+        stmt = stmt.where(or_(Announcement.ends_at.is_(None), Announcement.ends_at > now))
+
+    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+
+    stmt = (
+        stmt.add_columns(func.count(User.id).label("read_count"))
+        .outerjoin(AnnouncementRead, AnnouncementRead.announcement_id == Announcement.id)
+        .outerjoin(User, User.id == AnnouncementRead.user_id)
+        .group_by(Announcement.id)
+        .order_by(Announcement.starts_at.desc())
+        .offset((query.page - 1) * query.count_by_page)
+        .limit(query.count_by_page)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    stmt = select(func.count()).select_from(User)
+    user_count = await db.scalar(stmt)
+
+    items = [
+        BackofficeAnnouncementListItemDTO(
+            **build_backoffice_announcement_dto(announcement, storage).model_dump(),
+            read_count=read_count,
+        )
+        for announcement, read_count in rows
+    ]
+
+    return items, total, user_count
 
 
 @transactional(unavailable_error=AnnouncementSaveUnavailableError)
