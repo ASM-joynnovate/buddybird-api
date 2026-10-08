@@ -1,14 +1,23 @@
 import re
 import unicodedata
-from datetime import datetime
+from datetime import date, datetime
 from typing import ClassVar
 from uuid import UUID
 
 from pydantic import Field, field_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
+from app.enums import (
+    OAuthProviderEnum,
+    PlatformEnum,
+    SessionPhaseEnum,
+    UserIssueEnum,
+    UserLastSessionEnum,
+    UserSortEnum,
+)
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams
-from app.schemas.devices import DeviceDTO
+from app.schemas.devices import BackofficeDeviceDTO
+from app.schemas.parrots import BackofficeParrotDTO
 from app.schemas.settings import SettingsDTO
 from app.schemas.withdrawals import BackofficeWithdrawalDTO
 
@@ -38,17 +47,67 @@ class BackofficeUserDTO(CustomBaseModel):
     created_at: datetime
 
 
+class BackofficeUserParrotDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"photo_file"}
+
+    name: str
+    species: str
+    photo_file: FileDTO | None
+
+
+class BackofficeUserSessionDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"current_phase"}
+
+    current_phase: SessionPhaseEnum | None
+
+
+class BackofficeUserDeviceDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"last_seen_at"}
+
+    platform: str
+    app_version: str
+    is_unsupported: bool
+    last_seen_at: datetime | None
+
+
+class BackofficeUserDailyDurationDTO(CustomBaseModel):
+    date: date
+    duration_ms: int
+
+
+class BackofficeUserListItemDTO(BackofficeUserDTO):
+    allow_null_fields: ClassVar[set] = {
+        "email",
+        "nickname",
+        "photo_file",
+        "first_parrot",
+        "running_session",
+        "last_seen_device",
+    }
+
+    photo_file: FileDTO | None
+    first_parrot: BackofficeUserParrotDTO | None
+    parrot_count: int
+    running_session: BackofficeUserSessionDTO | None
+    last_seen_device: BackofficeUserDeviceDTO | None
+    device_count: int
+    session_count: int
+    daily_durations: list[BackofficeUserDailyDurationDTO]
+
+
 class BackofficeUserDetailDTO(BackofficeUserDTO):
     allow_null_fields: ClassVar[set] = {"email", "nickname", "photo_file", "settings", "withdrawal"}
 
     photo_file: FileDTO | None
+    providers: list[OAuthProviderEnum]
     settings: SettingsDTO | None
-    devices: list[DeviceDTO]
+    parrots: list[BackofficeParrotDTO]
+    devices: list[BackofficeDeviceDTO]
     withdrawal: BackofficeWithdrawalDTO | None
 
 
 class BackofficeUserListResponse(BaseResponse):
-    data: list[BackofficeUserDTO]
+    data: list[BackofficeUserListItemDTO]
 
 
 class BackofficeUserDetailResponse(BaseResponse):
@@ -58,6 +117,17 @@ class BackofficeUserDetailResponse(BaseResponse):
 class BackofficeUserListParams(PageParams):
     keyword: str | None = Field(None, min_length=1, max_length=100)
     is_deleted: bool | None = None
+    last_session: UserLastSessionEnum | None = None
+    created_from: date | None = None
+    created_to: date | None = None
+    provider: OAuthProviderEnum | None = None
+    is_anonymous: bool | None = None
+    platform: PlatformEnum | None = None
+    has_unsupported_device: bool | None = None
+    is_pushable: bool | None = None
+    is_marketing_enabled: bool | None = None
+    issue: UserIssueEnum | None = None
+    sort: UserSortEnum = UserSortEnum.CREATED_AT
 
 
 class UpdateUserRequest(BaseRequest):

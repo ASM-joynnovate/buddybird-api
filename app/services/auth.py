@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import transactional
-from app.enums import OAuthProviderEnum, PresetLanguageEnum
+from app.enums import OAuthProviderEnum, PresetLanguageEnum, SessionEndReasonEnum
 from app.errors import (
     AuthenticationError,
     AuthenticationServiceUnavailableError,
@@ -29,7 +29,7 @@ from app.oauth.supabase import get_social_identities
 from app.s3 import S3StorageClient
 from app.schemas.auth import LoginDTO, LoginRequest
 from app.services.devices import finish_running_sessions
-from app.services.users import delete_uploaded_photo, download_social_photo
+from app.services.users import delete_uploaded_photo, download_social_photo, save_identities
 
 
 async def verify_login_credential(
@@ -100,6 +100,7 @@ async def complete_login(
             email=None,
             credential=None,
             credential_required=False,
+            providers=[],
             photo_file=None,
             is_anonymous=True,
             language=data.language if data is not None else PresetLanguageEnum.KO,
@@ -159,6 +160,7 @@ async def complete_login(
             email=profile.email,
             credential=credential,
             credential_required=credential_required,
+            providers=[identity.provider.value for identity in identities],
             photo_file=photo_file,
             is_anonymous=False,
             language=data.language if data is not None else PresetLanguageEnum.KO,
@@ -184,6 +186,7 @@ async def save_login(
     email: str | None,
     credential: UserOAuthCredential | None,
     credential_required: bool,
+    providers: list[str],
     photo_file: File | None,
     is_anonymous: bool,
     language: PresetLanguageEnum,
@@ -239,6 +242,8 @@ async def save_login(
             )
         )
 
+    await save_identities(db=db, user_id=user.id, providers=providers)
+
     if is_new_user and photo_file is not None:
         user.photo_file = photo_file
 
@@ -283,6 +288,8 @@ async def logout(*, db: AsyncSession, user: User, client_device_id: UUID | None)
         if not user.is_anonymous:
             device.is_deleted = True
 
-            session_ids = await finish_running_sessions(db=db, device=device, now=datetime.now(UTC))
+            session_ids = await finish_running_sessions(
+                db=db, device=device, now=datetime.now(UTC), ended_reason=SessionEndReasonEnum.LOGOUT
+            )
 
     return session_ids

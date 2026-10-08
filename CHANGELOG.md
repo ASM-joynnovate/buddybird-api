@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.3.0...v2.4.0) (2026-10-08)
+
+
+### Features
+
+* **backoffice:** add feedback tab APIs ([#102](https://github.com/ASM-joynnovate/buddybird-api/issues/102)) ([1a3efd9](https://github.com/ASM-joynnovate/buddybird-api/commit/1a3efd94b975f8c9e352c77ed387784617fa7bde))
+
+## [2.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.2.1...v2.3.0) (2026-10-08)
+
+
+### Features
+
+* **backoffice:** add dashboard APIs [BB-631] ([#99](https://github.com/ASM-joynnovate/buddybird-api/issues/99)) ([a25cb4c](https://github.com/ASM-joynnovate/buddybird-api/commit/a25cb4c7b9b0bc8101b2cf4ca85bfad99d7172d7))
+* **backoffice:** add user tab APIs [BB-632] ([#101](https://github.com/ASM-joynnovate/buddybird-api/issues/101)) ([ad3808c](https://github.com/ASM-joynnovate/buddybird-api/commit/ad3808cec3bd18c7ec57cfb7cdca4c67a12f31b8))
+
+## [2.2.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.2.0...v2.2.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **sentry:** disable backpressure downsampling ([#97](https://github.com/ASM-joynnovate/buddybird-api/issues/97)) ([6e8728e](https://github.com/ASM-joynnovate/buddybird-api/commit/6e8728e33ce31a2cca6019740256c7389511e920))
+
+## [2.2.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.1.0...v2.2.0) (2026-10-07)
+
+
+### Features
+
+* **sessions:** save audio-ai sound analyses and record emergency events ([#94](https://github.com/ASM-joynnovate/buddybird-api/issues/94)) ([4352f06](https://github.com/ASM-joynnovate/buddybird-api/commit/4352f06c317a6cb991e45d115ccf6c326bfc4856))
+
 ## [2.1.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.0.0...v2.1.0) (2026-10-06)
 
 

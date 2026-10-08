@@ -88,6 +88,14 @@ class UserConsentListResponse(BaseResponse):
     data: list[UserConsentDTO]
 
 
+class BackofficeUserConsentDTO(UserConsentDTO):
+    title: I18nDTO
+
+
+class BackofficeUserConsentListResponse(BaseResponse):
+    data: list[BackofficeUserConsentDTO]
+
+
 class SaveUserConsentRequest(BaseRequest):
     consent_id: UUID
     status: ConsentStatusEnum
