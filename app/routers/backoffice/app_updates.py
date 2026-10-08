@@ -1,36 +1,44 @@
-from fastapi import APIRouter
+from typing import Annotated
 
-from app.dependencies import DBSession
-from app.enums import PlatformEnum
+from fastapi import APIRouter, Depends, Query
+
+from app.dependencies import DBSession, require_app_update
+from app.models import AppUpdate
 from app.schemas.app_updates import (
-    BackofficeAppUpdateHistoryListResponse,
+    BackofficeAppUpdateListParams,
+    BackofficeAppUpdateListResponse,
     BackofficeAppUpdateResponse,
-    SaveAppUpdateRequest,
+    CreateAppUpdateRequest,
+    UpdateAppUpdateRequest,
 )
 from app.services import app_updates
 
 router = APIRouter(prefix="/app-updates")
 
 
-@router.get("/{platform}", name="앱 업데이트 정보 조회")
-async def get_detail(platform: PlatformEnum, db: DBSession) -> BackofficeAppUpdateResponse:
-    return BackofficeAppUpdateResponse(
-        message="앱 업데이트 정보 조회 성공",
-        data=await app_updates.get_backoffice_detail(db=db, platform=platform),
+@router.get("", name="앱 업데이트 목록 조회")
+async def get_list(
+    query: Annotated[BackofficeAppUpdateListParams, Query()], db: DBSession
+) -> BackofficeAppUpdateListResponse:
+    return BackofficeAppUpdateListResponse(
+        message="앱 업데이트 목록 조회 성공",
+        data=await app_updates.get_backoffice_list(db=db, query=query),
     )
 
 
-@router.put("/{platform}", name="앱 업데이트 정보 저장")
-async def save(platform: PlatformEnum, body: SaveAppUpdateRequest, db: DBSession) -> BackofficeAppUpdateResponse:
+@router.post("", name="앱 업데이트 추가")
+async def create(body: CreateAppUpdateRequest, db: DBSession) -> BackofficeAppUpdateResponse:
     return BackofficeAppUpdateResponse(
-        message="앱 업데이트 정보 저장 성공",
-        data=await app_updates.save(db=db, platform=platform, data=body),
+        message="앱 업데이트 추가 성공",
+        data=await app_updates.create(db=db, data=body),
     )
 
 
-@router.get("/{platform}/history", name="앱 업데이트 이력 조회")
-async def get_history(platform: PlatformEnum, db: DBSession) -> BackofficeAppUpdateHistoryListResponse:
-    return BackofficeAppUpdateHistoryListResponse(
-        message="앱 업데이트 이력 조회 성공",
-        data=await app_updates.get_backoffice_history(db=db, platform=platform),
+@router.patch("/{app_update_id}", name="앱 업데이트 수정")
+async def update(
+    app_update: Annotated[AppUpdate, Depends(require_app_update)], body: UpdateAppUpdateRequest, db: DBSession
+) -> BackofficeAppUpdateResponse:
+    return BackofficeAppUpdateResponse(
+        message="앱 업데이트 수정 성공",
+        data=await app_updates.update(db=db, app_update=app_update, data=body),
     )

@@ -319,7 +319,7 @@ async def get_backoffice_list(
     if query.has_unsupported_device is not None:
         has_unsupported_device = exists(
             select(Device.id)
-            .join(devices.LATEST_APP_UPDATE, devices.LATEST_APP_UPDATE.c.platform == Device.platform)
+            .join(devices.MIN_SUPPORTED_APP_UPDATE, devices.MIN_SUPPORTED_APP_UPDATE.c.platform == Device.platform)
             .where(Device.user_id == User.id, Device.is_deleted.is_(False), devices.VERSION_UNSUPPORTED)
         )
 

@@ -36,6 +36,8 @@ from app.models import (
 )
 from app.schemas.base import I18nDTO
 from app.schemas.dashboard import (
+    AppUpdateDashboardDTO,
+    AppUpdateDashboardParams,
     DashboardAnnouncementDTO,
     DashboardDailyCountDTO,
     DashboardDevicesDTO,
@@ -89,7 +91,7 @@ from app.schemas.dashboard import (
     WithdrawalDashboardUsagePeriodDTO,
     WithdrawalDashboardWithdrawalsDTO,
 )
-from app.services.devices import LAST_SEEN_DEVICE, LATEST_APP_UPDATE, VERSION_UNSUPPORTED
+from app.services.devices import LAST_SEEN_DEVICE, MIN_SUPPORTED_APP_UPDATE, VERSION_UNSUPPORTED
 from app.services.notifications import NOTIFICATION_PUSH
 from app.services.sessions import SESSION_COUNT
 from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
@@ -284,7 +286,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
         select(func.count())
         .select_from(Device)
         .join(User, User.id == Device.user_id)
-        .join(LATEST_APP_UPDATE, LATEST_APP_UPDATE.c.platform == Device.platform)
+        .join(MIN_SUPPORTED_APP_UPDATE, MIN_SUPPORTED_APP_UPDATE.c.platform == Device.platform)
         .where(VERSION_UNSUPPORTED)
     )
     unsupported_device_count = await db.scalar(stmt)
@@ -786,4 +788,20 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
             )
             for date in dates
         ],
+    )
+
+
+async def get_app_update_dashboard(*, db: AsyncSession, query: AppUpdateDashboardParams) -> AppUpdateDashboardDTO:
+    stmt = (
+        select(Device.app_version, func.count())
+        .join(User, User.id == Device.user_id)
+        .where(Device.platform == query.platform.value)
+        .group_by(Device.app_version)
+    )
+    device_versions = (await db.execute(stmt)).all()
+
+    return AppUpdateDashboardDTO(
+        versions=[
+            DashboardDeviceVersionDTO(app_version=app_version, count=count) for app_version, count in device_versions
+        ]
     )
