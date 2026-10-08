@@ -19,6 +19,8 @@ from app.models import File, User, Word, WordRecording
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
 from app.schemas.base import FileDTO
 from app.schemas.words import (
+    BackofficeWordDTO,
+    BackofficeWordRecordingDTO,
     SaveWordRequest,
     WordDTO,
     WordRecordingDTO,
@@ -87,6 +89,41 @@ async def get_list(*, db: AsyncSession, user: User, storage: S3StorageClient) ->
     recordings = await get_recordings_by_word(db=db, word_ids=[word.id for word in words])
 
     return [build_word_dto(word, recordings.get(word.id, []), storage) for word in words]
+
+
+async def get_backoffice_list(*, db: AsyncSession, user: User, storage: S3StorageClient) -> list[BackofficeWordDTO]:
+    stmt = select(Word).where(Word.user_id == user.id).order_by(Word.created_at)
+    words = (await db.scalars(stmt)).all()
+
+    stmt = (
+        select(WordRecording)
+        .join(File, File.id == WordRecording.file_id)
+        .options(contains_eager(WordRecording.file))
+        .where(
+            WordRecording.word_id.in_([word.id for word in words]),
+            WordRecording.is_deleted.is_(False),
+            File.status == FileStatusEnum.UPLOADED.value,
+        )
+        .order_by(WordRecording.display_order, WordRecording.created_at)
+        .execution_options(include_deleted=True)
+    )
+    recordings: dict[UUID, list[BackofficeWordRecordingDTO]] = {}
+
+    for recording in (await db.scalars(stmt)).all():
+        recordings.setdefault(recording.word_id, []).append(
+            BackofficeWordRecordingDTO(
+                id=recording.id,
+                audio_file=FileDTO(
+                    url=storage.generate_presigned_url(path=recording.file.object_key),
+                    status=recording.file.status,
+                ),
+                display_order=recording.display_order,
+                created_at=recording.created_at,
+                is_preset=not recording.file.file_path.startswith(f"user/{user.id}/"),
+            )
+        )
+
+    return [BackofficeWordDTO(id=word.id, name=word.name, recordings=recordings.get(word.id, [])) for word in words]
 
 
 @transactional(unavailable_error=WordSaveUnavailableError)

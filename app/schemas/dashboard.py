@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import model_validator
 
-from app.enums import NotificationKindEnum, SessionPhaseEnum
+from app.enums import NotificationKindEnum, OAuthProviderEnum, SessionPhaseEnum, UserIssueEnum, UserLastSessionEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, I18nDTO
 
 
@@ -140,6 +140,82 @@ class DashboardLiveDTO(CustomBaseModel):
 
 class DashboardLiveResponse(BaseResponse):
     data: DashboardLiveDTO
+
+
+class UserDashboardUsersDTO(CustomBaseModel):
+    total_count: int
+    signup_count: int
+    previous_signup_count: int
+    deleted_count: int
+
+
+class UserDashboardWithdrawalsDTO(CustomBaseModel):
+    count: int
+    previous_count: int
+
+
+class UserDashboardDailyDTO(CustomBaseModel):
+    date: date
+    total_count: int
+    signup_count: int
+    withdrawal_count: int
+    running_user_count: int
+
+
+class UserDashboardLastSessionDTO(CustomBaseModel):
+    last_session: UserLastSessionEnum
+    count: int
+
+
+class UserDashboardIssueDTO(CustomBaseModel):
+    issue: UserIssueEnum
+    count: int
+
+
+class UserDashboardProviderDTO(CustomBaseModel):
+    provider: OAuthProviderEnum
+    count: int
+
+
+class UserDashboardAccountsDTO(CustomBaseModel):
+    providers: list[UserDashboardProviderDTO]
+    anonymous_count: int
+
+
+class UserDashboardPlatformDTO(CustomBaseModel):
+    platform: str
+    count: int
+
+
+class UserDashboardPushDTO(CustomBaseModel):
+    pushable_count: int
+    unpushable_count: int
+
+
+class UserDashboardSpeciesDTO(CustomBaseModel):
+    species: str
+    count: int
+
+
+class UserDashboardParrotsDTO(CustomBaseModel):
+    total_count: int
+    species: list[UserDashboardSpeciesDTO]
+
+
+class UserDashboardDTO(CustomBaseModel):
+    users: UserDashboardUsersDTO
+    withdrawals: UserDashboardWithdrawalsDTO
+    daily: list[UserDashboardDailyDTO]
+    last_sessions: list[UserDashboardLastSessionDTO]
+    issues: list[UserDashboardIssueDTO]
+    accounts: UserDashboardAccountsDTO
+    platforms: list[UserDashboardPlatformDTO]
+    push: UserDashboardPushDTO
+    parrots: UserDashboardParrotsDTO
+
+
+class UserDashboardResponse(BaseResponse):
+    data: UserDashboardDTO
 
 
 class DashboardParams(BaseRequest):

@@ -36,6 +36,10 @@ class DeviceListResponse(BaseResponse):
     data: list[DeviceDTO]
 
 
+class BackofficeDeviceDTO(DeviceDTO):
+    is_deleted: bool
+
+
 class RegisterDeviceRequest(BaseRequest):
     null_fields: ClassVar[set] = {"timezone"}
 

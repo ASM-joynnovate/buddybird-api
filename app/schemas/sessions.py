@@ -4,7 +4,14 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field
 
-from app.enums import JudgmentStatusEnum, SessionActorEnum, SessionEventKindEnum, SessionPhaseEnum, SessionStatusEnum
+from app.enums import (
+    JudgmentStatusEnum,
+    SessionActorEnum,
+    SessionEndReasonEnum,
+    SessionEventKindEnum,
+    SessionPhaseEnum,
+    SessionStatusEnum,
+)
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams, UploadRequest
 from app.schemas.settings import SleepSettingsDTO, UpdateSleepSettingsRequest
 
@@ -61,6 +68,41 @@ class SessionResponse(BaseResponse):
 
 class SessionListResponse(BaseResponse):
     data: list[SessionDTO]
+
+
+class BackofficeSessionWordDTO(CustomBaseModel):
+    id: UUID
+    name: str
+
+
+class BackofficeSessionPeriodDTO(SessionPeriodDTO):
+    allow_null_fields: ClassVar[set] = {"ended_at", "ended_by", "ended_reason"}
+
+    ended_reason: SessionEndReasonEnum | None
+
+
+class BackofficeSessionSoundsDTO(CustomBaseModel):
+    parrot_count: int
+    mimicry_count: int
+
+
+class BackofficeSessionDisconnectionDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"ended_at"}
+
+    started_at: datetime
+    ended_at: datetime | None
+
+
+class BackofficeSessionDTO(SessionDTO):
+    word: BackofficeSessionWordDTO
+    period: BackofficeSessionPeriodDTO
+    sounds: BackofficeSessionSoundsDTO
+    disconnections: list[BackofficeSessionDisconnectionDTO]
+    emergency_detections: list[datetime]
+
+
+class BackofficeSessionListResponse(BaseResponse):
+    data: list[BackofficeSessionDTO]
 
 
 class StartSessionRequest(BaseRequest):
@@ -143,6 +185,17 @@ class SessionEventListResponse(BaseResponse):
     data: list[SessionEventDTO]
 
 
+class BackofficeSessionEventDTO(SessionEventDTO):
+    allow_null_fields: ClassVar[set] = {"word", "is_learning"}
+
+    word: BackofficeSessionWordDTO | None
+    is_learning: bool | None
+
+
+class BackofficeSessionEventListResponse(BaseResponse):
+    data: list[BackofficeSessionEventDTO]
+
+
 class SessionSoundJudgmentDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"word_id"}
 
@@ -169,6 +222,15 @@ class SessionSoundListParams(PageParams):
 
 class SessionSoundListResponse(BaseResponse):
     data: list[SessionSoundDTO]
+
+
+class BackofficeSessionSoundDTO(CustomBaseModel):
+    captured_at: datetime
+    is_mimicry: bool
+
+
+class BackofficeSessionSoundListResponse(BaseResponse):
+    data: list[BackofficeSessionSoundDTO]
 
 
 class ActiveDurationDTO(CustomBaseModel):

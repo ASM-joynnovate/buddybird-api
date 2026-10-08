@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ from app.enums import (
     FileStatusEnum,
     JudgmentStatusEnum,
     SessionActorEnum,
+    SessionEndReasonEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
     SoundJudgmentStatusEnum,
@@ -24,12 +25,18 @@ from app.errors import (
     SessionNotRunningError,
     SessionSaveUnavailableError,
 )
-from app.models import Device, File, LearningSegment, Session, SessionEvent, SessionSound, User, Word
+from app.models import Device, File, LearningSegment, Session, SessionEvent, SessionSound, SoundJudgment, User, Word
 from app.schemas.base import PageParams
 from app.schemas.sessions import (
     AcknowledgedLearningSegmentDTO,
     ActiveDurationDTO,
     AddSessionEventsRequest,
+    BackofficeSessionDisconnectionDTO,
+    BackofficeSessionDTO,
+    BackofficeSessionEventDTO,
+    BackofficeSessionPeriodDTO,
+    BackofficeSessionSoundsDTO,
+    BackofficeSessionWordDTO,
     HeartbeatDTO,
     HeartbeatRequest,
     HeartbeatSessionDTO,
@@ -49,6 +56,14 @@ from app.schemas.sessions import (
     StartSessionRequest,
 )
 from app.schemas.settings import SleepSettingsDTO
+
+LATEST_JUDGED_WORD_ID = (
+    select(SoundJudgment.word_id)
+    .where(SoundJudgment.sound_id == SessionSound.id)
+    .order_by(SoundJudgment.judged_at.desc())
+    .limit(1)
+    .scalar_subquery()
+)
 
 
 def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum) -> SessionDTO:
@@ -185,6 +200,100 @@ async def get_list(*, db: AsyncSession, user: User, query: PageParams) -> tuple[
     return [build_session_dto(session, judgment_statuses[session.id]) for session in sessions], total
 
 
+async def get_backoffice_list(
+    *, db: AsyncSession, user: User, query: PageParams
+) -> tuple[list[BackofficeSessionDTO], int]:
+    stmt = select(Session).where(Session.user_id == user.id)
+    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+    sessions = (
+        await db.scalars(
+            stmt.order_by(Session.started_at.desc())
+            .offset((query.page - 1) * query.count_by_page)
+            .limit(query.count_by_page)
+        )
+    ).all()
+    session_ids = [session.id for session in sessions]
+    judgment_statuses = await get_judgment_statuses(db=db, sessions=sessions)
+
+    stmt = (
+        select(Word.id, Word.name)
+        .where(Word.id.in_({session.word_id for session in sessions}))
+        .execution_options(include_deleted=True)
+    )
+    word_names = dict((await db.execute(stmt)).all())
+
+    stmt = (
+        select(
+            SessionSound.session_id,
+            func.count().filter(SessionSound.is_parrot_sound.is_(True)),
+            func.count().filter(LATEST_JUDGED_WORD_ID.is_not(None)),
+        )
+        .where(SessionSound.session_id.in_(session_ids))
+        .group_by(SessionSound.session_id)
+    )
+    sound_counts = {
+        session_id: (parrot_count, mimicry_count)
+        for session_id, parrot_count, mimicry_count in (await db.execute(stmt)).all()
+    }
+
+    stmt = (
+        select(SessionEvent.session_id, SessionEvent.kind, SessionEvent.occurred_at)
+        .where(
+            SessionEvent.session_id.in_(session_ids),
+            SessionEvent.kind.in_(
+                [
+                    SessionEventKindEnum.STATION_DISCONNECTED.value,
+                    SessionEventKindEnum.STATION_RECONNECTED.value,
+                    SessionEventKindEnum.EMERGENCY_DETECTED.value,
+                ]
+            ),
+        )
+        .order_by(SessionEvent.occurred_at)
+    )
+    events = (await db.execute(stmt)).all()
+    disconnected_at: dict[UUID, datetime] = {}
+    disconnections: dict[UUID, list[BackofficeSessionDisconnectionDTO]] = {}
+    emergency_detections: dict[UUID, list[datetime]] = {}
+
+    for session_id, kind, occurred_at in events:
+        if kind == SessionEventKindEnum.EMERGENCY_DETECTED.value:
+            emergency_detections.setdefault(session_id, []).append(occurred_at)
+        elif kind == SessionEventKindEnum.STATION_DISCONNECTED.value:
+            disconnected_at.setdefault(session_id, occurred_at)
+        elif session_id in disconnected_at:
+            disconnections.setdefault(session_id, []).append(
+                BackofficeSessionDisconnectionDTO(started_at=disconnected_at.pop(session_id), ended_at=occurred_at)
+            )
+
+    for session_id, started_at in disconnected_at.items():
+        disconnections.setdefault(session_id, []).append(
+            BackofficeSessionDisconnectionDTO(started_at=started_at, ended_at=None)
+        )
+
+    items = []
+
+    for session in sessions:
+        parrot_count, mimicry_count = sound_counts.get(session.id, (0, 0))
+
+        items.append(
+            BackofficeSessionDTO(
+                **build_session_dto(session, judgment_statuses[session.id]).model_dump(exclude={"word", "period"}),
+                word=BackofficeSessionWordDTO(id=session.word_id, name=word_names[session.word_id]),
+                period=BackofficeSessionPeriodDTO(
+                    started_at=session.started_at,
+                    ended_at=session.ended_at,
+                    ended_by=session.ended_by,
+                    ended_reason=session.ended_reason,
+                ),
+                sounds=BackofficeSessionSoundsDTO(parrot_count=parrot_count, mimicry_count=mimicry_count),
+                disconnections=disconnections.get(session.id, []),
+                emergency_detections=emergency_detections.get(session.id, []),
+            )
+        )
+
+    return items, total
+
+
 async def get_detail(*, db: AsyncSession, session: Session) -> SessionDTO:
     judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
 
@@ -236,6 +345,7 @@ async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
     session.status = SessionStatusEnum.FINISHED.value
     session.ended_at = now
     session.ended_by = SessionActorEnum.USER.value
+    session.ended_reason = SessionEndReasonEnum.USER.value
 
     db.add(
         SessionEvent(
@@ -280,6 +390,11 @@ async def finish_expired_sessions(*, db: AsyncSession) -> list[UUID]:
         session.status = SessionStatusEnum.FINISHED.value
         session.ended_at = ended_at
         session.ended_by = SessionActorEnum.SERVER.value
+        session.ended_reason = (
+            SessionEndReasonEnum.HEARTBEAT_EXPIRED.value
+            if heartbeat_expired and ended_at == last_active_at
+            else SessionEndReasonEnum.SCHEDULED.value
+        )
 
         db.add(
             SessionEvent(
@@ -292,6 +407,25 @@ async def finish_expired_sessions(*, db: AsyncSession) -> list[UUID]:
     await db.flush()
 
     return [session.id for session in sessions]
+
+
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def backfill_ended_reasons(*, db: AsyncSession) -> None:
+    await db.execute(
+        update(Session)
+        .where(Session.status == SessionStatusEnum.FINISHED.value, Session.ended_reason.is_(None))
+        .values(
+            ended_reason=case(
+                (Session.ended_by == SessionActorEnum.USER.value, SessionEndReasonEnum.USER.value),
+                (
+                    Session.ended_at == func.coalesce(Session.last_heartbeat_at, Session.started_at),
+                    SessionEndReasonEnum.HEARTBEAT_EXPIRED.value,
+                ),
+                (Session.ended_at == Session.scheduled_end_at, SessionEndReasonEnum.SCHEDULED.value),
+                else_=SessionEndReasonEnum.DEVICE_RELEASED.value,
+            )
+        )
+    )
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
@@ -396,6 +530,38 @@ async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEvent
         )
         for event in events
     ]
+
+
+async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[BackofficeSessionEventDTO]:
+    stmt = (
+        select(SessionEvent, Word.name)
+        .outerjoin(Word, Word.id == SessionEvent.word_id)
+        .where(SessionEvent.session_id == session.id)
+        .order_by(SessionEvent.occurred_at)
+        .execution_options(include_deleted=True)
+    )
+    rows = (await db.execute(stmt)).all()
+    toggle_count = 0
+    items = []
+
+    for event, word_name in rows:
+        is_learning = None
+
+        if event.kind == SessionEventKindEnum.LEARNING_TOGGLED.value:
+            toggle_count += 1
+            is_learning = toggle_count % 2 == 0
+
+        items.append(
+            BackofficeSessionEventDTO(
+                id=event.id,
+                kind=event.kind,
+                occurred_at=event.occurred_at,
+                word=BackofficeSessionWordDTO(id=event.word_id, name=word_name) if event.word_id is not None else None,
+                is_learning=is_learning,
+            )
+        )
+
+    return items
 
 
 async def get_summary(*, db: AsyncSession, session: Session) -> SessionSummaryDTO:

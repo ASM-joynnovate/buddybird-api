@@ -9,6 +9,7 @@ from app.routers.backoffice import (
     feedback,
     notifications,
     preset_words,
+    sessions,
     users,
     withdrawals,
 )
@@ -23,6 +24,7 @@ for module in (
     feedback,
     notifications,
     preset_words,
+    sessions,
     users,
     withdrawals,
 ):

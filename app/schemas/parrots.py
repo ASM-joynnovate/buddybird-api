@@ -30,6 +30,17 @@ class ParrotListResponse(BaseResponse):
     data: list[ParrotDTO]
 
 
+class BackofficeParrotDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"birthdate", "photo_file"}
+
+    id: UUID
+    name: str
+    species: str
+    birthdate: date | None
+    photo_file: FileDTO | None
+    created_at: datetime
+
+
 class CreateParrotRequest(BaseRequest):
     null_fields: ClassVar[set] = {"birthdate"}
 

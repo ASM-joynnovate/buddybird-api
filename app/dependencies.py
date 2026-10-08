@@ -175,7 +175,7 @@ async def require_backoffice(
     if x_backoffice_password is None:
         raise BackofficePasswordMissingError
 
-    if not secrets.compare_digest(x_backoffice_password, config.BACKOFFICE_PASSWORD):
+    if not secrets.compare_digest(x_backoffice_password.encode(), config.BACKOFFICE_PASSWORD.encode()):
         raise BackofficePasswordInvalidError
 
 
@@ -187,6 +187,10 @@ async def require_backoffice_user(db: DBSession, user_id: UUID) -> User:
         raise ResourceNotFoundError
 
     return user
+
+
+async def require_backoffice_session(db: DBSession, session_id: UUID) -> Session:
+    return await get_or_404(db=db, model=Session, id=session_id)
 
 
 async def require_consent(db: DBSession, consent_id: UUID) -> Consent:
