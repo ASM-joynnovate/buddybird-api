@@ -48,12 +48,13 @@ from app.schemas.dashboard import (
     ConsentDashboardPlatformDTO,
     ConsentDashboardUsersDTO,
     ConsentDashboardVersionDTO,
+    DashboardAccountsDTO,
     DashboardAnnouncementDTO,
+    DashboardCountDTO,
     DashboardDailyCountDTO,
     DashboardDevicesDTO,
     DashboardDeviceVersionDTO,
     DashboardDTO,
-    DashboardFeedbackDTO,
     DashboardLiveDTO,
     DashboardLiveHourlyDTO,
     DashboardLiveLast24HoursDTO,
@@ -66,45 +67,44 @@ from app.schemas.dashboard import (
     DashboardNotificationKindDTO,
     DashboardNotificationsDTO,
     DashboardParams,
+    DashboardPlatformDTO,
+    DashboardProviderDTO,
     DashboardSessionsDTO,
     DashboardUsersDTO,
     DashboardWithdrawalsDTO,
-    FeedbackDashboardAppVersionDTO,
     FeedbackDashboardDTO,
     FeedbackDashboardFeedbackDTO,
     FeedbackDashboardLocaleDTO,
-    FeedbackDashboardPlatformDTO,
     NotificationDashboardDailyDTO,
     NotificationDashboardDTO,
     NotificationDashboardKindDTO,
-    NotificationDashboardNotificationsDTO,
-    UserDashboardAccountsDTO,
     UserDashboardDailyDTO,
     UserDashboardDTO,
     UserDashboardIssueDTO,
     UserDashboardLastSessionDTO,
     UserDashboardParrotsDTO,
-    UserDashboardPlatformDTO,
-    UserDashboardProviderDTO,
     UserDashboardPushDTO,
     UserDashboardSpeciesDTO,
     UserDashboardUsersDTO,
-    UserDashboardWithdrawalsDTO,
-    WithdrawalDashboardAccountsDTO,
-    WithdrawalDashboardAppVersionDTO,
     WithdrawalDashboardDTO,
     WithdrawalDashboardErrorDTO,
     WithdrawalDashboardParrotsDTO,
-    WithdrawalDashboardPlatformDTO,
-    WithdrawalDashboardProviderDTO,
     WithdrawalDashboardSessionRangeDTO,
     WithdrawalDashboardUsagePeriodDTO,
-    WithdrawalDashboardWithdrawalsDTO,
 )
 from app.services.devices import LAST_SEEN_DEVICE, MIN_SUPPORTED_APP_UPDATE, VERSION_UNSUPPORTED
 from app.services.notifications import NOTIFICATION_PUSH
 from app.services.sessions import SESSION_COUNT
 from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
+
+
+def get_period(query: DashboardParams) -> tuple[list, datetime, datetime, datetime]:
+    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
+    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
+    period_end = period_start + timedelta(days=len(dates))
+    previous_start = period_start - timedelta(days=len(dates))
+
+    return dates, period_start, period_end, previous_start
 
 
 async def get_user_counts(
@@ -192,10 +192,7 @@ async def get_daily_counts(
 
 async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> DashboardDTO:
     now = datetime.now(UTC)
-    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
-    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
-    period_end = period_start + timedelta(days=len(dates))
-    previous_start = period_start - timedelta(days=len(dates))
+    dates, period_start, period_end, previous_start = get_period(query)
 
     duration = Session.ended_at - Session.started_at
     in_period = Session.started_at >= period_start
@@ -216,13 +213,6 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
     user_counts = await get_user_counts(
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
-
-    stmt = (
-        select(func.count())
-        .select_from(UserWithdrawal)
-        .where(UserWithdrawal.created_at >= period_start, UserWithdrawal.created_at < period_end)
-    )
-    withdrawal_count = await db.scalar(stmt)
 
     feedback_counts = await get_feedback_counts(
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
@@ -319,12 +309,12 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             daily_signups=[DashboardDailyCountDTO(date=date, count=daily_counts[User].get(date, 0)) for date in dates],
         ),
         withdrawals=DashboardWithdrawalsDTO(
-            count=withdrawal_count,
+            count=sum(daily_counts[UserWithdrawal].values()),
             daily=[
                 DashboardDailyCountDTO(date=date, count=daily_counts[UserWithdrawal].get(date, 0)) for date in dates
             ],
         ),
-        feedback=DashboardFeedbackDTO(
+        feedback=DashboardCountDTO(
             count=feedback_counts.feedback_count,
             previous_count=feedback_counts.previous_feedback_count,
         ),
@@ -452,10 +442,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
 
 async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> UserDashboardDTO:
     now = datetime.now(UTC)
-    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
-    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
-    period_end = period_start + timedelta(days=len(dates))
-    previous_start = period_start - timedelta(days=len(dates))
+    dates, period_start, period_end, previous_start = get_period(query)
 
     user_counts = await get_user_counts(
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
@@ -540,9 +527,6 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
     )
     species_counts = (await db.execute(stmt)).all()
 
-    stmt = select(func.count()).select_from(Parrot).join(User, User.id == Parrot.user_id)
-    parrot_count = await db.scalar(stmt)
-
     return UserDashboardDTO(
         users=UserDashboardUsersDTO(
             total_count=user_counts.total_count,
@@ -550,7 +534,7 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
             previous_signup_count=user_counts.previous_signup_count,
             deleted_count=deleted_count,
         ),
-        withdrawals=UserDashboardWithdrawalsDTO(
+        withdrawals=DashboardCountDTO(
             count=withdrawal_counts.withdrawal_count,
             previous_count=withdrawal_counts.previous_withdrawal_count,
         ),
@@ -563,30 +547,27 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
             UserDashboardLastSessionDTO(last_session=last_session, count=last_session_counts.get(last_session.value, 0))
             for last_session in UserLastSessionEnum
         ],
-        accounts=UserDashboardAccountsDTO(
+        accounts=DashboardAccountsDTO(
             providers=[
-                UserDashboardProviderDTO(provider=provider, count=provider_counts.get(provider.value, 0))
+                DashboardProviderDTO(provider=provider, count=provider_counts.get(provider.value, 0))
                 for provider in OAuthProviderEnum
             ],
             anonymous_count=anonymous_count,
         ),
-        platforms=[UserDashboardPlatformDTO(platform=platform, count=count) for platform, count in platform_counts],
+        platforms=[DashboardPlatformDTO(platform=platform, count=count) for platform, count in platform_counts],
         push=UserDashboardPushDTO(
             pushable_count=pushable_count,
             unpushable_count=user_counts.total_count - pushable_count,
         ),
         parrots=UserDashboardParrotsDTO(
-            total_count=parrot_count,
+            total_count=sum(count for _, count in species_counts),
             species=[UserDashboardSpeciesDTO(species=species, count=count) for species, count in species_counts],
         ),
     )
 
 
 async def get_feedback_dashboard(*, db: AsyncSession, query: DashboardParams) -> FeedbackDashboardDTO:
-    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
-    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
-    period_end = period_start + timedelta(days=len(dates))
-    previous_start = period_start - timedelta(days=len(dates))
+    dates, period_start, period_end, previous_start = get_period(query)
 
     feedback_counts = await get_feedback_counts(
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
@@ -617,21 +598,18 @@ async def get_feedback_dashboard(*, db: AsyncSession, query: DashboardParams) ->
         ),
         daily=[DashboardDailyCountDTO(date=date, count=daily_counts.get(date, 0)) for date in dates],
         app_versions=[
-            FeedbackDashboardAppVersionDTO(app_version=app_version, count=count)
+            DashboardDeviceVersionDTO(app_version=app_version, count=count)
             for app_version, count in group_counts["app_version"]
         ],
         platforms=[
-            FeedbackDashboardPlatformDTO(platform=platform, count=count) for platform, count in group_counts["platform"]
+            DashboardPlatformDTO(platform=platform, count=count) for platform, count in group_counts["platform"]
         ],
         locales=[FeedbackDashboardLocaleDTO(locale=locale, count=count) for locale, count in group_counts["locale"]],
     )
 
 
 async def get_withdrawal_dashboard(*, db: AsyncSession, query: DashboardParams) -> WithdrawalDashboardDTO:
-    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
-    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
-    period_end = period_start + timedelta(days=len(dates))
-    previous_start = period_start - timedelta(days=len(dates))
+    dates, period_start, period_end, previous_start = get_period(query)
     in_period = and_(UserWithdrawal.created_at >= period_start, UserWithdrawal.created_at < period_end)
 
     withdrawal_counts = await get_withdrawal_counts(
@@ -712,25 +690,24 @@ async def get_withdrawal_dashboard(*, db: AsyncSession, query: DashboardParams) 
     error_counts = (await db.execute(stmt)).all()
 
     return WithdrawalDashboardDTO(
-        withdrawals=WithdrawalDashboardWithdrawalsDTO(
+        withdrawals=DashboardCountDTO(
             count=withdrawal_counts.withdrawal_count,
             previous_count=withdrawal_counts.previous_withdrawal_count,
         ),
         signup_count=user_counts.signup_count,
         daily=[DashboardDailyCountDTO(date=date, count=daily_counts.get(date, 0)) for date in dates],
-        accounts=WithdrawalDashboardAccountsDTO(
+        accounts=DashboardAccountsDTO(
             providers=[
-                WithdrawalDashboardProviderDTO(provider=provider, count=count)
+                DashboardProviderDTO(provider=provider, count=count)
                 for provider, count in zip(OAuthProviderEnum, provider_counts, strict=True)
             ],
             anonymous_count=anonymous_count,
         ),
         platforms=[
-            WithdrawalDashboardPlatformDTO(platform=platform, count=count)
-            for platform, count in group_counts["platform"]
+            DashboardPlatformDTO(platform=platform, count=count) for platform, count in group_counts["platform"]
         ],
         app_versions=[
-            WithdrawalDashboardAppVersionDTO(app_version=app_version, count=count)
+            DashboardDeviceVersionDTO(app_version=app_version, count=count)
             for app_version, count in group_counts["app_version"]
         ],
         usage_periods=[
@@ -754,10 +731,7 @@ async def get_withdrawal_dashboard(*, db: AsyncSession, query: DashboardParams) 
 
 
 async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams) -> NotificationDashboardDTO:
-    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
-    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
-    period_end = period_start + timedelta(days=len(dates))
-    previous_start = period_start - timedelta(days=len(dates))
+    dates, period_start, period_end, previous_start = get_period(query)
 
     notification_counts = await get_notification_counts(db=db, period_start=period_start, period_end=period_end)
     previous_counts = await get_notification_counts(db=db, period_start=previous_start, period_end=period_start)
@@ -775,7 +749,7 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
     daily_counts = {(date, kind): count for date, kind, count in (await db.execute(stmt)).all()}
 
     return NotificationDashboardDTO(
-        notifications=NotificationDashboardNotificationsDTO(
+        notifications=DashboardCountDTO(
             count=sum(row.sent_count for row in notification_counts),
             previous_count=sum(row.sent_count for row in previous_counts),
         ),
@@ -819,9 +793,7 @@ async def get_app_update_dashboard(*, db: AsyncSession, query: AppUpdateDashboar
 
 async def get_consent_dashboard(*, db: AsyncSession, consent: Consent, query: DashboardParams) -> ConsentDashboardDTO:
     now = datetime.now(UTC)
-    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
-    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
-    period_end = period_start + timedelta(days=len(dates))
+    dates, period_start, period_end, _ = get_period(query)
     is_granted = UserConsent.status == ConsentStatusEnum.GRANTED.value
 
     has_seen_device = exists().where(

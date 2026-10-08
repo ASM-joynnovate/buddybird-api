@@ -34,9 +34,8 @@ from app.oauth.google import revoke_google
 from app.oauth.kakao import unlink_kakao
 from app.oauth.supabase import delete_supabase_user, get_admin_social_identities, get_social_identities
 from app.s3 import S3StorageClient
-from app.schemas.base import FileDTO
+from app.schemas.devices import BackofficeLastSeenDeviceDTO
 from app.schemas.withdrawals import (
-    BackofficeWithdrawalDeviceDTO,
     BackofficeWithdrawalDTO,
     BackofficeWithdrawalListItemDTO,
     BackofficeWithdrawalListParams,
@@ -128,14 +127,6 @@ async def get_backoffice_list(
 
     for row in rows:
         withdrawal = row.UserWithdrawal
-        photo = None
-
-        if row.User.photo_file is not None:
-            photo = FileDTO(
-                url=storage.generate_presigned_url(path=row.User.photo_file.object_key),
-                status=row.User.photo_file.status,
-            )
-
         status = WithdrawalProgressEnum.STOPPED
 
         if withdrawal.completed_at is not None:
@@ -180,11 +171,11 @@ async def get_backoffice_list(
                     nickname=row.User.nickname,
                     email=row.User.email,
                     is_anonymous=row.User.is_anonymous,
-                    photo_file=photo,
+                    photo_file=storage.generate_file_dto(file=row.User.photo_file),
                     created_at=row.User.created_at,
                     session_count=row.session_count,
                     last_session_started_at=row.last_session_started_at,
-                    last_seen_device=BackofficeWithdrawalDeviceDTO(
+                    last_seen_device=BackofficeLastSeenDeviceDTO(
                         platform=row.platform,
                         app_version=row.app_version,
                         is_unsupported=row.is_unsupported,

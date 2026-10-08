@@ -56,7 +56,7 @@ class BackofficeNotificationDTO(CustomBaseModel):
     read_at: datetime | None
 
 
-class NotificationSendResponse(BaseResponse):
+class BackofficeNotificationResponse(BaseResponse):
     data: BackofficeNotificationDTO | None
 
 
@@ -70,10 +70,11 @@ class BackofficeNotificationUserDTO(CustomBaseModel):
 
 
 class BackofficeNotificationListItemDTO(BackofficeNotificationDTO):
-    allow_null_fields: ClassVar[set] = {"image", "data_id", "read_at", "push_sent_at"}
+    allow_null_fields: ClassVar[set] = {"image", "data_id", "read_at", "push_sent_at", "image_file_id"}
 
     user: BackofficeNotificationUserDTO
     push_sent_at: datetime | None
+    image_file_id: UUID | None
 
 
 class BackofficeNotificationListResponse(BaseResponse):

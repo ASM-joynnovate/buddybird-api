@@ -4,18 +4,10 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import DBSession, require_backoffice_session
 from app.models import Session
-from app.schemas.base import BaseResponse
 from app.schemas.sessions import BackofficeSessionEventListResponse, BackofficeSessionSoundListResponse
 from app.services import session_sounds, sessions
 
 router = APIRouter(prefix="/sessions")
-
-
-@router.post("/ended-reasons/backfill", name="세션 종료 사유 채우기")
-async def backfill_ended_reasons(db: DBSession) -> BaseResponse:
-    await sessions.backfill_ended_reasons(db=db)
-
-    return BaseResponse(message="세션 종료 사유 채우기 성공")
 
 
 @router.get("/{session_id}/events", name="세션 이벤트 조회")

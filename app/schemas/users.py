@@ -16,7 +16,7 @@ from app.enums import (
     UserSortEnum,
 )
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams
-from app.schemas.devices import BackofficeDeviceDTO
+from app.schemas.devices import BackofficeDeviceDTO, BackofficeLastSeenDeviceDTO
 from app.schemas.parrots import BackofficeParrotDTO
 from app.schemas.settings import SettingsDTO
 from app.schemas.withdrawals import BackofficeWithdrawalDTO
@@ -61,15 +61,6 @@ class BackofficeUserSessionDTO(CustomBaseModel):
     current_phase: SessionPhaseEnum | None
 
 
-class BackofficeUserDeviceDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"last_seen_at"}
-
-    platform: str
-    app_version: str
-    is_unsupported: bool
-    last_seen_at: datetime | None
-
-
 class BackofficeUserDailyDurationDTO(CustomBaseModel):
     date: date
     duration_ms: int
@@ -89,7 +80,7 @@ class BackofficeUserListItemDTO(BackofficeUserDTO):
     first_parrot: BackofficeUserParrotDTO | None
     parrot_count: int
     running_session: BackofficeUserSessionDTO | None
-    last_seen_device: BackofficeUserDeviceDTO | None
+    last_seen_device: BackofficeLastSeenDeviceDTO | None
     device_count: int
     session_count: int
     daily_durations: list[BackofficeUserDailyDurationDTO]

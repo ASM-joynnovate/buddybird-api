@@ -13,7 +13,7 @@ router = APIRouter(prefix="/feedback")
 async def get_list(
     query: Annotated[BackofficeFeedbackListParams, Query()], db: DBSession, storage: Storage
 ) -> BackofficeFeedbackListResponse:
-    items, total = await feedback.get_list(db=db, storage=storage, query=query)
+    items, total = await feedback.get_backoffice_list(db=db, storage=storage, query=query)
 
     return BackofficeFeedbackListResponse(
         message="피드백 목록 조회 성공",
