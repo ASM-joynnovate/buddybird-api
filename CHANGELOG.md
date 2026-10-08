@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.3.0...v2.4.0) (2026-10-08)
+
+
+### Features
+
+* **backoffice:** add feedback tab APIs ([#102](https://github.com/ASM-joynnovate/buddybird-api/issues/102)) ([1a3efd9](https://github.com/ASM-joynnovate/buddybird-api/commit/1a3efd94b975f8c9e352c77ed387784617fa7bde))
+
 ## [2.3.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.2.1...v2.3.0) (2026-10-08)
 
 
