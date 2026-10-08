@@ -1,11 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import DBSession
+from app.dependencies import DBSession, require_consent
+from app.models import Consent
 from app.schemas.dashboard import (
     AppUpdateDashboardParams,
     AppUpdateDashboardResponse,
+    ConsentDashboardResponse,
     DashboardLiveResponse,
     DashboardParams,
     DashboardResponse,
@@ -80,4 +82,14 @@ async def get_app_update_dashboard(
     return AppUpdateDashboardResponse(
         message="앱 업데이트 대시보드 조회 성공",
         data=await dashboard.get_app_update_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/consents/{consent_id}", name="고지문 대시보드 조회")
+async def get_consent_dashboard(
+    consent: Annotated[Consent, Depends(require_consent)], query: Annotated[DashboardParams, Query()], db: DBSession
+) -> ConsentDashboardResponse:
+    return ConsentDashboardResponse(
+        message="고지문 대시보드 조회 성공",
+        data=await dashboard.get_consent_dashboard(db=db, consent=consent, query=query),
     )

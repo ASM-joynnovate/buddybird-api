@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.enums import (
+    ConsentStatusEnum,
     NotificationKindEnum,
     OAuthProviderEnum,
     SessionEndReasonEnum,
@@ -21,6 +22,7 @@ from app.enums import (
 from app.models import (
     Announcement,
     AnnouncementRead,
+    Consent,
     Device,
     Feedback,
     I18n,
@@ -30,6 +32,7 @@ from app.models import (
     SessionEvent,
     SessionSound,
     User,
+    UserConsent,
     UserIdentity,
     UserWithdrawal,
     UserWithdrawalFailure,
@@ -38,6 +41,13 @@ from app.schemas.base import I18nDTO
 from app.schemas.dashboard import (
     AppUpdateDashboardDTO,
     AppUpdateDashboardParams,
+    ConsentDashboardDailyDTO,
+    ConsentDashboardDecisionsDTO,
+    ConsentDashboardDTO,
+    ConsentDashboardLocaleDTO,
+    ConsentDashboardPlatformDTO,
+    ConsentDashboardUsersDTO,
+    ConsentDashboardVersionDTO,
     DashboardAnnouncementDTO,
     DashboardDailyCountDTO,
     DashboardDevicesDTO,
@@ -804,4 +814,106 @@ async def get_app_update_dashboard(*, db: AsyncSession, query: AppUpdateDashboar
         versions=[
             DashboardDeviceVersionDTO(app_version=app_version, count=count) for app_version, count in device_versions
         ]
+    )
+
+
+async def get_consent_dashboard(*, db: AsyncSession, consent: Consent, query: DashboardParams) -> ConsentDashboardDTO:
+    now = datetime.now(UTC)
+    dates = [query.date_from + timedelta(days=offset) for offset in range((query.date_to - query.date_from).days + 1)]
+    period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
+    period_end = period_start + timedelta(days=len(dates))
+    is_granted = UserConsent.status == ConsentStatusEnum.GRANTED.value
+
+    has_seen_device = exists().where(
+        Device.user_id == User.id,
+        Device.last_seen_at >= consent.published_at,
+        Device.is_deleted.is_(False),
+    )
+    stmt = (
+        select(
+            func.count().filter(is_granted).label("granted_count"),
+            func.count().filter(UserConsent.status == ConsentStatusEnum.DENIED.value).label("denied_count"),
+            func.count().filter(UserConsent.id.is_(None), has_seen_device).label("waiting_count"),
+        )
+        .select_from(User)
+        .outerjoin(UserConsent, and_(UserConsent.user_id == User.id, UserConsent.consent_id == consent.id))
+    )
+    decision_counts = (await db.execute(stmt)).one()
+
+    local_date = cast(func.timezone(SEOUL.key, UserConsent.decided_at), Date)
+    stmt = (
+        select(local_date, UserConsent.status, func.count())
+        .join(User, User.id == UserConsent.user_id)
+        .where(
+            UserConsent.consent_id == consent.id,
+            UserConsent.decided_at >= period_start,
+            UserConsent.decided_at < period_end,
+        )
+        .group_by(local_date, UserConsent.status)
+    )
+    daily_counts = {(date, status): count for date, status, count in (await db.execute(stmt)).all()}
+
+    stmt = (
+        select(Consent.version, Consent.published_at, func.count(User.id).label("granted_count"))
+        .select_from(Consent)
+        .outerjoin(UserConsent, and_(UserConsent.consent_id == Consent.id, is_granted))
+        .outerjoin(User, User.id == UserConsent.user_id)
+        .where(Consent.kind == consent.kind, Consent.published_at <= now)
+        .group_by(Consent.id)
+        .order_by(Consent.version.desc())
+    )
+    versions = (await db.execute(stmt)).all()
+
+    stmt = select(
+        func.count(),
+        *(func.count().filter(User.created_at < version.published_at) for version in versions[:-1]),
+    ).select_from(User)
+    user_counts = (await db.execute(stmt)).one()
+
+    group_counts = {}
+
+    for column in (Device.platform, Device.locale):
+        stmt = (
+            select(column, func.count(UserConsent.user_id.distinct()), func.count(Device.user_id.distinct()))
+            .select_from(Device)
+            .join(User, User.id == Device.user_id)
+            .outerjoin(
+                UserConsent,
+                and_(UserConsent.user_id == Device.user_id, UserConsent.consent_id == consent.id, is_granted),
+            )
+            .group_by(column)
+        )
+        group_counts[column.key] = (await db.execute(stmt)).all()
+
+    return ConsentDashboardDTO(
+        users=ConsentDashboardUsersDTO(total_count=user_counts[0]),
+        decisions=ConsentDashboardDecisionsDTO(
+            granted_count=decision_counts.granted_count,
+            denied_count=decision_counts.denied_count,
+            waiting_count=decision_counts.waiting_count,
+        ),
+        daily=[
+            ConsentDashboardDailyDTO(
+                date=date,
+                granted_count=daily_counts.get((date, ConsentStatusEnum.GRANTED.value), 0),
+                denied_count=daily_counts.get((date, ConsentStatusEnum.DENIED.value), 0),
+            )
+            for date in dates
+        ],
+        versions=[
+            ConsentDashboardVersionDTO(
+                version=version.version,
+                granted_count=version.granted_count,
+                user_count=user_count,
+            )
+            for version, user_count in zip(versions, user_counts, strict=False)
+        ],
+        platforms=[
+            ConsentDashboardPlatformDTO(platform=platform, granted_count=granted_count, user_count=user_count)
+            for platform, granted_count, user_count in group_counts["platform"]
+        ],
+        locales=[
+            ConsentDashboardLocaleDTO(locale=locale, granted_count=granted_count, user_count=user_count)
+            for locale, granted_count, user_count in group_counts["locale"]
+        ],
     )
