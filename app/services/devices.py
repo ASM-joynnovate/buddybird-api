@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import ARRAY, BigInteger, and_, case, cast, false, func, select
+from sqlalchemy import ARRAY, BigInteger, Case, and_, case, cast, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app.db import transactional
 from app.enums import SessionActorEnum, SessionEndReasonEnum, SessionEventKindEnum, SessionStatusEnum
@@ -26,16 +27,22 @@ MIN_SUPPORTED_APP_UPDATE = (
     .order_by(AppUpdate.platform, APP_UPDATE_VERSION_NUMBERS.desc())
     .subquery()
 )
-VERSION_UNSUPPORTED = case(
-    (
-        and_(
-            Device.app_version.regexp_match(VERSION_PATTERN),
-            MIN_SUPPORTED_APP_UPDATE.c.version.regexp_match(VERSION_PATTERN),
-        ),
-        cast(func.string_to_array(Device.app_version, "."), ARRAY(BigInteger))
-        < cast(func.string_to_array(MIN_SUPPORTED_APP_UPDATE.c.version, "."), ARRAY(BigInteger)),
+
+
+def is_version_unsupported(version: InstrumentedAttribute) -> Case:
+    return case(
+        (
+            and_(
+                version.regexp_match(VERSION_PATTERN),
+                MIN_SUPPORTED_APP_UPDATE.c.version.regexp_match(VERSION_PATTERN),
+            ),
+            cast(func.string_to_array(version, "."), ARRAY(BigInteger))
+            < cast(func.string_to_array(MIN_SUPPORTED_APP_UPDATE.c.version, "."), ARRAY(BigInteger)),
+        )
     )
-)
+
+
+VERSION_UNSUPPORTED = is_version_unsupported(Device.app_version)
 DEVICE_COUNT = (
     select(func.count())
     .select_from(Device)

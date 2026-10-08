@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, joinedload
 
-from app.db import session_factory, transactional
+from app.db import transactional
 from app.enums import (
     FileStatusEnum,
     SessionEndReasonEnum,
@@ -25,7 +25,6 @@ from app.enums import (
     UserSortEnum,
 )
 from app.errors import (
-    AuthenticationServiceUnavailableError,
     DuplicateNicknameError,
     FileSizeExceededError,
     InvalidProfilePhotoError,
@@ -43,14 +42,13 @@ from app.models import (
     UserWithdrawal,
 )
 from app.oauth.base import http_client
-from app.oauth.supabase import get_admin_social_identities
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
-from app.schemas.base import FileDTO, UploadDTO, UploadRequest
+from app.schemas.base import UploadDTO, UploadRequest
+from app.schemas.devices import BackofficeLastSeenDeviceDTO
 from app.schemas.parrots import BackofficeParrotDTO
 from app.schemas.users import (
     BackofficeUserDailyDurationDTO,
     BackofficeUserDetailDTO,
-    BackofficeUserDeviceDTO,
     BackofficeUserDTO,
     BackofficeUserListItemDTO,
     BackofficeUserListParams,
@@ -230,27 +228,13 @@ async def get_profile(*, db: AsyncSession, user: User, storage: S3StorageClient)
         file_ids={user.uploading_photo_file_id} if user.uploading_photo_file_id is not None else set(),
     )
     uploading_photo_file = uploading_photo_files.get(user.uploading_photo_file_id)
-    photo = None
-    uploading_photo = None
-
-    if user.photo_file is not None:
-        photo = FileDTO(
-            url=storage.generate_presigned_url(path=user.photo_file.object_key),
-            status=user.photo_file.status,
-        )
-
-    if uploading_photo_file is not None:
-        uploading_photo = FileDTO(
-            url=storage.generate_presigned_url(path=uploading_photo_file.object_key),
-            status=uploading_photo_file.status,
-        )
 
     return UserDTO(
         id=user.id,
         email=user.email,
         nickname=user.nickname,
-        photo_file=photo,
-        uploading_photo_file=uploading_photo,
+        photo_file=storage.generate_file_dto(file=user.photo_file),
+        uploading_photo_file=storage.generate_file_dto(file=uploading_photo_file),
     )
 
 
@@ -328,14 +312,8 @@ async def get_backoffice_list(
     if query.is_pushable is not None:
         conditions.append(PUSHABLE if query.is_pushable else not_(PUSHABLE))
 
-    is_announcement_enabled = func.coalesce(
-        select(UserSetting.announcement_notification_enabled).where(UserSetting.user_id == User.id).scalar_subquery(),
-        true(),
-    )
-    is_marketing_enabled = func.coalesce(
-        select(UserSetting.marketing_notification_enabled).where(UserSetting.user_id == User.id).scalar_subquery(),
-        false(),
-    )
+    is_announcement_enabled = func.coalesce(UserSetting.announcement_notification_enabled, true())
+    is_marketing_enabled = func.coalesce(UserSetting.marketing_notification_enabled, false())
 
     if query.is_marketing_enabled is not None:
         conditions.append(is_marketing_enabled if query.is_marketing_enabled else not_(is_marketing_enabled))
@@ -343,7 +321,13 @@ async def get_backoffice_list(
     if query.issue is not None:
         conditions.append(ISSUES[query.issue])
 
-    stmt = select(func.count()).select_from(User).where(*conditions).execution_options(include_deleted=True)
+    stmt = (
+        select(func.count())
+        .select_from(User)
+        .outerjoin(UserSetting, UserSetting.user_id == User.id)
+        .where(*conditions)
+        .execution_options(include_deleted=True)
+    )
     total = await db.scalar(stmt)
 
     session_end = func.coalesce(Session.ended_at, now)
@@ -400,14 +384,14 @@ async def get_backoffice_list(
         .lateral()
     )
 
-    parrot_photo = aliased(File, name="parrot_photo")
+    parrot_photo_file = aliased(File, name="parrot_photo_file")
     running_session = aliased(Session)
     stmt = (
         select(
             User,
             first_parrot.c.name.label("parrot_name"),
             first_parrot.c.species.label("parrot_species"),
-            parrot_photo,
+            parrot_photo_file,
             parrot_count.label("parrot_count"),
             running_session.id.label("running_session_id"),
             running_session.current_phase,
@@ -424,8 +408,9 @@ async def get_backoffice_list(
         )
         .select_from(User)
         .options(joinedload(User.photo_file))
+        .outerjoin(UserSetting, UserSetting.user_id == User.id)
         .outerjoin(first_parrot, true())
-        .outerjoin(parrot_photo, parrot_photo.id == first_parrot.c.photo_file_id)
+        .outerjoin(parrot_photo_file, parrot_photo_file.id == first_parrot.c.photo_file_id)
         .outerjoin(
             running_session,
             and_(
@@ -442,58 +427,42 @@ async def get_backoffice_list(
         .execution_options(include_deleted=True)
     )
     rows = (await db.execute(stmt)).all()
-    items = []
 
-    for row in rows:
-        photo = None
-        parrot_photo_file = None
-
-        if row.User.photo_file is not None:
-            photo = FileDTO(
-                url=storage.generate_presigned_url(path=row.User.photo_file.object_key),
-                status=row.User.photo_file.status,
+    items = [
+        BackofficeUserListItemDTO(
+            **build_backoffice_user_dto(row.User).model_dump(),
+            photo_file=storage.generate_file_dto(file=row.User.photo_file),
+            first_parrot=BackofficeUserParrotDTO(
+                name=row.parrot_name,
+                species=row.parrot_species,
+                photo_file=storage.generate_file_dto(file=row.parrot_photo_file),
             )
-
-        if row.parrot_photo is not None:
-            parrot_photo_file = FileDTO(
-                url=storage.generate_presigned_url(path=row.parrot_photo.object_key),
-                status=row.parrot_photo.status,
+            if row.parrot_name is not None
+            else None,
+            parrot_count=row.parrot_count,
+            running_session=BackofficeUserSessionDTO(current_phase=row.current_phase)
+            if row.running_session_id is not None
+            else None,
+            last_seen_device=BackofficeLastSeenDeviceDTO(
+                platform=row.platform,
+                app_version=row.app_version,
+                is_unsupported=row.is_unsupported,
+                last_seen_at=row.last_seen_at,
             )
-
-        items.append(
-            BackofficeUserListItemDTO(
-                **build_backoffice_user_dto(row.User).model_dump(),
-                photo_file=photo,
-                first_parrot=BackofficeUserParrotDTO(
-                    name=row.parrot_name,
-                    species=row.parrot_species,
-                    photo_file=parrot_photo_file,
-                )
-                if row.parrot_name is not None
-                else None,
-                parrot_count=row.parrot_count,
-                running_session=BackofficeUserSessionDTO(current_phase=row.current_phase)
-                if row.running_session_id is not None
-                else None,
-                last_seen_device=BackofficeUserDeviceDTO(
-                    platform=row.platform,
-                    app_version=row.app_version,
-                    is_unsupported=row.is_unsupported,
-                    last_seen_at=row.last_seen_at,
-                )
-                if row.platform is not None
-                else None,
-                device_count=row.device_count,
-                session_count=row.session_count,
-                daily_durations=[
-                    BackofficeUserDailyDurationDTO(date=date, duration_ms=duration // timedelta(milliseconds=1))
-                    for date, duration in zip(dates, row.daily_durations, strict=True)
-                ],
-                is_pushable=row.is_pushable,
-                is_announcement_enabled=row.is_announcement_enabled,
-                is_marketing_enabled=row.is_marketing_enabled,
-            )
+            if row.platform is not None
+            else None,
+            device_count=row.device_count,
+            session_count=row.session_count,
+            daily_durations=[
+                BackofficeUserDailyDurationDTO(date=date, duration_ms=duration // timedelta(milliseconds=1))
+                for date, duration in zip(dates, row.daily_durations, strict=True)
+            ],
+            is_pushable=row.is_pushable,
+            is_announcement_enabled=row.is_announcement_enabled,
+            is_marketing_enabled=row.is_marketing_enabled,
         )
+        for row in rows
+    ]
 
     return items, total
 
@@ -512,17 +481,10 @@ async def get_backoffice_detail(*, db: AsyncSession, storage: S3StorageClient, u
         .execution_options(include_deleted=True)
     )
     parrots = (await db.scalars(stmt)).all()
-    photo = None
-
-    if user.photo_file is not None:
-        photo = FileDTO(
-            url=storage.generate_presigned_url(path=user.photo_file.object_key),
-            status=user.photo_file.status,
-        )
 
     return BackofficeUserDetailDTO(
         **build_backoffice_user_dto(user).model_dump(),
-        photo_file=photo,
+        photo_file=storage.generate_file_dto(file=user.photo_file),
         providers=providers,
         settings=build_settings_dto(setting) if setting is not None else None,
         parrots=[
@@ -531,12 +493,7 @@ async def get_backoffice_detail(*, db: AsyncSession, storage: S3StorageClient, u
                 name=parrot.name,
                 species=parrot.species,
                 birthdate=parrot.birthdate,
-                photo_file=FileDTO(
-                    url=storage.generate_presigned_url(path=parrot.photo_file.object_key),
-                    status=parrot.photo_file.status,
-                )
-                if parrot.photo_file is not None
-                else None,
+                photo_file=storage.generate_file_dto(file=parrot.photo_file),
                 created_at=parrot.created_at,
             )
             for parrot in parrots
@@ -555,44 +512,6 @@ async def save_identities(*, db: AsyncSession, user_id: UUID, providers: list[st
         .values([{"user_id": user_id, "provider": provider} for provider in providers])
         .on_conflict_do_nothing()
     )
-
-
-async def sync_identities() -> None:
-    after = None
-
-    while True:
-        async with session_factory() as db:
-            stmt = (
-                select(User.id, User.auth_user_id)
-                .where(User.is_anonymous.is_(False))
-                .order_by(User.id)
-                .limit(100)
-                .execution_options(include_deleted=True)
-            )
-
-            if after is not None:
-                stmt = stmt.where(User.id > after)
-
-            users = (await db.execute(stmt)).all()
-
-            for user_id, auth_user_id in users:
-                try:
-                    identities = await get_admin_social_identities(auth_user_id)
-                except AuthenticationServiceUnavailableError:
-                    logger.exception("연결 계정 조회 실패; user_id=%s", user_id)
-
-                    continue
-
-                await save_identities(
-                    db=db, user_id=user_id, providers=[identity.provider.value for identity in identities]
-                )
-
-            await db.commit()
-
-        if not users:
-            return
-
-        after = users[-1].id
 
 
 @transactional(unavailable_error=UserSaveUnavailableError)

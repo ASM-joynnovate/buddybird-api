@@ -8,34 +8,19 @@ from app.enums import FileStatusEnum
 from app.errors import FileSizeExceededError, InvalidProfilePhotoError, ParrotSaveUnavailableError
 from app.models import File, Parrot, User
 from app.s3 import S3StorageClient
-from app.schemas.base import FileDTO, UploadDTO, UploadRequest
+from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.parrots import CreateParrotRequest, ParrotDTO, UpdateParrotRequest
 from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, get_uploading_photo_files
 
 
 def build_parrot_dto(parrot: Parrot, uploading_photo_file: File | None, storage: S3StorageClient) -> ParrotDTO:
-    photo = None
-    uploading_photo = None
-
-    if parrot.photo_file is not None:
-        photo = FileDTO(
-            url=storage.generate_presigned_url(path=parrot.photo_file.object_key),
-            status=parrot.photo_file.status,
-        )
-
-    if uploading_photo_file is not None:
-        uploading_photo = FileDTO(
-            url=storage.generate_presigned_url(path=uploading_photo_file.object_key),
-            status=uploading_photo_file.status,
-        )
-
     return ParrotDTO(
         id=parrot.id,
         name=parrot.name,
         species=parrot.species,
         birthdate=parrot.birthdate,
-        photo_file=photo,
-        uploading_photo_file=uploading_photo,
+        photo_file=storage.generate_file_dto(file=parrot.photo_file),
+        uploading_photo_file=storage.generate_file_dto(file=uploading_photo_file),
     )
 
 

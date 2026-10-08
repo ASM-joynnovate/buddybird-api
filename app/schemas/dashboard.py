@@ -45,7 +45,7 @@ class DashboardWithdrawalsDTO(CustomBaseModel):
     daily: list[DashboardDailyCountDTO]
 
 
-class DashboardFeedbackDTO(CustomBaseModel):
+class DashboardCountDTO(CustomBaseModel):
     count: int
     previous_count: int
 
@@ -91,7 +91,7 @@ class DashboardDTO(CustomBaseModel):
     sessions: DashboardSessionsDTO
     users: DashboardUsersDTO
     withdrawals: DashboardWithdrawalsDTO
-    feedback: DashboardFeedbackDTO
+    feedback: DashboardCountDTO
     notifications: DashboardNotificationsDTO
     announcements: list[DashboardAnnouncementDTO]
     devices: DashboardDevicesDTO
@@ -158,11 +158,6 @@ class UserDashboardUsersDTO(CustomBaseModel):
     deleted_count: int
 
 
-class UserDashboardWithdrawalsDTO(CustomBaseModel):
-    count: int
-    previous_count: int
-
-
 class UserDashboardDailyDTO(CustomBaseModel):
     date: date
     total_count: int
@@ -181,17 +176,17 @@ class UserDashboardIssueDTO(CustomBaseModel):
     count: int
 
 
-class UserDashboardProviderDTO(CustomBaseModel):
+class DashboardProviderDTO(CustomBaseModel):
     provider: OAuthProviderEnum
     count: int
 
 
-class UserDashboardAccountsDTO(CustomBaseModel):
-    providers: list[UserDashboardProviderDTO]
+class DashboardAccountsDTO(CustomBaseModel):
+    providers: list[DashboardProviderDTO]
     anonymous_count: int
 
 
-class UserDashboardPlatformDTO(CustomBaseModel):
+class DashboardPlatformDTO(CustomBaseModel):
     platform: str
     count: int
 
@@ -213,12 +208,12 @@ class UserDashboardParrotsDTO(CustomBaseModel):
 
 class UserDashboardDTO(CustomBaseModel):
     users: UserDashboardUsersDTO
-    withdrawals: UserDashboardWithdrawalsDTO
+    withdrawals: DashboardCountDTO
     daily: list[UserDashboardDailyDTO]
     last_sessions: list[UserDashboardLastSessionDTO]
     issues: list[UserDashboardIssueDTO]
-    accounts: UserDashboardAccountsDTO
-    platforms: list[UserDashboardPlatformDTO]
+    accounts: DashboardAccountsDTO
+    platforms: list[DashboardPlatformDTO]
     push: UserDashboardPushDTO
     parrots: UserDashboardParrotsDTO
 
@@ -233,16 +228,6 @@ class FeedbackDashboardFeedbackDTO(CustomBaseModel):
     writer_count: int
 
 
-class FeedbackDashboardAppVersionDTO(CustomBaseModel):
-    app_version: str
-    count: int
-
-
-class FeedbackDashboardPlatformDTO(CustomBaseModel):
-    platform: str
-    count: int
-
-
 class FeedbackDashboardLocaleDTO(CustomBaseModel):
     locale: str
     count: int
@@ -251,38 +236,13 @@ class FeedbackDashboardLocaleDTO(CustomBaseModel):
 class FeedbackDashboardDTO(CustomBaseModel):
     feedback: FeedbackDashboardFeedbackDTO
     daily: list[DashboardDailyCountDTO]
-    app_versions: list[FeedbackDashboardAppVersionDTO]
-    platforms: list[FeedbackDashboardPlatformDTO]
+    app_versions: list[DashboardDeviceVersionDTO]
+    platforms: list[DashboardPlatformDTO]
     locales: list[FeedbackDashboardLocaleDTO]
 
 
 class FeedbackDashboardResponse(BaseResponse):
     data: FeedbackDashboardDTO
-
-
-class WithdrawalDashboardWithdrawalsDTO(CustomBaseModel):
-    count: int
-    previous_count: int
-
-
-class WithdrawalDashboardProviderDTO(CustomBaseModel):
-    provider: OAuthProviderEnum
-    count: int
-
-
-class WithdrawalDashboardAccountsDTO(CustomBaseModel):
-    providers: list[WithdrawalDashboardProviderDTO]
-    anonymous_count: int
-
-
-class WithdrawalDashboardPlatformDTO(CustomBaseModel):
-    platform: str
-    count: int
-
-
-class WithdrawalDashboardAppVersionDTO(CustomBaseModel):
-    app_version: str
-    count: int
 
 
 class WithdrawalDashboardUsagePeriodDTO(CustomBaseModel):
@@ -306,12 +266,12 @@ class WithdrawalDashboardErrorDTO(CustomBaseModel):
 
 
 class WithdrawalDashboardDTO(CustomBaseModel):
-    withdrawals: WithdrawalDashboardWithdrawalsDTO
+    withdrawals: DashboardCountDTO
     signup_count: int
     daily: list[DashboardDailyCountDTO]
-    accounts: WithdrawalDashboardAccountsDTO
-    platforms: list[WithdrawalDashboardPlatformDTO]
-    app_versions: list[WithdrawalDashboardAppVersionDTO]
+    accounts: DashboardAccountsDTO
+    platforms: list[DashboardPlatformDTO]
+    app_versions: list[DashboardDeviceVersionDTO]
     usage_periods: list[WithdrawalDashboardUsagePeriodDTO]
     session_ranges: list[WithdrawalDashboardSessionRangeDTO]
     parrots: WithdrawalDashboardParrotsDTO
@@ -320,11 +280,6 @@ class WithdrawalDashboardDTO(CustomBaseModel):
 
 class WithdrawalDashboardResponse(BaseResponse):
     data: WithdrawalDashboardDTO
-
-
-class NotificationDashboardNotificationsDTO(CustomBaseModel):
-    count: int
-    previous_count: int
 
 
 class NotificationDashboardKindDTO(CustomBaseModel):
@@ -343,7 +298,7 @@ class NotificationDashboardDailyDTO(CustomBaseModel):
 
 
 class NotificationDashboardDTO(CustomBaseModel):
-    notifications: NotificationDashboardNotificationsDTO
+    notifications: DashboardCountDTO
     kinds: list[NotificationDashboardKindDTO]
     daily: list[NotificationDashboardDailyDTO]
 

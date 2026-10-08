@@ -46,7 +46,7 @@ from app.models import (
     UserSetting,
 )
 from app.s3 import S3StorageClient, s3
-from app.schemas.base import FileDTO, I18nDTO, I18nTitleRequest, PageParams, UploadDTO, UploadRequest
+from app.schemas.base import I18nDTO, I18nTitleRequest, PageParams, UploadDTO, UploadRequest
 from app.schemas.notifications import (
     BackofficeNotificationAudienceDTO,
     BackofficeNotificationAudienceParams,
@@ -513,10 +513,12 @@ async def get_backoffice_list(
     stmt = select(func.count()).select_from(Notification).where(*conditions)
     total = await db.scalar(stmt)
 
+    push_sent_at = (
+        select(func.min(PushDelivery.sent_at)).where(PushDelivery.notification_id == Notification.id).scalar_subquery()
+    )
     stmt = (
-        select(Notification, User, NOTIFICATION_PUSH.c.sent_at.label("push_sent_at"))
+        select(Notification, User, push_sent_at.label("push_sent_at"))
         .join(User, User.id == Notification.user_id)
-        .outerjoin(NOTIFICATION_PUSH, NOTIFICATION_PUSH.c.notification_id == Notification.id)
         .where(*conditions)
         .order_by(Notification.sent_at.desc(), Notification.id.desc())
         .offset((query.page - 1) * query.count_by_page)
@@ -524,29 +526,21 @@ async def get_backoffice_list(
         .execution_options(include_deleted=True)
     )
     rows = (await db.execute(stmt)).all()
-    items = []
 
-    for row in rows:
-        photo = None
-
-        if row.User.photo_file is not None:
-            photo = FileDTO(
-                url=storage.generate_presigned_url(path=row.User.photo_file.object_key),
-                status=row.User.photo_file.status,
-            )
-
-        items.append(
-            BackofficeNotificationListItemDTO(
-                **build_backoffice_notification_dto(row.Notification, storage).model_dump(),
-                user=BackofficeNotificationUserDTO(
-                    nickname=row.User.nickname,
-                    email=row.User.email,
-                    is_anonymous=row.User.is_anonymous,
-                    photo_file=photo,
-                ),
-                push_sent_at=row.push_sent_at,
-            )
+    items = [
+        BackofficeNotificationListItemDTO(
+            **build_backoffice_notification_dto(row.Notification, storage).model_dump(),
+            user=BackofficeNotificationUserDTO(
+                nickname=row.User.nickname,
+                email=row.User.email,
+                is_anonymous=row.User.is_anonymous,
+                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+            ),
+            push_sent_at=row.push_sent_at,
+            image_file_id=row.Notification.image_file_id,
         )
+        for row in rows
+    ]
 
     return items, total
 
@@ -607,20 +601,12 @@ async def get_dispatches(
             image = NotificationImageDTO(url=storage.generate_presigned_url(path=dispatch.image_file.object_key))
 
         if row.User is not None:
-            photo = None
-
-            if row.User.photo_file is not None:
-                photo = FileDTO(
-                    url=storage.generate_presigned_url(path=row.User.photo_file.object_key),
-                    status=row.User.photo_file.status,
-                )
-
             recipient = BackofficeNotificationDispatchRecipientDTO(
                 user_id=row.User.id,
                 nickname=row.User.nickname,
                 email=row.User.email,
                 is_anonymous=row.User.is_anonymous,
-                photo_file=photo,
+                photo_file=storage.generate_file_dto(file=row.User.photo_file),
                 read_at=row.read_at,
                 push_sent_at=row.push_sent_at,
             )
