@@ -8,7 +8,23 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import DateTime, and_, case, exists, false, func, not_, or_, select, true
+from sqlalchemy import (
+    ARRAY,
+    BigInteger,
+    DateTime,
+    and_,
+    asc,
+    case,
+    cast,
+    desc,
+    exists,
+    false,
+    func,
+    not_,
+    or_,
+    select,
+    true,
+)
 from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +36,7 @@ from app.enums import (
     SessionEndReasonEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
+    SortOrderEnum,
     UserIssueEnum,
     UserLastSessionEnum,
     UserSortEnum,
@@ -331,17 +348,6 @@ async def get_backoffice_list(
     total = await db.scalar(stmt)
 
     session_end = func.coalesce(Session.ended_at, now)
-    order_by = [User.created_at.desc()]
-
-    if query.sort == UserSortEnum.RECENT_DURATION:
-        recent_duration = (
-            select(func.sum(session_end - func.greatest(Session.started_at, recent_start)))
-            .where(Session.user_id == User.id, Session.is_deleted.is_(False), session_end > recent_start)
-            .scalar_subquery()
-        )
-        order_by = [recent_duration.desc().nulls_last(), User.created_at.desc()]
-    elif query.sort == UserSortEnum.SESSION_COUNT:
-        order_by = [SESSION_COUNT.desc(), User.created_at.desc()]
 
     days = (
         func.generate_series(recent_start, recent_start + timedelta(days=13), timedelta(days=1))
@@ -386,6 +392,43 @@ async def get_backoffice_list(
 
     parrot_photo_file = aliased(File, name="parrot_photo_file")
     running_session = aliased(Session)
+
+    direction = asc if query.order == SortOrderEnum.ASC else desc
+    order_by = [direction(User.created_at)]
+
+    if query.sort == UserSortEnum.RECENT_DURATION:
+        recent_duration = (
+            select(
+                func.coalesce(
+                    func.sum(session_end - func.greatest(Session.started_at, recent_start)),
+                    timedelta(0),
+                )
+            )
+            .where(Session.user_id == User.id, Session.is_deleted.is_(False), session_end > recent_start)
+            .scalar_subquery()
+        )
+
+        order_by = [direction(recent_duration), User.created_at.desc()]
+    elif query.sort == UserSortEnum.SESSION_COUNT:
+        order_by = [direction(SESSION_COUNT), User.created_at.desc()]
+    elif query.sort == UserSortEnum.STATUS:
+        order_by = [
+            direction(running_session.id.is_not(None)),
+            direction(devices.LAST_SEEN_DEVICE.c.last_seen_at).nulls_last(),
+            User.created_at.desc(),
+        ]
+    elif query.sort == UserSortEnum.APP_VERSION:
+        version_numbers = case(
+            (
+                devices.LAST_SEEN_DEVICE.c.app_version.regexp_match(devices.VERSION_PATTERN),
+                cast(func.string_to_array(devices.LAST_SEEN_DEVICE.c.app_version, "."), ARRAY(BigInteger)),
+            )
+        )
+
+        order_by = [direction(version_numbers).nulls_last(), User.created_at.desc()]
+    elif query.sort == UserSortEnum.PARROT_COUNT:
+        order_by = [direction(parrot_count), User.created_at.desc()]
+
     stmt = (
         select(
             User,

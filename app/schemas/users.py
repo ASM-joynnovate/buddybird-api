@@ -11,6 +11,7 @@ from app.enums import (
     OAuthProviderEnum,
     PlatformEnum,
     SessionPhaseEnum,
+    SortOrderEnum,
     UserIssueEnum,
     UserLastSessionEnum,
     UserSortEnum,
@@ -123,6 +124,7 @@ class BackofficeUserListParams(PageParams):
     is_marketing_enabled: bool | None = None
     issue: UserIssueEnum | None = None
     sort: UserSortEnum = UserSortEnum.CREATED_AT
+    order: SortOrderEnum = SortOrderEnum.DESC
 
 
 class UpdateUserRequest(BaseRequest):
