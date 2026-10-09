@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.7.0...v2.8.0) (2026-10-09)
+
+
+### Features
+
+* **backoffice:** require idempotency keys for write requests ([#117](https://github.com/ASM-joynnovate/buddybird-api/issues/117)) ([ff1da92](https://github.com/ASM-joynnovate/buddybird-api/commit/ff1da92de0838757f4c54ecb98cb723834924581))
+
 ## [2.7.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.6.0...v2.7.0) (2026-10-09)
 
 
