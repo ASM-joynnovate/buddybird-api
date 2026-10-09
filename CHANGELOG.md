@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.6.0...v2.7.0) (2026-10-09)
+
+
+### Features
+
+* **backoffice:** add list sort options ([#114](https://github.com/ASM-joynnovate/buddybird-api/issues/114)) ([272ca20](https://github.com/ASM-joynnovate/buddybird-api/commit/272ca20a0815cbbee215810ed8fb6937e083e3d5))
+
 ## [2.6.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.5.0...v2.6.0) (2026-10-08)
 
 
