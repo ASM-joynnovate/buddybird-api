@@ -2,12 +2,12 @@ from datetime import UTC, datetime
 from uuid import uuid7
 
 from pydantic.experimental.missing_sentinel import MISSING
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, asc, desc, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import FileStatusEnum, LocaleEnum
+from app.enums import AnnouncementSortEnum, FileStatusEnum, LocaleEnum, SortOrderEnum
 from app.errors import (
     AnnouncementSaveUnavailableError,
     FileSizeExceededError,
@@ -117,12 +117,19 @@ async def get_backoffice_list(
 
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
 
+    direction = asc if query.order == SortOrderEnum.ASC else desc
+    read_count = func.count(User.id)
+    order_by = [direction(Announcement.starts_at)]
+
+    if query.sort == AnnouncementSortEnum.READ_COUNT:
+        order_by = [direction(read_count), Announcement.starts_at.desc()]
+
     stmt = (
-        stmt.add_columns(func.count(User.id).label("read_count"))
+        stmt.add_columns(read_count.label("read_count"))
         .outerjoin(AnnouncementRead, AnnouncementRead.announcement_id == Announcement.id)
         .outerjoin(User, User.id == AnnouncementRead.user_id)
         .group_by(Announcement.id)
-        .order_by(Announcement.starts_at.desc())
+        .order_by(*order_by)
         .offset((query.page - 1) * query.count_by_page)
         .limit(query.count_by_page)
     )

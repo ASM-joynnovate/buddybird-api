@@ -3,7 +3,7 @@ from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, true, update
+from sqlalchemy import Date, asc, cast, desc, func, select, true, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -13,7 +13,9 @@ from app.config import config
 from app.db import session_factory, transactional
 from app.enums import (
     OAuthProviderEnum,
+    SortOrderEnum,
     WithdrawalProgressEnum,
+    WithdrawalSortEnum,
     WithdrawalStatusEnum,
     WithdrawalStepEnum,
     WithdrawalStepStatusEnum,
@@ -50,6 +52,9 @@ from app.services.sessions import SESSION_COUNT
 logger = logging.getLogger(__name__)
 
 SEOUL = ZoneInfo("Asia/Seoul")
+USAGE_DAYS = cast(func.timezone(SEOUL.key, UserWithdrawal.created_at), Date) - cast(
+    func.timezone(SEOUL.key, User.created_at), Date
+)
 
 
 def build_backoffice_withdrawal_dto(withdrawal: UserWithdrawal) -> BackofficeWithdrawalDTO:
@@ -101,6 +106,14 @@ async def get_backoffice_list(
         .scalar_subquery()
     )
 
+    direction = asc if query.order == SortOrderEnum.ASC else desc
+    order_by = [direction(UserWithdrawal.created_at)]
+
+    if query.sort == WithdrawalSortEnum.USAGE_PERIOD:
+        order_by = [direction(USAGE_DAYS), UserWithdrawal.created_at.desc()]
+    elif query.sort == WithdrawalSortEnum.SESSION_COUNT:
+        order_by = [direction(SESSION_COUNT), UserWithdrawal.created_at.desc()]
+
     stmt = (
         stmt.add_columns(
             User,
@@ -117,7 +130,7 @@ async def get_backoffice_list(
         .join(User, User.id == UserWithdrawal.user_id)
         .options(joinedload(User.photo_file))
         .outerjoin(LAST_SEEN_DEVICE, true())
-        .order_by(UserWithdrawal.created_at.desc())
+        .order_by(*order_by)
         .offset((query.page - 1) * query.count_by_page)
         .limit(query.count_by_page)
         .execution_options(include_deleted=True)

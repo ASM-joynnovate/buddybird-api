@@ -96,6 +96,7 @@ from app.services.devices import LAST_SEEN_DEVICE, MIN_SUPPORTED_APP_UPDATE, VER
 from app.services.notifications import NOTIFICATION_PUSH
 from app.services.sessions import SESSION_COUNT
 from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
+from app.services.withdrawals import USAGE_DAYS
 
 
 def get_period(query: DashboardParams) -> tuple[list, datetime, datetime, datetime]:
@@ -640,14 +641,11 @@ async def get_withdrawal_dashboard(*, db: AsyncSession, query: DashboardParams) 
     )
     *provider_counts, anonymous_count, registered_parrot_count = (await db.execute(stmt)).one()
 
-    usage_days = cast(func.timezone(SEOUL.key, UserWithdrawal.created_at), Date) - cast(
-        func.timezone(SEOUL.key, User.created_at), Date
-    )
     ranges = {
         "usage_period": case(
-            (usage_days <= 0, WithdrawalUsagePeriodEnum.SAME_DAY.value),
-            (usage_days <= 7, WithdrawalUsagePeriodEnum.WITHIN_7_DAYS.value),
-            (usage_days <= 30, WithdrawalUsagePeriodEnum.WITHIN_30_DAYS.value),
+            (USAGE_DAYS <= 0, WithdrawalUsagePeriodEnum.SAME_DAY.value),
+            (USAGE_DAYS <= 7, WithdrawalUsagePeriodEnum.WITHIN_7_DAYS.value),
+            (USAGE_DAYS <= 30, WithdrawalUsagePeriodEnum.WITHIN_30_DAYS.value),
             else_=WithdrawalUsagePeriodEnum.OVER_30_DAYS.value,
         ),
         "session_range": case(
