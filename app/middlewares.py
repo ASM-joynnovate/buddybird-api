@@ -1,4 +1,5 @@
 import logging
+import secrets
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from starlette.requests import HTTPConnection
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.config import config
 from app.db import session_factory
 from app.errors import AuthenticationError, AuthenticationServiceUnavailableError, IdempotencyKeyRequiredError
 from app.models import ProcessedRequest, User
@@ -61,10 +63,26 @@ class IdempotencyMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            scope["type"] != "http"
-            or scope["method"] not in {"POST", "PUT", "PATCH", "DELETE"}
-            or not scope["path"].startswith(
+        if scope["type"] != "http" or scope["method"] not in {"POST", "PUT", "PATCH", "DELETE"}:
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        backoffice_authorized = scope["path"].startswith(
+            (
+                "/api/v1/backoffice/announcements",
+                "/api/v1/backoffice/app-updates",
+                "/api/v1/backoffice/consents",
+                "/api/v1/backoffice/notifications",
+                "/api/v1/backoffice/preset-words",
+                "/api/v1/backoffice/users",
+            )
+        ) and secrets.compare_digest(
+            headers.get("x-backoffice-password", "").encode(), config.BACKOFFICE_PASSWORD.encode()
+        )
+
+        if not backoffice_authorized and (
+            not scope["path"].startswith(
                 (
                     "/api/v1/users/me/settings",
                     "/api/v1/users/me/consents",
@@ -83,7 +101,7 @@ class IdempotencyMiddleware:
             return
 
         try:
-            request_id = UUID(Headers(scope=scope).get("idempotency-key", ""))
+            request_id = UUID(headers.get("idempotency-key", ""))
         except ValueError:
             error = IdempotencyKeyRequiredError()
             response = JSONResponse(
@@ -93,17 +111,21 @@ class IdempotencyMiddleware:
             return
 
         async with session_factory() as db:
-            user_id = await db.scalar(select(User.id).where(User.auth_user_id == scope["user"].auth_user_id))
+            user_id = (
+                None
+                if backoffice_authorized
+                else await db.scalar(select(User.id).where(User.auth_user_id == scope["user"].auth_user_id))
+            )
             processed = None
 
-            if user_id is not None:
+            if backoffice_authorized or user_id is not None:
                 processed = await db.scalar(
                     select(ProcessedRequest).where(
                         ProcessedRequest.user_id == user_id, ProcessedRequest.request_id == request_id
                     )
                 )
 
-        if user_id is None:
+        if not backoffice_authorized and user_id is None:
             await self.app(scope, receive, send)
             return
 
