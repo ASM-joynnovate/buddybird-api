@@ -362,10 +362,17 @@ class LearningSegment(Base):
 
 class ProcessedRequest(Base):
     __tablename__ = "processed_requests"
-    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_processed_requests_user_id_request_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "request_id",
+            name="uq_processed_requests_user_id_request_id",
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    user_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=True)
     request_id: Mapped[UUID] = mapped_column(SQL_UUID, nullable=False)
     response_status: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     response_body: Mapped[str] = mapped_column(Text, nullable=False)
