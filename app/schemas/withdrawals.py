@@ -4,7 +4,9 @@ from uuid import UUID
 
 from app.enums import (
     OAuthProviderEnum,
+    SortOrderEnum,
     WithdrawalProgressEnum,
+    WithdrawalSortEnum,
     WithdrawalStatusEnum,
     WithdrawalStepEnum,
     WithdrawalStepStatusEnum,
@@ -80,3 +82,5 @@ class BackofficeWithdrawalListParams(PageParams):
     is_completed: bool | None = None
     created_from: date | None = None
     created_to: date | None = None
+    sort: WithdrawalSortEnum = WithdrawalSortEnum.CREATED_AT
+    order: SortOrderEnum = SortOrderEnum.DESC

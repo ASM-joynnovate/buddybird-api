@@ -127,10 +127,18 @@ class UserIssueEnum(StrEnum):
     WITHDRAWAL_FAILED = "withdrawal_failed"
 
 
+class SortOrderEnum(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+
+
 class UserSortEnum(StrEnum):
     CREATED_AT = "created_at"
     RECENT_DURATION = "recent_duration"
     SESSION_COUNT = "session_count"
+    STATUS = "status"
+    APP_VERSION = "app_version"
+    PARROT_COUNT = "parrot_count"
 
 
 class WithdrawalProgressEnum(StrEnum):
@@ -166,3 +174,14 @@ class WithdrawalSessionRangeEnum(StrEnum):
     NONE = "none"
     ONE_TO_FOUR = "one_to_four"
     FIVE_OR_MORE = "five_or_more"
+
+
+class WithdrawalSortEnum(StrEnum):
+    CREATED_AT = "created_at"
+    USAGE_PERIOD = "usage_period"
+    SESSION_COUNT = "session_count"
+
+
+class AnnouncementSortEnum(StrEnum):
+    STARTS_AT = "starts_at"
+    READ_COUNT = "read_count"

@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, model_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
+from app.enums import AnnouncementSortEnum, SortOrderEnum
 from app.schemas.base import (
     BaseRequest,
     BaseResponse,
@@ -100,3 +101,5 @@ class UpdateAnnouncementRequest(BaseRequest):
 
 class BackofficeAnnouncementListParams(PageParams):
     is_ended: bool | None = None
+    sort: AnnouncementSortEnum = AnnouncementSortEnum.STARTS_AT
+    order: SortOrderEnum = SortOrderEnum.DESC
