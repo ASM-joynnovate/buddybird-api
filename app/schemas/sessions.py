@@ -51,6 +51,12 @@ class SessionJudgmentDTO(CustomBaseModel):
     status: JudgmentStatusEnum
 
 
+class SessionSoundsDTO(CustomBaseModel):
+    vad_count: int
+    parrot_count: int
+    mimic_count: int
+
+
 class SessionDTO(CustomBaseModel):
     id: UUID
     status: SessionStatusEnum
@@ -60,6 +66,7 @@ class SessionDTO(CustomBaseModel):
     progress: SessionProgressDTO
     period: SessionPeriodDTO
     judgment: SessionJudgmentDTO
+    sounds: SessionSoundsDTO
 
 
 class SessionResponse(BaseResponse):
@@ -81,11 +88,6 @@ class BackofficeSessionPeriodDTO(SessionPeriodDTO):
     ended_reason: SessionEndReasonEnum | None
 
 
-class BackofficeSessionSoundsDTO(CustomBaseModel):
-    parrot_count: int
-    mimicry_count: int
-
-
 class BackofficeSessionDisconnectionDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"ended_at"}
 
@@ -96,7 +98,6 @@ class BackofficeSessionDisconnectionDTO(CustomBaseModel):
 class BackofficeSessionDTO(SessionDTO):
     word: BackofficeSessionWordDTO
     period: BackofficeSessionPeriodDTO
-    sounds: BackofficeSessionSoundsDTO
     disconnections: list[BackofficeSessionDisconnectionDTO]
     emergency_detections: list[datetime]
 
