@@ -81,7 +81,7 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
     parrot_count = await db.scalar(
         stmt.where(SessionSound.is_parrot_sound.is_(True)).with_only_columns(func.count(), maintain_column_froms=True)
     )
-    mimicry_count = await db.scalar(
+    mimic_count = await db.scalar(
         stmt.where(LATEST_JUDGED_WORD_ID.is_not(None)).with_only_columns(func.count(), maintain_column_froms=True)
     )
 
@@ -129,7 +129,7 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
     return ReportDTO(
         period=ReportPeriodDTO(unit=query.period, start=query.start, end=end_date - timedelta(days=1)),
         active=ReportActiveDTO(duration_ms=sum(session_durations.values()), trend=trend, words=words_active),
-        sounds=ReportSoundsDTO(parrot_count=parrot_count, mimicry_count=mimicry_count),
+        sounds=ReportSoundsDTO(parrot_count=parrot_count, mimic_count=mimic_count),
         sessions=[
             ReportSessionDTO(
                 id=session.id,

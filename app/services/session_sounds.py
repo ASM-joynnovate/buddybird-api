@@ -85,7 +85,7 @@ async def get_list(
         )
     )
 
-    if query.mimicry:
+    if query.mimic:
         stmt = stmt.where(LATEST_JUDGED_WORD_ID.is_not(None))
 
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
@@ -128,16 +128,27 @@ async def get_user_list(
     return await build_sound_dtos(db=db, storage=storage, sounds=sounds), total
 
 
-async def get_backoffice_list(*, db: AsyncSession, session: Session) -> list[BackofficeSessionSoundDTO]:
+async def get_backoffice_list(
+    *, db: AsyncSession, storage: S3StorageClient, session: Session
+) -> list[BackofficeSessionSoundDTO]:
     stmt = (
-        select(SessionSound.captured_at, LATEST_JUDGED_WORD_ID.is_not(None))
+        select(SessionSound, LATEST_JUDGED_WORD_ID.is_not(None))
         .where(SessionSound.session_id == session.id, SessionSound.is_parrot_sound.is_(True))
         .order_by(SessionSound.captured_at)
     )
     rows = (await db.execute(stmt)).all()
 
     return [
-        BackofficeSessionSoundDTO(captured_at=captured_at, is_mimicry=is_mimicry) for captured_at, is_mimicry in rows
+        BackofficeSessionSoundDTO(
+            id=sound.id,
+            captured_at=sound.captured_at,
+            audio_file=FileDTO(
+                url=storage.generate_presigned_url(path=sound.audio_file.object_key),
+                status=sound.audio_file.status,
+            ),
+            is_mimic=is_mimic,
+        )
+        for sound, is_mimic in rows
     ]
 
 

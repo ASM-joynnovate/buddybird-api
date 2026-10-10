@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import ClassVar, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field
+from pydantic import AwareDatetime, ConfigDict, Field
 
 from app.enums import (
     JudgmentStatusEnum,
@@ -51,6 +51,12 @@ class SessionJudgmentDTO(CustomBaseModel):
     status: JudgmentStatusEnum
 
 
+class SessionSoundsDTO(CustomBaseModel):
+    vad_count: int
+    parrot_count: int
+    mimic_count: int
+
+
 class SessionDTO(CustomBaseModel):
     id: UUID
     status: SessionStatusEnum
@@ -60,6 +66,7 @@ class SessionDTO(CustomBaseModel):
     progress: SessionProgressDTO
     period: SessionPeriodDTO
     judgment: SessionJudgmentDTO
+    sounds: SessionSoundsDTO
 
 
 class SessionResponse(BaseResponse):
@@ -81,11 +88,6 @@ class BackofficeSessionPeriodDTO(SessionPeriodDTO):
     ended_reason: SessionEndReasonEnum | None
 
 
-class BackofficeSessionSoundsDTO(CustomBaseModel):
-    parrot_count: int
-    mimicry_count: int
-
-
 class BackofficeSessionDisconnectionDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"ended_at"}
 
@@ -96,7 +98,6 @@ class BackofficeSessionDisconnectionDTO(CustomBaseModel):
 class BackofficeSessionDTO(SessionDTO):
     word: BackofficeSessionWordDTO
     period: BackofficeSessionPeriodDTO
-    sounds: BackofficeSessionSoundsDTO
     disconnections: list[BackofficeSessionDisconnectionDTO]
     emergency_detections: list[datetime]
 
@@ -173,12 +174,14 @@ class SessionEventWordDTO(CustomBaseModel):
 
 
 class SessionEventDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"word"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at"}
 
     id: UUID
     kind: SessionEventKindEnum
     occurred_at: datetime
+    ended_at: datetime | None
     word: SessionEventWordDTO | None
+    sound_ids: list[UUID]
 
 
 class SessionEventListResponse(BaseResponse):
@@ -186,7 +189,7 @@ class SessionEventListResponse(BaseResponse):
 
 
 class BackofficeSessionEventDTO(SessionEventDTO):
-    allow_null_fields: ClassVar[set] = {"word", "is_learning"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at", "is_learning"}
 
     word: BackofficeSessionWordDTO | None
     is_learning: bool | None
@@ -217,7 +220,9 @@ class SessionSoundUploadRequest(UploadRequest):
 
 
 class SessionSoundListParams(PageParams):
-    mimicry: bool = False
+    model_config = ConfigDict(extra="ignore")
+
+    mimic: bool = False
 
 
 class SessionSoundListResponse(BaseResponse):
@@ -225,8 +230,10 @@ class SessionSoundListResponse(BaseResponse):
 
 
 class BackofficeSessionSoundDTO(CustomBaseModel):
+    id: UUID
     captured_at: datetime
-    is_mimicry: bool
+    audio_file: FileDTO
+    is_mimic: bool
 
 
 class BackofficeSessionSoundListResponse(BaseResponse):
