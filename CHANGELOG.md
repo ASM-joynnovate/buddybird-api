@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.9.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.8.0...v2.9.0) (2026-10-10)
+
+
+### Features
+
+* **sessions:** add sound counts to session responses ([#120](https://github.com/ASM-joynnovate/buddybird-api/issues/120)) ([67b85cd](https://github.com/ASM-joynnovate/buddybird-api/commit/67b85cdc695edd7d6006fefd9fb7147022b18517))
+* **sessions:** add sound ids to session events ([#122](https://github.com/ASM-joynnovate/buddybird-api/issues/122)) ([be2a558](https://github.com/ASM-joynnovate/buddybird-api/commit/be2a5588f4b99cf613511a2772eca327982e6f37))
+
+
+### Bug Fixes
+
+* **sessions:** ignore unknown sound list query params ([#123](https://github.com/ASM-joynnovate/buddybird-api/issues/123)) ([9e358ca](https://github.com/ASM-joynnovate/buddybird-api/commit/9e358ca0c8c53bd0a8206093299df6a04ff5b88d))
+
 ## [2.8.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.7.0...v2.8.0) (2026-10-09)
 
 
