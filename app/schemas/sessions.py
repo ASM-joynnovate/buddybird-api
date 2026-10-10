@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import ClassVar, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field
+from pydantic import AwareDatetime, ConfigDict, Field
 
 from app.enums import (
     JudgmentStatusEnum,
@@ -219,6 +219,8 @@ class SessionSoundUploadRequest(UploadRequest):
 
 
 class SessionSoundListParams(PageParams):
+    model_config = ConfigDict(extra="ignore")
+
     mimic: bool = False
 
 
