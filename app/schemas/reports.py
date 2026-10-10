@@ -36,7 +36,7 @@ class ReportActiveDTO(CustomBaseModel):
 
 class ReportSoundsDTO(CustomBaseModel):
     parrot_count: int
-    mimicry_count: int
+    mimic_count: int
 
 
 class ReportSessionPeriodDTO(CustomBaseModel):

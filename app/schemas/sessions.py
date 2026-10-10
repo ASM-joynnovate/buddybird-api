@@ -180,6 +180,7 @@ class SessionEventDTO(CustomBaseModel):
     kind: SessionEventKindEnum
     occurred_at: datetime
     word: SessionEventWordDTO | None
+    sound_ids: list[UUID]
 
 
 class SessionEventListResponse(BaseResponse):
@@ -218,7 +219,7 @@ class SessionSoundUploadRequest(UploadRequest):
 
 
 class SessionSoundListParams(PageParams):
-    mimicry: bool = False
+    mimic: bool = False
 
 
 class SessionSoundListResponse(BaseResponse):
@@ -226,8 +227,10 @@ class SessionSoundListResponse(BaseResponse):
 
 
 class BackofficeSessionSoundDTO(CustomBaseModel):
+    id: UUID
     captured_at: datetime
-    is_mimicry: bool
+    audio_file: FileDTO
+    is_mimic: bool
 
 
 class BackofficeSessionSoundListResponse(BaseResponse):

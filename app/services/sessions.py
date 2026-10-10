@@ -25,7 +25,18 @@ from app.errors import (
     SessionNotRunningError,
     SessionSaveUnavailableError,
 )
-from app.models import Device, File, LearningSegment, Session, SessionEvent, SessionSound, SoundJudgment, User, Word
+from app.models import (
+    Device,
+    File,
+    LearningSegment,
+    Session,
+    SessionEvent,
+    SessionEventSound,
+    SessionSound,
+    SoundJudgment,
+    User,
+    Word,
+)
 from app.schemas.base import PageParams
 from app.schemas.sessions import (
     AcknowledgedLearningSegmentDTO,
@@ -138,6 +149,21 @@ async def get_sound_counts(*, db: AsyncSession, sessions: Sequence[Session]) -> 
         session.id: sound_counts.get(session.id, SessionSoundsDTO(vad_count=0, parrot_count=0, mimic_count=0))
         for session in sessions
     }
+
+
+async def get_event_sound_ids(*, db: AsyncSession, session: Session) -> dict[UUID, list[UUID]]:
+    stmt = (
+        select(SessionEventSound.event_id, SessionSound.id)
+        .join(SessionSound, SessionSound.id == SessionEventSound.sound_id)
+        .where(SessionSound.session_id == session.id)
+        .order_by(SessionSound.captured_at)
+    )
+    sound_ids: dict[UUID, list[UUID]] = {}
+
+    for event_id, sound_id in (await db.execute(stmt)).all():
+        sound_ids.setdefault(event_id, []).append(sound_id)
+
+    return sound_ids
 
 
 async def get_active_periods(
@@ -512,15 +538,9 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
 
 
 async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEventDTO]:
-    stmt = (
-        select(SessionEvent)
-        .where(
-            SessionEvent.session_id == session.id,
-            SessionEvent.kind != SessionEventKindEnum.EMERGENCY_DETECTED.value,
-        )
-        .order_by(SessionEvent.occurred_at)
-    )
+    stmt = select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
     events = (await db.scalars(stmt)).all()
+    sound_ids = await get_event_sound_ids(db=db, session=session)
 
     return [
         SessionEventDTO(
@@ -528,6 +548,7 @@ async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEvent
             kind=event.kind,
             occurred_at=event.occurred_at,
             word=SessionEventWordDTO(id=event.word_id) if event.word_id is not None else None,
+            sound_ids=sound_ids.get(event.id, []),
         )
         for event in events
     ]
@@ -542,6 +563,7 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
         .execution_options(include_deleted=True)
     )
     rows = (await db.execute(stmt)).all()
+    sound_ids = await get_event_sound_ids(db=db, session=session)
     toggle_count = 0
     items = []
 
@@ -558,6 +580,7 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
                 kind=event.kind,
                 occurred_at=event.occurred_at,
                 word=BackofficeSessionWordDTO(id=event.word_id, name=word_name) if event.word_id is not None else None,
+                sound_ids=sound_ids.get(event.id, []),
                 is_learning=is_learning,
             )
         )
