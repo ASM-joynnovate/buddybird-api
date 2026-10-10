@@ -151,19 +151,24 @@ async def get_sound_counts(*, db: AsyncSession, sessions: Sequence[Session]) -> 
     }
 
 
-async def get_event_sound_ids(*, db: AsyncSession, session: Session) -> dict[UUID, list[UUID]]:
+async def get_event_sounds(
+    *, db: AsyncSession, session: Session
+) -> tuple[dict[UUID, list[UUID]], dict[UUID, datetime]]:
     stmt = (
-        select(SessionEventSound.event_id, SessionSound.id)
+        select(SessionEventSound.event_id, SessionSound.id, SessionSound.captured_at)
         .join(SessionSound, SessionSound.id == SessionEventSound.sound_id)
         .where(SessionSound.session_id == session.id)
         .order_by(SessionSound.captured_at)
     )
     sound_ids: dict[UUID, list[UUID]] = {}
+    ended_ats: dict[UUID, datetime] = {}
 
-    for event_id, sound_id in (await db.execute(stmt)).all():
+    for event_id, sound_id, captured_at in (await db.execute(stmt)).all():
         sound_ids.setdefault(event_id, []).append(sound_id)
 
-    return sound_ids
+        ended_ats[event_id] = captured_at
+
+    return sound_ids, ended_ats
 
 
 async def get_active_periods(
@@ -540,13 +545,14 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
 async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEventDTO]:
     stmt = select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
     events = (await db.scalars(stmt)).all()
-    sound_ids = await get_event_sound_ids(db=db, session=session)
+    sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
 
     return [
         SessionEventDTO(
             id=event.id,
             kind=event.kind,
             occurred_at=event.occurred_at,
+            ended_at=ended_ats.get(event.id),
             word=SessionEventWordDTO(id=event.word_id) if event.word_id is not None else None,
             sound_ids=sound_ids.get(event.id, []),
         )
@@ -563,7 +569,7 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
         .execution_options(include_deleted=True)
     )
     rows = (await db.execute(stmt)).all()
-    sound_ids = await get_event_sound_ids(db=db, session=session)
+    sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
     toggle_count = 0
     items = []
 
@@ -579,6 +585,7 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
                 id=event.id,
                 kind=event.kind,
                 occurred_at=event.occurred_at,
+                ended_at=ended_ats.get(event.id),
                 word=BackofficeSessionWordDTO(id=event.word_id, name=word_name) if event.word_id is not None else None,
                 sound_ids=sound_ids.get(event.id, []),
                 is_learning=is_learning,

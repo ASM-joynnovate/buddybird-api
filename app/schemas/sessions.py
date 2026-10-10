@@ -174,11 +174,12 @@ class SessionEventWordDTO(CustomBaseModel):
 
 
 class SessionEventDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"word"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at"}
 
     id: UUID
     kind: SessionEventKindEnum
     occurred_at: datetime
+    ended_at: datetime | None
     word: SessionEventWordDTO | None
     sound_ids: list[UUID]
 
@@ -188,7 +189,7 @@ class SessionEventListResponse(BaseResponse):
 
 
 class BackofficeSessionEventDTO(SessionEventDTO):
-    allow_null_fields: ClassVar[set] = {"word", "is_learning"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at", "is_learning"}
 
     word: BackofficeSessionWordDTO | None
     is_learning: bool | None
