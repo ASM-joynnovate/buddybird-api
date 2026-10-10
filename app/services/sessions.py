@@ -35,7 +35,6 @@ from app.schemas.sessions import (
     BackofficeSessionDTO,
     BackofficeSessionEventDTO,
     BackofficeSessionPeriodDTO,
-    BackofficeSessionSoundsDTO,
     BackofficeSessionWordDTO,
     HeartbeatDTO,
     HeartbeatRequest,
@@ -47,6 +46,7 @@ from app.schemas.sessions import (
     SessionPeriodDTO,
     SessionProgressDTO,
     SessionScheduleDTO,
+    SessionSoundsDTO,
     SessionStationDTO,
     SessionSummaryDTO,
     SessionSummarySessionDTO,
@@ -72,7 +72,7 @@ SESSION_COUNT = (
 )
 
 
-def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum) -> SessionDTO:
+def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum, sounds: SessionSoundsDTO) -> SessionDTO:
     return SessionDTO(
         id=session.id,
         status=session.status,
@@ -91,6 +91,7 @@ def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum) -> 
         ),
         period=SessionPeriodDTO(started_at=session.started_at, ended_at=session.ended_at, ended_by=session.ended_by),
         judgment=SessionJudgmentDTO(status=judgment_status),
+        sounds=sounds,
     )
 
 
@@ -113,6 +114,28 @@ async def get_judgment_statuses(*, db: AsyncSession, sessions: Sequence[Session]
         session.id: JudgmentStatusEnum.PENDING
         if session.status == SessionStatusEnum.RUNNING.value or session.id in pending_session_ids
         else JudgmentStatusEnum.DONE
+        for session in sessions
+    }
+
+
+async def get_sound_counts(*, db: AsyncSession, sessions: Sequence[Session]) -> dict[UUID, SessionSoundsDTO]:
+    stmt = (
+        select(
+            SessionSound.session_id,
+            func.count(),
+            func.count().filter(SessionSound.is_parrot_sound.is_(True)),
+            func.count().filter(LATEST_JUDGED_WORD_ID.is_not(None)),
+        )
+        .where(SessionSound.session_id.in_([session.id for session in sessions]))
+        .group_by(SessionSound.session_id)
+    )
+    sound_counts = {
+        session_id: SessionSoundsDTO(vad_count=vad_count, parrot_count=parrot_count, mimic_count=mimic_count)
+        for session_id, vad_count, parrot_count, mimic_count in (await db.execute(stmt)).all()
+    }
+
+    return {
+        session.id: sound_counts.get(session.id, SessionSoundsDTO(vad_count=0, parrot_count=0, mimic_count=0))
         for session in sessions
     }
 
@@ -202,8 +225,11 @@ async def get_list(*, db: AsyncSession, user: User, query: PageParams) -> tuple[
         )
     ).all()
     judgment_statuses = await get_judgment_statuses(db=db, sessions=sessions)
+    sound_counts = await get_sound_counts(db=db, sessions=sessions)
 
-    return [build_session_dto(session, judgment_statuses[session.id]) for session in sessions], total
+    return [
+        build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id]) for session in sessions
+    ], total
 
 
 async def get_backoffice_list(
@@ -220,6 +246,7 @@ async def get_backoffice_list(
     ).all()
     session_ids = [session.id for session in sessions]
     judgment_statuses = await get_judgment_statuses(db=db, sessions=sessions)
+    sound_counts = await get_sound_counts(db=db, sessions=sessions)
 
     stmt = (
         select(Word.id, Word.name)
@@ -227,20 +254,6 @@ async def get_backoffice_list(
         .execution_options(include_deleted=True)
     )
     word_names = dict((await db.execute(stmt)).all())
-
-    stmt = (
-        select(
-            SessionSound.session_id,
-            func.count().filter(SessionSound.is_parrot_sound.is_(True)),
-            func.count().filter(LATEST_JUDGED_WORD_ID.is_not(None)),
-        )
-        .where(SessionSound.session_id.in_(session_ids))
-        .group_by(SessionSound.session_id)
-    )
-    sound_counts = {
-        session_id: (parrot_count, mimicry_count)
-        for session_id, parrot_count, mimicry_count in (await db.execute(stmt)).all()
-    }
 
     stmt = (
         select(SessionEvent.session_id, SessionEvent.kind, SessionEvent.occurred_at)
@@ -276,34 +289,30 @@ async def get_backoffice_list(
             BackofficeSessionDisconnectionDTO(started_at=started_at, ended_at=None)
         )
 
-    items = []
-
-    for session in sessions:
-        parrot_count, mimicry_count = sound_counts.get(session.id, (0, 0))
-
-        items.append(
-            BackofficeSessionDTO(
-                **build_session_dto(session, judgment_statuses[session.id]).model_dump(exclude={"word", "period"}),
-                word=BackofficeSessionWordDTO(id=session.word_id, name=word_names[session.word_id]),
-                period=BackofficeSessionPeriodDTO(
-                    started_at=session.started_at,
-                    ended_at=session.ended_at,
-                    ended_by=session.ended_by,
-                    ended_reason=session.ended_reason,
-                ),
-                sounds=BackofficeSessionSoundsDTO(parrot_count=parrot_count, mimicry_count=mimicry_count),
-                disconnections=disconnections.get(session.id, []),
-                emergency_detections=emergency_detections.get(session.id, []),
-            )
+    return [
+        BackofficeSessionDTO(
+            **build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id]).model_dump(
+                exclude={"word", "period"}
+            ),
+            word=BackofficeSessionWordDTO(id=session.word_id, name=word_names[session.word_id]),
+            period=BackofficeSessionPeriodDTO(
+                started_at=session.started_at,
+                ended_at=session.ended_at,
+                ended_by=session.ended_by,
+                ended_reason=session.ended_reason,
+            ),
+            disconnections=disconnections.get(session.id, []),
+            emergency_detections=emergency_detections.get(session.id, []),
         )
-
-    return items, total
+        for session in sessions
+    ], total
 
 
 async def get_detail(*, db: AsyncSession, session: Session) -> SessionDTO:
     judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
+    sound_counts = await get_sound_counts(db=db, sessions=[session])
 
-    return build_session_dto(session, judgment_statuses[session.id])
+    return build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id])
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
@@ -340,7 +349,11 @@ async def start(*, db: AsyncSession, user: User, device: Device, data: StartSess
 
     await db.flush()
 
-    return build_session_dto(session, JudgmentStatusEnum.PENDING)
+    return build_session_dto(
+        session,
+        JudgmentStatusEnum.PENDING,
+        SessionSoundsDTO(vad_count=0, parrot_count=0, mimic_count=0),
+    )
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
@@ -364,8 +377,9 @@ async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
     await db.flush()
 
     judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
+    sound_counts = await get_sound_counts(db=db, sessions=[session])
 
-    return build_session_dto(session, judgment_statuses[session.id])
+    return build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id])
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
