@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.9.0...v2.10.0) (2026-10-10)
+
+
+### Features
+
+* **sessions:** add end time to session events ([#124](https://github.com/ASM-joynnovate/buddybird-api/issues/124)) ([c85ad08](https://github.com/ASM-joynnovate/buddybird-api/commit/c85ad0819468fc2e83a753ccee07104b20749eaa))
+
 ## [2.9.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.8.0...v2.9.0) (2026-10-10)
 
 
