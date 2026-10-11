@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.10.0...v2.11.0) (2026-10-11)
+
+
+### Features
+
+* **backoffice:** add analytics and stability dashboards ([#127](https://github.com/ASM-joynnovate/buddybird-api/issues/127)) ([04578eb](https://github.com/ASM-joynnovate/buddybird-api/commit/04578eb16283be2b09a2bf766cf6ac1c345b06ff))
+
 ## [2.10.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.9.0...v2.10.0) (2026-10-10)
 
 

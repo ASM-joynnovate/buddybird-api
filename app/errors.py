@@ -244,6 +244,12 @@ class DuplicatePresetWordError(CustomError):
     message = "같은 언어에 같은 이름의 단어 프리셋이 이미 있습니다."
 
 
+class DashboardSourceUnavailableError(CustomError):
+    status_code = 503
+    error_code = "DASHBOARD__SOURCE_UNAVAILABLE"
+    message = "외부 서비스의 데이터를 일시적으로 조회할 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

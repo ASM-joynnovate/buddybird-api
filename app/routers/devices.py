@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.dependencies import ActiveDevice, ActiveUser, DBSession, require_user_device
+from app.dependencies import ActiveDevice, ActiveUser, Country, DBSession, require_user_device
 from app.models import Device
 from app.schemas.base import BaseResponse
 from app.schemas.devices import (
@@ -18,8 +18,10 @@ router = APIRouter(prefix="/devices")
 
 
 @router.put("", name="기기 등록")
-async def register(user: ActiveUser, body: RegisterDeviceRequest, db: DBSession) -> DeviceResponse:
-    return DeviceResponse(message="기기 등록 성공", data=await devices.register(db=db, user=user, data=body))
+async def register(user: ActiveUser, body: RegisterDeviceRequest, country: Country, db: DBSession) -> DeviceResponse:
+    return DeviceResponse(
+        message="기기 등록 성공", data=await devices.register(db=db, user=user, data=body, country=country)
+    )
 
 
 @router.get("", name="기기 목록 조회")
@@ -32,6 +34,13 @@ async def update_push_token(device: ActiveDevice, body: UpdatePushTokenRequest, 
     return DeviceResponse(
         message="푸시 토큰 수정 성공", data=await devices.update_push_token(db=db, device=device, data=body)
     )
+
+
+@router.put("/me/activity", name="접속 기록")
+async def record_activity(device: ActiveDevice, country: Country, db: DBSession) -> BaseResponse:
+    await devices.record_activity(db=db, device=device, country=country)
+
+    return BaseResponse(message="접속 기록 성공")
 
 
 @router.patch("/me", name="기기 정보 수정")

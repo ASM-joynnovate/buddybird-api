@@ -164,6 +164,9 @@ class UserDashboardDailyDTO(CustomBaseModel):
     signup_count: int
     withdrawal_count: int
     running_user_count: int
+    dau: int
+    wau: int
+    mau: int
 
 
 class UserDashboardLastSessionDTO(CustomBaseModel):
@@ -206,10 +209,18 @@ class UserDashboardParrotsDTO(CustomBaseModel):
     species: list[UserDashboardSpeciesDTO]
 
 
+class UserDashboardCountryDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"country"}
+
+    country: str | None
+    count: int
+
+
 class UserDashboardDTO(CustomBaseModel):
     users: UserDashboardUsersDTO
     withdrawals: DashboardCountDTO
     daily: list[UserDashboardDailyDTO]
+    countries: list[UserDashboardCountryDTO]
     last_sessions: list[UserDashboardLastSessionDTO]
     issues: list[UserDashboardIssueDTO]
     accounts: DashboardAccountsDTO
@@ -360,6 +371,75 @@ class ConsentDashboardDTO(CustomBaseModel):
 
 class ConsentDashboardResponse(BaseResponse):
     data: ConsentDashboardDTO
+
+
+class AnalyticsDashboardDailyDTO(CustomBaseModel):
+    date: date
+    dau: int
+    wau: int
+    mau: int
+
+
+class AnalyticsDashboardEventDTO(CustomBaseModel):
+    name: str
+    count: int
+    user_count: int
+
+
+class AnalyticsDashboardOnboardingDTO(CustomBaseModel):
+    step: str
+    viewed_count: int
+    completed_count: int
+
+
+class AnalyticsDashboardDTO(CustomBaseModel):
+    daily: list[AnalyticsDashboardDailyDTO]
+    platforms: list[DashboardPlatformDTO]
+    app_versions: list[DashboardDeviceVersionDTO]
+    events: list[AnalyticsDashboardEventDTO]
+    onboarding: list[AnalyticsDashboardOnboardingDTO]
+
+
+class AnalyticsDashboardResponse(BaseResponse):
+    data: AnalyticsDashboardDTO
+
+
+class StabilityDashboardProjectDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"crash_free_user_rate", "crash_free_session_rate"}
+
+    project: str
+    crash_free_user_rate: float | None
+    crash_free_session_rate: float | None
+    error_count: int
+
+
+class StabilityDashboardReleaseDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"crash_free_user_rate"}
+
+    release: str
+    crash_free_user_rate: float | None
+    user_count: int
+
+
+class StabilityDashboardIssueDTO(CustomBaseModel):
+    project: str
+    title: str
+    level: str
+    count: int
+    user_count: int
+    first_seen: datetime
+    last_seen: datetime
+    url: str
+
+
+class StabilityDashboardDTO(CustomBaseModel):
+    projects: list[StabilityDashboardProjectDTO]
+    releases: list[StabilityDashboardReleaseDTO]
+    issues: list[StabilityDashboardIssueDTO]
+
+
+class StabilityDashboardResponse(BaseResponse):
+    data: StabilityDashboardDTO
 
 
 class DashboardParams(BaseRequest):

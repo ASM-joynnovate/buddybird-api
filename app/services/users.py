@@ -4,7 +4,6 @@ import logging
 from datetime import UTC, datetime, time, timedelta
 from urllib.parse import urlsplit
 from uuid import UUID, uuid7
-from zoneinfo import ZoneInfo
 
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -78,6 +77,7 @@ from app.services import devices
 from app.services.sessions import SESSION_COUNT
 from app.services.settings import build_settings_dto
 from app.services.withdrawals import build_backoffice_withdrawal_dto
+from app.utils import SEOUL
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,6 @@ SOCIAL_PHOTO_HOSTS = {
     "google": {"googleusercontent.com", "lh3.googleusercontent.com"},
     "kakao": {"k.kakaocdn.net", "t1.kakaocdn.net", "t1.daumcdn.net"},
 }
-SEOUL = ZoneInfo("Asia/Seoul")
 TODAY_START = func.timezone(
     SEOUL.key, func.date_trunc("day", func.timezone(SEOUL.key, func.now())), type_=DateTime(timezone=True)
 )
