@@ -2,13 +2,14 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import ARRAY, BigInteger, Case, and_, case, cast, false, func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.db import transactional
 from app.enums import SessionActorEnum, SessionEndReasonEnum, SessionEventKindEnum, SessionStatusEnum
 from app.errors import DeviceSaveUnavailableError
-from app.models import AppUpdate, Device, Session, SessionEvent, User
+from app.models import AppUpdate, Device, DeviceActivity, Session, SessionEvent, User
 from app.schemas.devices import (
     BackofficeDeviceDTO,
     DeviceClientDTO,
@@ -17,6 +18,7 @@ from app.schemas.devices import (
     UpdateDeviceRequest,
     UpdatePushTokenRequest,
 )
+from app.utils import SEOUL
 
 VERSION_PATTERN = r"^[0-9]+(\.[0-9]+)*$"
 APP_UPDATE_VERSION_NUMBERS = cast(func.string_to_array(AppUpdate.version, "."), ARRAY(BigInteger))
@@ -109,6 +111,30 @@ async def finish_running_sessions(
     return [session.id for session in sessions]
 
 
+async def mark_seen(*, db: AsyncSession, device: Device, country: str | None) -> None:
+    now = datetime.now(UTC)
+    today = now.astimezone(SEOUL).date()
+    seen_today = device.last_seen_at is not None and device.last_seen_at.astimezone(SEOUL).date() == today
+    device.last_seen_at = now
+
+    await db.flush()
+
+    if seen_today:
+        return
+
+    stmt = insert(DeviceActivity).values(
+        activity_date=today,
+        device_id=device.id,
+        user_id=device.user_id,
+        app_version=device.app_version,
+        country=country,
+    )
+
+    await db.execute(
+        stmt.on_conflict_do_nothing(index_elements=[DeviceActivity.activity_date, DeviceActivity.device_id])
+    )
+
+
 async def get_list(*, db: AsyncSession, user: User) -> list[DeviceDTO]:
     devices = (await db.scalars(select(Device).where(Device.user_id == user.id).order_by(Device.created_at))).all()
 
@@ -130,8 +156,7 @@ async def get_backoffice_list(*, db: AsyncSession, user: User) -> list[Backoffic
 
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)
-async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest) -> DeviceDTO:
-    now = datetime.now(UTC)
+async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest, country: str | None) -> DeviceDTO:
     device = await db.scalar(
         select(Device)
         .where(Device.user_id == user.id, Device.client_device_id == data.client_device_id)
@@ -148,7 +173,6 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest)
             app_version=data.app_version,
             timezone=data.timezone,
             locale=data.locale.value,
-            last_seen_at=now,
             is_deleted=False,
         )
         db.add(device)
@@ -159,12 +183,16 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest)
         device.app_version = data.app_version
         device.timezone = data.timezone
         device.locale = data.locale.value
-        device.last_seen_at = now
         device.is_deleted = False
 
-    await db.flush()
+    await mark_seen(db=db, device=device, country=country)
 
     return build_device_dto(device)
+
+
+@transactional(unavailable_error=DeviceSaveUnavailableError)
+async def record_activity(*, db: AsyncSession, device: Device, country: str | None) -> None:
+    await mark_seen(db=db, device=device, country=country)
 
 
 @transactional(unavailable_error=DeviceSaveUnavailableError)

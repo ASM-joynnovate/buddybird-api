@@ -1,3 +1,4 @@
+import re
 import secrets
 from collections.abc import AsyncIterator
 from typing import Annotated
@@ -210,3 +211,15 @@ async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept
 
 
 Locale = Annotated[LocaleEnum, Depends(get_locale)]
+
+
+async def get_country(
+    cloudfront_viewer_country: Annotated[str | None, Header(alias="CloudFront-Viewer-Country")] = None,
+) -> str | None:
+    if cloudfront_viewer_country is not None and re.fullmatch("[A-Z]{2}", cloudfront_viewer_country):
+        return cloudfront_viewer_country
+
+    return None
+
+
+Country = Annotated[str | None, Depends(get_country)]

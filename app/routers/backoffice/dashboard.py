@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.dependencies import DBSession, require_consent
 from app.models import Consent
 from app.schemas.dashboard import (
+    AnalyticsDashboardResponse,
     AppUpdateDashboardParams,
     AppUpdateDashboardResponse,
     ConsentDashboardResponse,
@@ -13,10 +14,11 @@ from app.schemas.dashboard import (
     DashboardResponse,
     FeedbackDashboardResponse,
     NotificationDashboardResponse,
+    StabilityDashboardResponse,
     UserDashboardResponse,
     WithdrawalDashboardResponse,
 )
-from app.services import dashboard
+from app.services import analytics, dashboard, stability
 
 router = APIRouter(prefix="/dashboard")
 
@@ -82,6 +84,22 @@ async def get_app_update_dashboard(
     return AppUpdateDashboardResponse(
         message="앱 업데이트 대시보드 조회 성공",
         data=await dashboard.get_app_update_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/analytics", name="Google Analytics 대시보드 조회")
+async def get_analytics_dashboard(query: Annotated[DashboardParams, Query()]) -> AnalyticsDashboardResponse:
+    return AnalyticsDashboardResponse(
+        message="Google Analytics 대시보드 조회 성공",
+        data=await analytics.get_dashboard(query=query),
+    )
+
+
+@router.get("/stability", name="안정성 대시보드 조회")
+async def get_stability_dashboard(query: Annotated[DashboardParams, Query()]) -> StabilityDashboardResponse:
+    return StabilityDashboardResponse(
+        message="안정성 대시보드 조회 성공",
+        data=await stability.get_dashboard(query=query),
     )
 
 

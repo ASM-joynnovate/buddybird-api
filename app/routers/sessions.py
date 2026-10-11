@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import ActiveDevice, ActiveUser, DBSession, Storage, require_device, require_session
+from app.dependencies import ActiveDevice, ActiveUser, Country, DBSession, Storage, require_device, require_session
 from app.models import Session
 from app.schemas.base import BaseResponse, PageParams, UploadResponse
 from app.schemas.sessions import (
@@ -61,11 +61,15 @@ async def finish(session: Annotated[Session, Depends(require_session)], db: DBSe
 
 @router.post("/{session_id}/heartbeat", name="세션 heartbeat")
 async def record_heartbeat(
-    session: Annotated[Session, Depends(require_session)], device: ActiveDevice, body: HeartbeatRequest, db: DBSession
+    session: Annotated[Session, Depends(require_session)],
+    device: ActiveDevice,
+    body: HeartbeatRequest,
+    country: Country,
+    db: DBSession,
 ) -> HeartbeatResponse:
     return HeartbeatResponse(
         message="heartbeat 성공",
-        data=await sessions.record_heartbeat(db=db, session=session, device=device, data=body),
+        data=await sessions.record_heartbeat(db=db, session=session, device=device, data=body, country=country),
     )
 
 

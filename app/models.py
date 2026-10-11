@@ -245,6 +245,16 @@ class Device(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
 
+class DeviceActivity(Base):
+    __tablename__ = "device_activities"
+
+    activity_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    app_version: Mapped[str] = mapped_column(String(12), nullable=False)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+
+
 class PresetWord(Base):
     __tablename__ = "preset_words"
     __table_args__ = (

@@ -24,6 +24,7 @@ from app.models import (
     AnnouncementRead,
     Consent,
     Device,
+    DeviceActivity,
     Feedback,
     I18n,
     Notification,
@@ -78,6 +79,7 @@ from app.schemas.dashboard import (
     NotificationDashboardDailyDTO,
     NotificationDashboardDTO,
     NotificationDashboardKindDTO,
+    UserDashboardCountryDTO,
     UserDashboardDailyDTO,
     UserDashboardDTO,
     UserDashboardIssueDTO,
@@ -95,8 +97,9 @@ from app.schemas.dashboard import (
 from app.services.devices import LAST_SEEN_DEVICE, MIN_SUPPORTED_APP_UPDATE, VERSION_UNSUPPORTED
 from app.services.notifications import NOTIFICATION_PUSH
 from app.services.sessions import SESSION_COUNT
-from app.services.users import ISSUES, LAST_SESSION, PUSHABLE, SEOUL
+from app.services.users import ISSUES, LAST_SESSION, PUSHABLE
 from app.services.withdrawals import USAGE_DAYS
+from app.utils import SEOUL
 
 
 def get_period(query: DashboardParams) -> tuple[list, datetime, datetime, datetime]:
@@ -471,8 +474,15 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         .where(Session.started_at < day_end, func.coalesce(Session.ended_at, now) > days.c.day_start)
         .scalar_subquery()
     )
-    stmt = select(running_user_count).select_from(days).order_by(days.c.day_start)
-    running_user_counts = (await db.scalars(stmt)).all()
+    local_date = cast(func.timezone(SEOUL.key, days.c.day_start), Date)
+    active_user_counts = [
+        select(func.count(DeviceActivity.user_id.distinct()))
+        .where(DeviceActivity.activity_date > local_date - window, DeviceActivity.activity_date <= local_date)
+        .scalar_subquery()
+        for window in (1, 7, 28)
+    ]
+    stmt = select(running_user_count, *active_user_counts).select_from(days).order_by(days.c.day_start)
+    daily_user_counts = (await db.execute(stmt)).all()
 
     stmt = select(
         select(func.count()).select_from(User).where(User.created_at < period_start).scalar_subquery()
@@ -484,7 +494,7 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
     total_count = await db.scalar(stmt)
     daily = []
 
-    for day, count in zip(dates, running_user_counts, strict=True):
+    for day, (count, dau, wau, mau) in zip(dates, daily_user_counts, strict=True):
         total_count += daily_signup_counts.get(day, 0) - daily_withdrawal_counts.get(day, 0)
 
         daily.append(
@@ -494,8 +504,19 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
                 signup_count=daily_signup_counts.get(day, 0),
                 withdrawal_count=daily_withdrawal_counts.get(day, 0),
                 running_user_count=count,
+                dau=dau,
+                wau=wau,
+                mau=mau,
             )
         )
+
+    stmt = (
+        select(DeviceActivity.country, func.count(DeviceActivity.user_id.distinct()))
+        .where(DeviceActivity.activity_date >= query.date_from, DeviceActivity.activity_date <= query.date_to)
+        .group_by(DeviceActivity.country)
+        .order_by(func.count(DeviceActivity.user_id.distinct()).desc())
+    )
+    country_counts = (await db.execute(stmt)).all()
 
     stmt = select(LAST_SESSION.label("last_session"), func.count()).select_from(User).group_by("last_session")
     last_session_counts = dict((await db.execute(stmt)).all())
@@ -540,6 +561,7 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
             previous_count=withdrawal_counts.previous_withdrawal_count,
         ),
         daily=daily,
+        countries=[UserDashboardCountryDTO(country=country, count=count) for country, count in country_counts],
         issues=[
             UserDashboardIssueDTO(issue=issue, count=count)
             for issue, count in zip(UserIssueEnum, issue_counts, strict=True)

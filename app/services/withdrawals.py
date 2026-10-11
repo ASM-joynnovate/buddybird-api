@@ -1,7 +1,6 @@
 import logging
 from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import Date, asc, cast, desc, func, select, true, update
 from sqlalchemy.exc import SQLAlchemyError
@@ -48,10 +47,10 @@ from app.schemas.withdrawals import (
 )
 from app.services.devices import DEVICE_COUNT, LAST_SEEN_DEVICE
 from app.services.sessions import SESSION_COUNT
+from app.utils import SEOUL
 
 logger = logging.getLogger(__name__)
 
-SEOUL = ZoneInfo("Asia/Seoul")
 USAGE_DAYS = cast(func.timezone(SEOUL.key, UserWithdrawal.created_at), Date) - cast(
     func.timezone(SEOUL.key, User.created_at), Date
 )
