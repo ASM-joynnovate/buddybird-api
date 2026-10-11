@@ -10,11 +10,11 @@ from app.config import config
 
 @lru_cache(maxsize=1)
 def get_fcm() -> firebase_admin.App:
-    if config.FCM_SERVICE_ACCOUNT_JSON is None:
-        raise RuntimeError("FCM_SERVICE_ACCOUNT_JSON 설정이 필요합니다.")
+    if config.FIREBASE_SERVICE_ACCOUNT_JSON is None:
+        raise RuntimeError("FIREBASE_SERVICE_ACCOUNT_JSON 설정이 필요합니다.")
 
     return firebase_admin.initialize_app(
-        credentials.Certificate(json.loads(config.FCM_SERVICE_ACCOUNT_JSON.get_secret_value()))
+        credentials.Certificate(json.loads(config.FIREBASE_SERVICE_ACCOUNT_JSON.get_secret_value()))
     )
 
 

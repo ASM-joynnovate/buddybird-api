@@ -48,7 +48,8 @@ class Settings(BaseSettings):
     APPLE_PRIVATE_KEY: SecretStr | None = None
     KAKAO_ADMIN_KEY: SecretStr | None = None
 
-    FCM_SERVICE_ACCOUNT_JSON: SecretStr | None = None
+    FIREBASE_SERVICE_ACCOUNT_JSON: SecretStr | None = None
+    GA4_PROPERTY_ID: str | None = None
 
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str | None = None
@@ -73,6 +74,7 @@ class Settings(BaseSettings):
     REDOC_URL: str | None = None if _env == "prod" else "/api/redoc"
 
     SENTRY_DSN: str | None = None
+    SENTRY_API_TOKEN: SecretStr | None = None
     SENTRY_TRACES_SAMPLE_RATE: float = 1.0
 
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "DEBUG" if _local or _env == "dev" else "INFO"

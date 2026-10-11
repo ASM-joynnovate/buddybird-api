@@ -16,7 +16,7 @@ from app.schemas.feedback import (
     FeedbackDTO,
 )
 from app.services.devices import MIN_SUPPORTED_APP_UPDATE, is_version_unsupported
-from app.services.users import SEOUL
+from app.utils import SEOUL
 
 
 def build_feedback_dto(feedback: Feedback) -> FeedbackDTO:

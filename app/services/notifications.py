@@ -71,7 +71,8 @@ from app.schemas.notifications import (
     SendNotificationRequest,
 )
 from app.services.sessions import get_judgment_statuses
-from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, PUSHABLE, SEOUL
+from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, PUSHABLE
+from app.utils import SEOUL
 
 logger = logging.getLogger(__name__)
 

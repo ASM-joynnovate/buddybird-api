@@ -67,6 +67,7 @@ from app.schemas.sessions import (
     StartSessionRequest,
 )
 from app.schemas.settings import SleepSettingsDTO
+from app.services.devices import mark_seen
 
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
@@ -462,7 +463,7 @@ async def finish_expired_sessions(*, db: AsyncSession) -> list[UUID]:
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
 async def record_heartbeat(
-    *, db: AsyncSession, session: Session, device: Device, data: HeartbeatRequest
+    *, db: AsyncSession, session: Session, device: Device, data: HeartbeatRequest, country: str | None
 ) -> HeartbeatDTO:
     verify_station(session, device)
     verify_running(session)
@@ -471,7 +472,8 @@ async def record_heartbeat(
     session.current_phase = data.current_phase.value if data.current_phase is not None else None
     session.phase_started_at = data.phase_started_at
     session.last_heartbeat_at = now
-    device.last_seen_at = now
+
+    await mark_seen(db=db, device=device, country=country)
 
     segments: dict[tuple[UUID, datetime], dict] = {}
 
