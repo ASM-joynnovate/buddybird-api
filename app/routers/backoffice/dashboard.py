@@ -14,6 +14,7 @@ from app.schemas.dashboard import (
     DashboardResponse,
     FeedbackDashboardResponse,
     NotificationDashboardResponse,
+    StabilityDashboardParams,
     StabilityDashboardResponse,
     UserDashboardResponse,
     WithdrawalDashboardResponse,
@@ -96,7 +97,7 @@ async def get_analytics_dashboard(query: Annotated[DashboardParams, Query()]) ->
 
 
 @router.get("/stability", name="안정성 대시보드 조회")
-async def get_stability_dashboard(query: Annotated[DashboardParams, Query()]) -> StabilityDashboardResponse:
+async def get_stability_dashboard(query: Annotated[StabilityDashboardParams, Query()]) -> StabilityDashboardResponse:
     return StabilityDashboardResponse(
         message="안정성 대시보드 조회 성공",
         data=await stability.get_dashboard(query=query),
