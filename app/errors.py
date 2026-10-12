@@ -152,11 +152,6 @@ class InvalidSessionSoundError(CustomError):
     message = "wav 오디오만 업로드할 수 있습니다."
 
 
-class InvalidSessionPhotoError(CustomError):
-    error_code = "SESSION__INVALID_PHOTO"
-    message = "JPEG 이미지만 업로드할 수 있습니다."
-
-
 class BackofficePasswordMissingError(CustomError):
     status_code = 401
     error_code = "BACKOFFICE__PASSWORD_MISSING"

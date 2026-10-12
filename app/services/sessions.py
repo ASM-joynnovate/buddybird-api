@@ -21,7 +21,6 @@ from app.enums import (
 from app.errors import (
     DeviceNotStationError,
     FileSizeExceededError,
-    InvalidSessionPhotoError,
     ResourceNotFoundError,
     SessionAlreadyRunningError,
     SessionNotRunningError,
@@ -564,9 +563,6 @@ async def add_presence_event(
     verify_running(session)
     verify_station(session, device)
 
-    if data.content_type != PRESENCE_PHOTO_TYPE:
-        raise InvalidSessionPhotoError
-
     if data.file_size > MAX_PRESENCE_PHOTO_BYTES:
         raise FileSizeExceededError
 
@@ -576,7 +572,7 @@ async def add_presence_event(
         file_name="presence.jpg",
         file_path=f"user/{session.user_id}/petcam/{session.id}/{file_id}",
         file_size=data.file_size,
-        file_type=data.content_type,
+        file_type=PRESENCE_PHOTO_TYPE,
         is_deleted=False,
         status=FileStatusEnum.PENDING.value,
     )
@@ -596,7 +592,7 @@ async def add_presence_event(
     return storage.generate_presigned_upload(
         file_id=file_id,
         path=image_file.object_key,
-        content_type=data.content_type,
+        content_type=PRESENCE_PHOTO_TYPE,
         file_size=data.file_size,
     )
 
