@@ -75,7 +75,6 @@ from app.services.devices import mark_seen
 MAX_PRESENCE_PHOTO_BYTES = 5 * 1024 * 1024
 PRESENCE_PHOTO_TYPE = "image/jpeg"
 PRESENCE_PHOTO_RETENTION = timedelta(days=30)
-EXPIRED_PRESENCE_PHOTO_BATCH = 100
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
     .where(SoundJudgment.sound_id == SessionSound.id)
@@ -603,7 +602,6 @@ async def delete_expired_presence_photos(*, db: AsyncSession) -> None:
         select(File)
         .join(SessionEvent, SessionEvent.image_file_id == File.id)
         .where(SessionEvent.occurred_at < datetime.now(UTC) - PRESENCE_PHOTO_RETENTION)
-        .limit(EXPIRED_PRESENCE_PHOTO_BATCH)
     )
 
     for image_file in (await db.scalars(stmt)).all():
