@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.11.0...v2.12.0) (2026-10-12)
+
+
+### Features
+
+* **i18n:** add Japanese, Russian and Spanish ([#130](https://github.com/ASM-joynnovate/buddybird-api/issues/130)) ([328cd5f](https://github.com/ASM-joynnovate/buddybird-api/commit/328cd5ff1686ac68802bed61a6fb340fbb80fbea))
+
 ## [2.11.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.10.0...v2.11.0) (2026-10-11)
 
 
