@@ -191,3 +191,10 @@ class WithdrawalSortEnum(StrEnum):
 class AnnouncementSortEnum(StrEnum):
     STARTS_AT = "starts_at"
     READ_COUNT = "read_count"
+
+
+class StabilityIssueSortEnum(StrEnum):
+    DATE = "date"
+    NEW = "new"
+    FREQ = "freq"
+    USER = "user"

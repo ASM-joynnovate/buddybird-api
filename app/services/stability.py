@@ -8,9 +8,9 @@ from app.config import config
 from app.errors import DashboardSourceUnavailableError
 from app.oauth.base import http_client
 from app.schemas.dashboard import (
-    DashboardParams,
     StabilityDashboardDTO,
     StabilityDashboardIssueDTO,
+    StabilityDashboardParams,
     StabilityDashboardProjectDTO,
     StabilityDashboardReleaseDTO,
 )
@@ -18,7 +18,7 @@ from app.schemas.dashboard import (
 logger = logging.getLogger(__name__)
 
 
-async def get_dashboard(*, query: DashboardParams) -> StabilityDashboardDTO:
+async def get_dashboard(*, query: StabilityDashboardParams) -> StabilityDashboardDTO:
     if config.SENTRY_API_TOKEN is None:
         raise DashboardSourceUnavailableError
 
@@ -53,7 +53,7 @@ async def get_dashboard(*, query: DashboardParams) -> StabilityDashboardDTO:
             },
         ),
         ("events", {**filters, "dataset": "errors", "field": ["project", "count()"]}),
-        ("issues", {**filters, "sort": "freq", "limit": 10}),
+        ("issues", {**filters, "sort": query.sort.value, "limit": 10}),
     ]
 
     try:

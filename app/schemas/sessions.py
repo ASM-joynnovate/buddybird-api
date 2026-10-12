@@ -236,10 +236,7 @@ class SessionSoundListResponse(BaseResponse):
     data: list[SessionSoundDTO]
 
 
-class BackofficeSessionSoundDTO(CustomBaseModel):
-    id: UUID
-    captured_at: datetime
-    audio_file: FileDTO
+class BackofficeSessionSoundDTO(SessionSoundDTO):
     is_mimic: bool
 
 
