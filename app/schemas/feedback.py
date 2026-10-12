@@ -4,8 +4,9 @@ from uuid import UUID
 
 from pydantic import Field, StringConstraints
 
-from app.enums import LocaleEnum, PlatformEnum
+from app.enums import PlatformEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams
+from app.schemas.devices import Locale
 
 
 class FeedbackDTO(CustomBaseModel):
@@ -59,4 +60,4 @@ class BackofficeFeedbackListParams(PageParams):
     created_to: date | None = None
     app_version: str | None = None
     platform: PlatformEnum | None = None
-    locale: LocaleEnum | None = None
+    locale: Locale | None = None

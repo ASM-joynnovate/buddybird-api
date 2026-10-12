@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.14.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.13.0...v2.14.0) (2026-10-12)
+
+
+### Features
+
+* **backoffice:** add issue sort option to stability dashboard ([#136](https://github.com/ASM-joynnovate/buddybird-api/issues/136)) ([00644a4](https://github.com/ASM-joynnovate/buddybird-api/commit/00644a4f72d8f92654754426515a398218c4d1b6))
+* **backoffice:** add score and duration to session sounds ([#137](https://github.com/ASM-joynnovate/buddybird-api/issues/137)) ([188f614](https://github.com/ASM-joynnovate/buddybird-api/commit/188f614e0a9ccab049799bfe2de04a59de446ed5))
+
+
+### Bug Fixes
+
+* **backoffice:** accept any device locale in feedback filter ([#138](https://github.com/ASM-joynnovate/buddybird-api/issues/138)) ([12f7ce8](https://github.com/ASM-joynnovate/buddybird-api/commit/12f7ce8ece5380d3b87227f00b33d507524572c8))
+
 ## [2.13.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.12.0...v2.13.0) (2026-10-12)
 
 

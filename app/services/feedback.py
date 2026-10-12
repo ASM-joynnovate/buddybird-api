@@ -72,7 +72,7 @@ async def get_backoffice_list(
         conditions.append(Device.platform == query.platform.value)
 
     if query.locale is not None:
-        conditions.append(Device.locale == query.locale.value)
+        conditions.append(Device.locale == query.locale)
 
     stmt = (
         select(func.count())
