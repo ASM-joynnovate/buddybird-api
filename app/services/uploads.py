@@ -26,6 +26,13 @@ async def process(*, key: str, size: int) -> None:
         stmt = select(File).where(File.id == UUID(path.split("/")[-2]))
         file = await db.scalar(stmt)
 
+        if file is not None and file.status == FileStatusEnum.UPLOADED.value and path.split("/")[2] == "petcam":
+            delivery_ids = await notifications.create_visibility(db=db, image_file_id=file.id)
+
+            await notifications.enqueue_push_deliveries(*delivery_ids)
+
+            return
+
         if file is None or file.status != FileStatusEnum.PENDING.value:
             logger.info("확정할 업로드가 없어 건너뜀; key=%s", key)
 
@@ -85,12 +92,9 @@ async def process(*, key: str, size: int) -> None:
                 logger.exception("앵무새 소리 판별 요청 큐 전달 실패; sound_id=%s", sound.id)
 
         if path.split("/")[2] == "petcam":
-            try:
-                delivery_ids = await notifications.create_visibility(db=db, image_file_id=file.id)
+            delivery_ids = await notifications.create_visibility(db=db, image_file_id=file.id)
 
-                await notifications.enqueue_push_deliveries(*delivery_ids)
-            except Exception:
-                logger.exception("앵무새 보임 여부 알림 생성 실패; file_id=%s", file.id)
+            await notifications.enqueue_push_deliveries(*delivery_ids)
 
 
 @transactional

@@ -1,9 +1,10 @@
+import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid7
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,6 +76,8 @@ from app.services.devices import mark_seen
 MAX_VISIBILITY_PHOTO_BYTES = 5 * 1024 * 1024
 VISIBILITY_PHOTO_TYPE = "image/jpeg"
 VISIBILITY_PHOTO_RETENTION = timedelta(days=30)
+
+logger = logging.getLogger(__name__)
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
     .where(SoundJudgment.sound_id == SessionSound.id)
@@ -595,18 +598,27 @@ async def add_visibility_event(
     )
 
 
-@transactional
 async def delete_expired_visibility_photos(*, db: AsyncSession) -> None:
     stmt = (
         select(File)
         .join(SessionEvent, SessionEvent.image_file_id == File.id)
-        .where(SessionEvent.occurred_at < datetime.now(UTC) - VISIBILITY_PHOTO_RETENTION)
+        .where(File.created_at < datetime.now(UTC) - VISIBILITY_PHOTO_RETENTION)
     )
+    photos = [(image_file.id, image_file.object_key) for image_file in (await db.scalars(stmt)).all()]
 
-    for image_file in (await db.scalars(stmt)).all():
-        await s3.delete(path=image_file.object_key)
+    for file_id, object_key in photos:
+        try:
+            await delete_visibility_photo(db=db, file_id=file_id, object_key=object_key)
+        except Exception:
+            logger.exception("앵무새 보임 여부 사진 삭제 실패; file_id=%s", file_id)
 
-        image_file.is_deleted = True
+
+@transactional
+async def delete_visibility_photo(*, db: AsyncSession, file_id: UUID, object_key: str) -> None:
+    await s3.delete(path=object_key)
+
+    stmt = update(File).where(File.id == file_id).values(is_deleted=True)
+    await db.execute(stmt)
 
 
 async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Session) -> list[SessionEventDTO]:

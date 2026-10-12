@@ -458,9 +458,26 @@ async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UU
         .join(Session, Session.id == SessionEvent.session_id)
         .where(SessionEvent.image_file_id == image_file_id)
     )
-    event, user_id, session_status = (await db.execute(stmt)).one()
+    row = (await db.execute(stmt)).first()
+
+    if row is None:
+        return []
+
+    event, user_id, session_status = row
 
     if session_status != SessionStatusEnum.RUNNING.value:
+        return []
+
+    stmt = select(File.id).where(File.id == image_file_id).with_for_update()
+    await db.execute(stmt)
+
+    stmt = (
+        select(Notification.id)
+        .where(Notification.user_id == user_id, Notification.image_file_id == image_file_id)
+        .execution_options(include_deleted=True)
+    )
+
+    if await db.scalar(stmt) is not None:
         return []
 
     stmt = select(Parrot.name).where(Parrot.user_id == user_id).order_by(Parrot.created_at)
