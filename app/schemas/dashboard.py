@@ -9,6 +9,7 @@ from app.enums import (
     OAuthProviderEnum,
     PlatformEnum,
     SessionPhaseEnum,
+    StabilityIssueSortEnum,
     UserIssueEnum,
     UserLastSessionEnum,
     WithdrawalSessionRangeEnum,
@@ -452,6 +453,10 @@ class DashboardParams(BaseRequest):
             raise ValueError("조회 기간은 1일 이상 180일 이하여야 합니다.")
 
         return self
+
+
+class StabilityDashboardParams(DashboardParams):
+    sort: StabilityIssueSortEnum = StabilityIssueSortEnum.DATE
 
 
 class AppUpdateDashboardParams(BaseRequest):
