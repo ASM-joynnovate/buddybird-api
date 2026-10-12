@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import transactional
-from app.enums import OAuthProviderEnum, PresetLanguageEnum, SessionEndReasonEnum
+from app.enums import LocaleEnum, OAuthProviderEnum, SessionEndReasonEnum
 from app.errors import (
     AuthenticationError,
     AuthenticationServiceUnavailableError,
@@ -90,6 +90,7 @@ async def complete_login(
     auth_user_id: UUID,
     access_token: str,
     is_anonymous: bool,
+    locale: LocaleEnum,
     data: LoginRequest | None,
 ) -> LoginDTO:
     if is_anonymous:
@@ -103,7 +104,7 @@ async def complete_login(
             providers=[],
             photo_file=None,
             is_anonymous=True,
-            language=data.language if data is not None else PresetLanguageEnum.KO,
+            locale=locale,
         )
 
     identities = await get_social_identities(auth_user_id=auth_user_id, access_token=access_token)
@@ -163,7 +164,7 @@ async def complete_login(
             providers=[identity.provider.value for identity in identities],
             photo_file=photo_file,
             is_anonymous=False,
-            language=data.language if data is not None else PresetLanguageEnum.KO,
+            locale=locale,
         )
     except Exception, asyncio.CancelledError:
         if uploaded_path is not None:
@@ -189,7 +190,7 @@ async def save_login(
     providers: list[str],
     photo_file: File | None,
     is_anonymous: bool,
-    language: PresetLanguageEnum,
+    locale: LocaleEnum,
 ) -> LoginDTO:
     inserted_id = await db.scalar(
         insert(User)
@@ -260,7 +261,7 @@ async def save_login(
 
         presets = (
             await db.scalars(
-                select(PresetWord).where(PresetWord.language == language.value).order_by(PresetWord.created_at)
+                select(PresetWord).where(PresetWord.language == locale.split("-")[0]).order_by(PresetWord.created_at)
             )
         ).all()
 

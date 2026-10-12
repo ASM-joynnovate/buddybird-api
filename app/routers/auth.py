@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Header
 
-from app.dependencies import ActiveUser, Authenticated, DBSession, Storage
+from app.dependencies import ActiveUser, Authenticated, DBSession, Locale, Storage
 from app.schemas.auth import LoginRequest, LoginResponse
 from app.schemas.base import BaseResponse
 from app.schemas.withdrawals import WithdrawalResponse
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/auth")
 
 @router.post("/login", name="로그인 완료")
 async def login(
-    context: Authenticated, db: DBSession, storage: Storage, body: LoginRequest | None = None
+    context: Authenticated, locale: Locale, db: DBSession, storage: Storage, body: LoginRequest | None = None
 ) -> LoginResponse:
     return LoginResponse(
         message="로그인 성공",
@@ -24,6 +24,7 @@ async def login(
             auth_user_id=context.auth_user_id,
             access_token=context.access_token,
             is_anonymous=context.is_anonymous,
+            locale=locale,
             data=body,
         ),
     )
