@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.13.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.12.0...v2.13.0) (2026-10-12)
+
+
+### Features
+
+* **auth:** pick preset language from Accept-Language ([#133](https://github.com/ASM-joynnovate/buddybird-api/issues/133)) ([cbefb03](https://github.com/ASM-joynnovate/buddybird-api/commit/cbefb03d5b77f23688e738f2b80f83c6fff8e994))
+* **sessions:** add score and duration to session sounds ([#132](https://github.com/ASM-joynnovate/buddybird-api/issues/132)) ([799a687](https://github.com/ASM-joynnovate/buddybird-api/commit/799a687a2b40526eae18d44d96b79e87d6fc0591))
+
+## [2.12.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.11.0...v2.12.0) (2026-10-12)
+
+
+### Features
+
+* **i18n:** add Japanese, Russian and Spanish ([#130](https://github.com/ASM-joynnovate/buddybird-api/issues/130)) ([328cd5f](https://github.com/ASM-joynnovate/buddybird-api/commit/328cd5ff1686ac68802bed61a6fb340fbb80fbea))
+
 ## [2.11.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.10.0...v2.11.0) (2026-10-11)
 
 

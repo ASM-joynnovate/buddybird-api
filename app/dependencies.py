@@ -35,6 +35,7 @@ from app.models import (
     Word,
 )
 from app.s3 import S3StorageClient, get_s3
+from app.utils import resolve_locale
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -204,10 +205,7 @@ async def require_app_update(db: DBSession, app_update_id: UUID) -> AppUpdate:
 
 
 async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:
-    if accept_language in LocaleEnum:
-        return LocaleEnum(accept_language)
-
-    return LocaleEnum.EN_US
+    return resolve_locale(accept_language)
 
 
 Locale = Annotated[LocaleEnum, Depends(get_locale)]

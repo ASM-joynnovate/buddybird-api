@@ -199,19 +199,26 @@ class BackofficeSessionEventListResponse(BaseResponse):
     data: list[BackofficeSessionEventDTO]
 
 
+class SessionSoundAnalysisDTO(CustomBaseModel):
+    score: float
+
+
 class SessionSoundJudgmentDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"word_id"}
 
     word_id: UUID | None
+    score: float
 
 
 class SessionSoundDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"judgment"}
+    allow_null_fields: ClassVar[set] = {"duration_ms", "analysis", "judgment"}
 
     id: UUID
     session_id: UUID
     captured_at: datetime
     audio_file: FileDTO
+    duration_ms: int | None
+    analysis: SessionSoundAnalysisDTO | None
     judgment: SessionSoundJudgmentDTO | None
 
 

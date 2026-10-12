@@ -1,4 +1,6 @@
+import io
 import logging
+import wave
 from uuid import UUID
 
 from sqlalchemy import select
@@ -46,7 +48,18 @@ async def process(*, key: str, size: int) -> None:
 
             size = len(photo)
 
-        await confirm(db=db, file=file, path=path, size=size)
+        duration_ms = None
+
+        if path.split("/")[2] == "session":
+            content = await s3.download(path=key)
+
+            try:
+                with wave.open(io.BytesIO(content)) as audio:
+                    duration_ms = audio.getnframes() * 1000 // audio.getframerate()
+            except wave.Error, EOFError, ZeroDivisionError:
+                logger.warning("WAV 길이 계산 실패; key=%s", key)
+
+        await confirm(db=db, file=file, path=path, size=size, duration_ms=duration_ms)
 
         if path.split("/")[2] == "session":
             stmt = select(SessionSound).where(SessionSound.audio_file_id == file.id)
@@ -72,7 +85,7 @@ async def process(*, key: str, size: int) -> None:
 
 
 @transactional
-async def confirm(*, db: AsyncSession, file: File, path: str, size: int) -> None:
+async def confirm(*, db: AsyncSession, file: File, path: str, size: int, duration_ms: int | None) -> None:
     parts = path.split("/")
 
     file.status = FileStatusEnum.UPLOADED.value
@@ -122,6 +135,12 @@ async def confirm(*, db: AsyncSession, file: File, path: str, size: int) -> None
 
         if old_file is not None:
             old_file.is_deleted = True
+
+    elif parts[2] == "session":
+        stmt = select(SessionSound).where(SessionSound.audio_file_id == file.id)
+        sound = await db.scalar(stmt)
+
+        sound.duration_ms = duration_ms
 
 
 @transactional

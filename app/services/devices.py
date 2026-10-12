@@ -172,7 +172,7 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest,
             model=data.model,
             app_version=data.app_version,
             timezone=data.timezone,
-            locale=data.locale.value,
+            locale=data.locale,
             is_deleted=False,
         )
         db.add(device)
@@ -182,7 +182,7 @@ async def register(*, db: AsyncSession, user: User, data: RegisterDeviceRequest,
         device.model = data.model
         device.app_version = data.app_version
         device.timezone = data.timezone
-        device.locale = data.locale.value
+        device.locale = data.locale
         device.is_deleted = False
 
     await mark_seen(db=db, device=device, country=country)

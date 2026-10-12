@@ -52,8 +52,8 @@ def build_backoffice_announcement_dto(
 ) -> BackofficeAnnouncementDTO:
     return BackofficeAnnouncementDTO(
         id=announcement.id,
-        title=I18nDTO(ko_kr=announcement.title_i18n.ko_kr, en_us=announcement.title_i18n.en_us),
-        body=I18nDTO(ko_kr=announcement.body_i18n.ko_kr, en_us=announcement.body_i18n.en_us)
+        title=I18nDTO.model_validate(announcement.title_i18n, from_attributes=True),
+        body=I18nDTO.model_validate(announcement.body_i18n, from_attributes=True)
         if announcement.body_i18n is not None
         else None,
         starts_at=announcement.starts_at,
@@ -172,8 +172,8 @@ async def create(
     *, db: AsyncSession, storage: S3StorageClient, data: CreateAnnouncementRequest
 ) -> BackofficeAnnouncementDTO:
     announcement = Announcement(
-        title_i18n=I18n(ko_kr=data.title.ko_kr, en_us=data.title.en_us),
-        body_i18n=I18n(ko_kr=data.body.ko_kr, en_us=data.body.en_us) if data.body is not None else None,
+        title_i18n=I18n(**data.title.model_dump()),
+        body_i18n=I18n(**data.body.model_dump()) if data.body is not None else None,
         starts_at=data.starts_at,
         ends_at=data.ends_at,
         push_enabled=data.push_enabled,
