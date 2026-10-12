@@ -144,23 +144,18 @@ async def get_backoffice_list(
     *, db: AsyncSession, storage: S3StorageClient, session: Session
 ) -> list[BackofficeSessionSoundDTO]:
     stmt = (
-        select(SessionSound, LATEST_JUDGED_WORD_ID.is_not(None))
+        select(SessionSound)
         .where(SessionSound.session_id == session.id, SessionSound.is_parrot_sound.is_(True))
         .order_by(SessionSound.captured_at)
     )
-    rows = (await db.execute(stmt)).all()
+    sounds = (await db.scalars(stmt)).all()
 
     return [
         BackofficeSessionSoundDTO(
-            id=sound.id,
-            captured_at=sound.captured_at,
-            audio_file=FileDTO(
-                url=storage.generate_presigned_url(path=sound.audio_file.object_key),
-                status=sound.audio_file.status,
-            ),
-            is_mimic=is_mimic,
+            **dict(sound),
+            is_mimic=sound.judgment is not None and sound.judgment.word_id is not None,
         )
-        for sound, is_mimic in rows
+        for sound in await build_sound_dtos(db=db, storage=storage, sounds=sounds)
     ]
 
 
