@@ -620,11 +620,11 @@ async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Ses
     stmt = select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
     events = (await db.scalars(stmt)).all()
     sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
-    returned_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_RETURNED.value]
+    visible_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_VISIBLE.value]
 
     for event in events:
-        if event.kind == SessionEventKindEnum.PARROT_ABSENT.value:
-            ended_at = next((at for at in returned_ats if at > event.occurred_at), None)
+        if event.kind == SessionEventKindEnum.PARROT_NOT_VISIBLE.value:
+            ended_at = next((at for at in visible_ats if at > event.occurred_at), None)
 
             if ended_at is not None:
                 ended_ats[event.id] = ended_at

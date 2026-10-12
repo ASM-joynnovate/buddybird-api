@@ -174,7 +174,7 @@ class SessionEventWordDTO(CustomBaseModel):
 
 
 class SessionPresenceEventRequest(UploadRequest):
-    kind: Literal[SessionEventKindEnum.PARROT_ABSENT, SessionEventKindEnum.PARROT_RETURNED]
+    kind: Literal[SessionEventKindEnum.PARROT_NOT_VISIBLE, SessionEventKindEnum.PARROT_VISIBLE]
     occurred_at: datetime
 
 

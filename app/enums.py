@@ -81,8 +81,8 @@ class SessionEventKindEnum(StrEnum):
     STATION_DISCONNECTED = "station_disconnected"
     STATION_RECONNECTED = "station_reconnected"
     EMERGENCY_DETECTED = "emergency_detected"
-    PARROT_ABSENT = "parrot_absent"
-    PARROT_RETURNED = "parrot_returned"
+    PARROT_NOT_VISIBLE = "parrot_not_visible"
+    PARROT_VISIBLE = "parrot_visible"
     SESSION_FINISHED = "session_finished"
 
 

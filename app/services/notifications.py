@@ -484,7 +484,7 @@ async def create_presence(*, db: AsyncSession, image_file_id: UUID) -> list[UUID
         es_es=f"No vemos a {subject_es}",
     )
 
-    if event.kind == SessionEventKindEnum.PARROT_RETURNED.value:
+    if event.kind == SessionEventKindEnum.PARROT_VISIBLE.value:
         title_i18n = I18n(
             ko_kr=f"{subject_ko} 다시 보여요",
             en_us=f"We can see {subject_en} again",
