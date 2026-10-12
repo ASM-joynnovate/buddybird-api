@@ -25,6 +25,7 @@ from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
 from app.schemas.base import FileDTO, PageParams, UploadDTO
 from app.schemas.sessions import (
     BackofficeSessionSoundDTO,
+    SessionSoundAnalysisDTO,
     SessionSoundDTO,
     SessionSoundJudgmentDTO,
     SessionSoundListParams,
@@ -39,16 +40,23 @@ SOUND_TYPES = {"audio/wav", "audio/x-wav"}
 async def build_sound_dtos(
     *, db: AsyncSession, storage: S3StorageClient, sounds: Sequence[SessionSound]
 ) -> list[SessionSoundDTO]:
-    judgments = dict(
-        (
-            await db.execute(
-                select(SoundJudgment.sound_id, SoundJudgment.word_id)
-                .distinct(SoundJudgment.sound_id)
-                .where(SoundJudgment.sound_id.in_([sound.id for sound in sounds]))
-                .order_by(SoundJudgment.sound_id, SoundJudgment.judged_at.desc())
-            )
-        ).all()
+    sound_ids = [sound.id for sound in sounds]
+
+    stmt = (
+        select(SoundJudgment.sound_id, SoundJudgment.word_id, SoundJudgment.score)
+        .distinct(SoundJudgment.sound_id)
+        .where(SoundJudgment.sound_id.in_(sound_ids))
+        .order_by(SoundJudgment.sound_id, SoundJudgment.judged_at.desc())
     )
+    judgments = {judgment.sound_id: judgment for judgment in (await db.execute(stmt)).all()}
+
+    stmt = (
+        select(SoundAnalysis.sound_id, SoundAnalysis.score)
+        .distinct(SoundAnalysis.sound_id)
+        .where(SoundAnalysis.sound_id.in_(sound_ids))
+        .order_by(SoundAnalysis.sound_id, SoundAnalysis.analyzed_at.desc())
+    )
+    analysis_scores = {analysis.sound_id: analysis.score for analysis in (await db.execute(stmt)).all()}
 
     return [
         SessionSoundDTO(
@@ -59,7 +67,11 @@ async def build_sound_dtos(
                 url=storage.generate_presigned_url(path=sound.audio_file.object_key),
                 status=sound.audio_file.status,
             ),
-            judgment=SessionSoundJudgmentDTO(word_id=judgments[sound.id]) if sound.id in judgments else None,
+            duration_ms=sound.duration_ms,
+            analysis=SessionSoundAnalysisDTO(score=analysis_scores[sound.id]) if sound.id in analysis_scores else None,
+            judgment=SessionSoundJudgmentDTO(word_id=judgments[sound.id].word_id, score=judgments[sound.id].score)
+            if sound.id in judgments
+            else None,
         )
         for sound in sounds
     ]
