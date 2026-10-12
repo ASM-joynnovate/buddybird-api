@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid7
@@ -39,7 +38,7 @@ from app.models import (
     User,
     Word,
 )
-from app.s3 import S3StorageClient, s3
+from app.s3 import S3StorageClient
 from app.schemas.base import PageParams, UploadDTO
 from app.schemas.sessions import (
     AcknowledgedLearningSegmentDTO,
@@ -76,8 +75,6 @@ from app.services.devices import mark_seen
 MAX_VISIBILITY_PHOTO_BYTES = 5 * 1024 * 1024
 VISIBILITY_PHOTO_TYPE = "image/jpeg"
 VISIBILITY_PHOTO_RETENTION = timedelta(days=30)
-
-logger = logging.getLogger(__name__)
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
     .where(SoundJudgment.sound_id == SessionSound.id)
@@ -598,26 +595,17 @@ async def add_visibility_event(
     )
 
 
+@transactional
 async def delete_expired_visibility_photos(*, db: AsyncSession) -> None:
     stmt = (
-        select(File)
-        .join(SessionEvent, SessionEvent.image_file_id == File.id)
-        .where(File.created_at < datetime.now(UTC) - VISIBILITY_PHOTO_RETENTION)
+        update(File)
+        .where(
+            File.id.in_(select(SessionEvent.image_file_id).where(SessionEvent.image_file_id.is_not(None))),
+            File.created_at < datetime.now(UTC) - VISIBILITY_PHOTO_RETENTION,
+            File.is_deleted.is_(False),
+        )
+        .values(is_deleted=True)
     )
-    photos = [(image_file.id, image_file.object_key) for image_file in (await db.scalars(stmt)).all()]
-
-    for file_id, object_key in photos:
-        try:
-            await delete_visibility_photo(db=db, file_id=file_id, object_key=object_key)
-        except Exception:
-            logger.exception("앵무새 보임 여부 사진 삭제 실패; file_id=%s", file_id)
-
-
-@transactional
-async def delete_visibility_photo(*, db: AsyncSession, file_id: UUID, object_key: str) -> None:
-    await s3.delete(path=object_key)
-
-    stmt = update(File).where(File.id == file_id).values(is_deleted=True)
     await db.execute(stmt)
 
 

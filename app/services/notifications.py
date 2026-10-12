@@ -468,6 +468,22 @@ async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UU
     if session_status != SessionStatusEnum.RUNNING.value:
         return []
 
+    visibility_kinds = [SessionEventKindEnum.PARROT_NOT_VISIBLE.value, SessionEventKindEnum.PARROT_VISIBLE.value]
+    stmt = (
+        select(SessionEvent.kind)
+        .where(
+            SessionEvent.session_id == event.session_id,
+            SessionEvent.kind.in_(visibility_kinds),
+            SessionEvent.occurred_at < event.occurred_at,
+        )
+        .order_by(SessionEvent.occurred_at.desc())
+        .limit(1)
+    )
+    previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_VISIBLE.value
+
+    if previous_kind == event.kind:
+        return []
+
     stmt = select(File.id).where(File.id == image_file_id).with_for_update()
     await db.execute(stmt)
 
