@@ -454,11 +454,14 @@ async def send_report(*, db: AsyncSession, session_ids: list[UUID]) -> None:
 @transactional
 async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UUID]:
     stmt = (
-        select(SessionEvent, Session.user_id)
+        select(SessionEvent, Session.user_id, Session.status)
         .join(Session, Session.id == SessionEvent.session_id)
         .where(SessionEvent.image_file_id == image_file_id)
     )
-    event, user_id = (await db.execute(stmt)).one()
+    event, user_id, session_status = (await db.execute(stmt)).one()
+
+    if session_status != SessionStatusEnum.RUNNING.value:
+        return []
 
     stmt = select(Parrot.name).where(Parrot.user_id == user_id).order_by(Parrot.created_at)
     names = (await db.scalars(stmt)).all()

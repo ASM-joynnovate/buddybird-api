@@ -559,7 +559,6 @@ async def add_visibility_event(
     device: Device,
     data: SessionVisibilityEventRequest,
 ) -> UploadDTO:
-    verify_running(session)
     verify_station(session, device)
 
     if data.file_size > MAX_VISIBILITY_PHOTO_BYTES:
