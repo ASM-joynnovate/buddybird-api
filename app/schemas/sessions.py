@@ -191,6 +191,12 @@ class SessionEventDTO(CustomBaseModel):
     image: FileDTO | None
 
 
+class SessionEventListParams(BaseRequest):
+    model_config = ConfigDict(extra="ignore")
+
+    visibility: bool = False
+
+
 class SessionEventListResponse(BaseResponse):
     data: list[SessionEventDTO]
 

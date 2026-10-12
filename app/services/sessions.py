@@ -609,8 +609,18 @@ async def delete_expired_visibility_photos(*, db: AsyncSession) -> None:
     await db.execute(stmt)
 
 
-async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Session) -> list[SessionEventDTO]:
+async def get_events(
+    *, db: AsyncSession, storage: S3StorageClient, session: Session, visibility: bool
+) -> list[SessionEventDTO]:
     stmt = select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
+
+    if not visibility:
+        stmt = stmt.where(
+            SessionEvent.kind.not_in(
+                [SessionEventKindEnum.PARROT_NOT_VISIBLE.value, SessionEventKindEnum.PARROT_VISIBLE.value]
+            )
+        )
+
     events = (await db.scalars(stmt)).all()
     sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
     visible_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_VISIBLE.value]

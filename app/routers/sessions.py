@@ -9,6 +9,7 @@ from app.schemas.sessions import (
     AddSessionEventsRequest,
     HeartbeatRequest,
     HeartbeatResponse,
+    SessionEventListParams,
     SessionEventListResponse,
     SessionListResponse,
     SessionResponse,
@@ -87,10 +88,14 @@ async def add_events(
 
 @router.get("/{session_id}/events", name="세션 이벤트 조회")
 async def get_events(
-    session: Annotated[Session, Depends(require_session)], db: DBSession, storage: Storage
+    session: Annotated[Session, Depends(require_session)],
+    query: Annotated[SessionEventListParams, Query()],
+    db: DBSession,
+    storage: Storage,
 ) -> SessionEventListResponse:
     return SessionEventListResponse(
-        message="세션 이벤트 조회 성공", data=await sessions.get_events(db=db, storage=storage, session=session)
+        message="세션 이벤트 조회 성공",
+        data=await sessions.get_events(db=db, storage=storage, session=session, visibility=query.visibility),
     )
 
 
