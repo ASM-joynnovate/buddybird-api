@@ -452,7 +452,7 @@ async def send_report(*, db: AsyncSession, session_ids: list[UUID]) -> None:
 
 
 @transactional
-async def create_presence(*, db: AsyncSession, image_file_id: UUID) -> list[UUID]:
+async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UUID]:
     stmt = (
         select(SessionEvent, Session.user_id)
         .join(Session, Session.id == SessionEvent.session_id)

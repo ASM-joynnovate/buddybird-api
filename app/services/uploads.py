@@ -86,11 +86,11 @@ async def process(*, key: str, size: int) -> None:
 
         if path.split("/")[2] == "petcam":
             try:
-                delivery_ids = await notifications.create_presence(db=db, image_file_id=file.id)
+                delivery_ids = await notifications.create_visibility(db=db, image_file_id=file.id)
 
                 await notifications.enqueue_push_deliveries(*delivery_ids)
             except Exception:
-                logger.exception("앵무새 재실 알림 생성 실패; file_id=%s", file.id)
+                logger.exception("앵무새 보임 여부 알림 생성 실패; file_id=%s", file.id)
 
 
 @transactional

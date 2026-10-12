@@ -173,7 +173,7 @@ class SessionEventWordDTO(CustomBaseModel):
     id: UUID
 
 
-class SessionPresenceEventRequest(BaseRequest):
+class SessionVisibilityEventRequest(BaseRequest):
     kind: Literal[SessionEventKindEnum.PARROT_NOT_VISIBLE, SessionEventKindEnum.PARROT_VISIBLE]
     occurred_at: datetime
     file_size: int = Field(gt=0)

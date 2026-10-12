@@ -57,7 +57,6 @@ from app.schemas.sessions import (
     SessionEventWordDTO,
     SessionJudgmentDTO,
     SessionPeriodDTO,
-    SessionPresenceEventRequest,
     SessionProgressDTO,
     SessionScheduleDTO,
     SessionSoundsDTO,
@@ -66,15 +65,16 @@ from app.schemas.sessions import (
     SessionSummarySessionDTO,
     SessionSummaryTotalDTO,
     SessionSummaryWordDTO,
+    SessionVisibilityEventRequest,
     SessionWordDTO,
     StartSessionRequest,
 )
 from app.schemas.settings import SleepSettingsDTO
 from app.services.devices import mark_seen
 
-MAX_PRESENCE_PHOTO_BYTES = 5 * 1024 * 1024
-PRESENCE_PHOTO_TYPE = "image/jpeg"
-PRESENCE_PHOTO_RETENTION = timedelta(days=30)
+MAX_VISIBILITY_PHOTO_BYTES = 5 * 1024 * 1024
+VISIBILITY_PHOTO_TYPE = "image/jpeg"
+VISIBILITY_PHOTO_RETENTION = timedelta(days=30)
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
     .where(SoundJudgment.sound_id == SessionSound.id)
@@ -551,27 +551,27 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def add_presence_event(
+async def add_visibility_event(
     *,
     db: AsyncSession,
     storage: S3StorageClient,
     session: Session,
     device: Device,
-    data: SessionPresenceEventRequest,
+    data: SessionVisibilityEventRequest,
 ) -> UploadDTO:
     verify_running(session)
     verify_station(session, device)
 
-    if data.file_size > MAX_PRESENCE_PHOTO_BYTES:
+    if data.file_size > MAX_VISIBILITY_PHOTO_BYTES:
         raise FileSizeExceededError
 
     file_id = uuid7()
     image_file = File(
         id=file_id,
-        file_name="presence.jpg",
+        file_name="visibility.jpg",
         file_path=f"user/{session.user_id}/petcam/{session.id}/{file_id}",
         file_size=data.file_size,
-        file_type=PRESENCE_PHOTO_TYPE,
+        file_type=VISIBILITY_PHOTO_TYPE,
         is_deleted=False,
         status=FileStatusEnum.PENDING.value,
     )
@@ -591,17 +591,17 @@ async def add_presence_event(
     return storage.generate_presigned_upload(
         file_id=file_id,
         path=image_file.object_key,
-        content_type=PRESENCE_PHOTO_TYPE,
+        content_type=VISIBILITY_PHOTO_TYPE,
         file_size=data.file_size,
     )
 
 
 @transactional
-async def delete_expired_presence_photos(*, db: AsyncSession) -> None:
+async def delete_expired_visibility_photos(*, db: AsyncSession) -> None:
     stmt = (
         select(File)
         .join(SessionEvent, SessionEvent.image_file_id == File.id)
-        .where(SessionEvent.occurred_at < datetime.now(UTC) - PRESENCE_PHOTO_RETENTION)
+        .where(SessionEvent.occurred_at < datetime.now(UTC) - VISIBILITY_PHOTO_RETENTION)
     )
 
     for image_file in (await db.scalars(stmt)).all():

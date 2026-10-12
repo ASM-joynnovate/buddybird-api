@@ -11,12 +11,12 @@ from app.schemas.sessions import (
     HeartbeatResponse,
     SessionEventListResponse,
     SessionListResponse,
-    SessionPresenceEventRequest,
     SessionResponse,
     SessionSoundListParams,
     SessionSoundListResponse,
     SessionSoundUploadRequest,
     SessionSummaryResponse,
+    SessionVisibilityEventRequest,
     StartSessionRequest,
 )
 from app.services import notifications, session_sounds, sessions
@@ -94,17 +94,17 @@ async def get_events(
     )
 
 
-@router.post("/{session_id}/presence-events", name="앵무새 재실 이벤트 사진 업로드 URL 발급")
-async def add_presence_event(
+@router.post("/{session_id}/visibility-events", name="앵무새 보임 여부 이벤트 사진 업로드 URL 발급")
+async def add_visibility_event(
     session: Annotated[Session, Depends(require_session)],
     device: ActiveDevice,
-    body: SessionPresenceEventRequest,
+    body: SessionVisibilityEventRequest,
     db: DBSession,
     storage: Storage,
 ) -> UploadResponse:
     return UploadResponse(
-        message="앵무새 재실 이벤트 사진 업로드 URL 발급 성공",
-        data=await sessions.add_presence_event(db=db, storage=storage, session=session, device=device, data=body),
+        message="앵무새 보임 여부 이벤트 사진 업로드 URL 발급 성공",
+        data=await sessions.add_visibility_event(db=db, storage=storage, session=session, device=device, data=body),
     )
 
 
