@@ -186,12 +186,12 @@ class I18n(Base):
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     ko_kr: Mapped[str | None] = mapped_column(Text, nullable=True)
     en_us: Mapped[str] = mapped_column(Text, nullable=False)
+    ja_jp: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ru_ru: Mapped[str | None] = mapped_column(Text, nullable=True)
+    es_es: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def get_text(self, locale: LocaleEnum) -> str:
-        if locale == LocaleEnum.KO_KR and self.ko_kr is not None:
-            return self.ko_kr
-
-        return self.en_us
+        return getattr(self, locale.name.lower()) or self.en_us
 
 
 class Consent(Base):

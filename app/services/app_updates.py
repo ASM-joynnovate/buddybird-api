@@ -24,7 +24,7 @@ def build_backoffice_app_update_dto(app_update: AppUpdate) -> BackofficeAppUpdat
     release_notes = None
 
     if app_update.release_notes_i18n is not None:
-        release_notes = I18nDTO(ko_kr=app_update.release_notes_i18n.ko_kr, en_us=app_update.release_notes_i18n.en_us)
+        release_notes = I18nDTO.model_validate(app_update.release_notes_i18n, from_attributes=True)
 
     return BackofficeAppUpdateDTO(
         id=app_update.id,
@@ -78,7 +78,7 @@ async def create(*, db: AsyncSession, data: CreateAppUpdateRequest) -> Backoffic
     release_notes_i18n = None
 
     if data.release_notes is not None:
-        release_notes_i18n = I18n(ko_kr=data.release_notes.ko_kr, en_us=data.release_notes.en_us)
+        release_notes_i18n = I18n(**data.release_notes.model_dump())
 
     app_update = AppUpdate(
         platform=data.platform.value,
@@ -102,10 +102,10 @@ async def update(*, db: AsyncSession, app_update: AppUpdate, data: UpdateAppUpda
     if data.release_notes is None:
         app_update.release_notes_i18n = None
     elif data.release_notes is not MISSING and app_update.release_notes_i18n is not None:
-        app_update.release_notes_i18n.ko_kr = data.release_notes.ko_kr
-        app_update.release_notes_i18n.en_us = data.release_notes.en_us
+        for name, value in data.release_notes.model_dump().items():
+            setattr(app_update.release_notes_i18n, name, value)
     elif data.release_notes is not MISSING:
-        app_update.release_notes_i18n = I18n(ko_kr=data.release_notes.ko_kr, en_us=data.release_notes.en_us)
+        app_update.release_notes_i18n = I18n(**data.release_notes.model_dump())
 
     for name, value in data.model_dump(exclude_unset=True, exclude={"release_notes"}).items():
         setattr(app_update, name, value)

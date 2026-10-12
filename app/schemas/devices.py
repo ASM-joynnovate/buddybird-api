@@ -1,12 +1,13 @@
 from datetime import datetime
-from typing import ClassVar
+from typing import Annotated, ClassVar
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, StringConstraints
 from pydantic.experimental.missing_sentinel import MISSING
 
-from app.enums import LocaleEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
+
+Locale = Annotated[str, StringConstraints(max_length=35, pattern=r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$")]
 
 
 class DeviceClientDTO(CustomBaseModel):
@@ -22,7 +23,7 @@ class DeviceDTO(CustomBaseModel):
     id: UUID
     client_device_id: UUID
     timezone: str | None
-    locale: LocaleEnum
+    locale: str
     last_seen_at: datetime | None
     client: DeviceClientDTO
     push_registered: bool
@@ -58,7 +59,7 @@ class RegisterDeviceRequest(BaseRequest):
     model: str = Field(..., min_length=1, max_length=100)
     app_version: str = Field(..., min_length=1, max_length=12)
     timezone: str | None = Field(None, min_length=1, max_length=64)
-    locale: LocaleEnum
+    locale: Locale
 
 
 class UpdatePushTokenRequest(BaseRequest):
@@ -71,4 +72,4 @@ class UpdateDeviceRequest(BaseRequest):
     app_version: str | MISSING = Field(MISSING, min_length=1, max_length=12)
     os_version: str | MISSING = Field(MISSING, min_length=1, max_length=20)
     timezone: str | MISSING | None = Field(MISSING, min_length=1, max_length=64)
-    locale: LocaleEnum | MISSING = MISSING
+    locale: Locale | MISSING = MISSING

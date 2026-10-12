@@ -22,6 +22,9 @@ class ConsentStatusEnum(StrEnum):
 class PresetLanguageEnum(StrEnum):
     KO = "ko"
     EN = "en"
+    JA = "ja"
+    RU = "ru"
+    ES = "es"
 
 
 class SessionStatusEnum(StrEnum):
@@ -100,6 +103,9 @@ class SoundJudgmentStatusEnum(StrEnum):
 class LocaleEnum(StrEnum):
     KO_KR = "ko-KR"
     EN_US = "en-US"
+    JA_JP = "ja-JP"
+    RU_RU = "ru-RU"
+    ES_ES = "es-ES"
 
 
 class PlatformEnum(StrEnum):

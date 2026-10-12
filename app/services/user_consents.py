@@ -48,7 +48,7 @@ async def get_backoffice_list(*, db: AsyncSession, user: User) -> list[Backoffic
     return [
         BackofficeUserConsentDTO(
             **build_user_consent_dto(user_consent).model_dump(),
-            title=I18nDTO(ko_kr=user_consent.consent.title_i18n.ko_kr, en_us=user_consent.consent.title_i18n.en_us),
+            title=I18nDTO.model_validate(user_consent.consent.title_i18n, from_attributes=True),
         )
         for user_consent in user_consents
     ]
