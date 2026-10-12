@@ -72,7 +72,7 @@ from app.schemas.notifications import (
 )
 from app.services.sessions import get_judgment_statuses
 from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, PUSHABLE
-from app.utils import SEOUL
+from app.utils import SEOUL, resolve_locale
 
 logger = logging.getLogger(__name__)
 
@@ -141,8 +141,8 @@ def build_backoffice_notification_dto(
         user_id=notification.user_id,
         kind=notification.kind,
         data_id=notification.session_id,
-        title=I18nDTO(ko_kr=notification.title_i18n.ko_kr, en_us=notification.title_i18n.en_us),
-        body=I18nDTO(ko_kr=notification.body_i18n.ko_kr, en_us=notification.body_i18n.en_us),
+        title=I18nDTO.model_validate(notification.title_i18n, from_attributes=True),
+        body=I18nDTO.model_validate(notification.body_i18n, from_attributes=True),
         image=image,
         sent_at=notification.sent_at,
         read_at=notification.read_at,
@@ -178,23 +178,21 @@ def is_night_time(*, at: datetime, timezone: str | None) -> bool:
 def build_notification_i18n(
     *, kind: NotificationKindEnum, title: I18nTitleRequest, body: I18nNotificationBodyRequest
 ) -> tuple[I18n, I18n]:
-    title_prefix = ""
-    body_prefix = ""
+    title_texts = title.model_dump()
+    body_texts = body.model_dump()
 
     if kind == NotificationKindEnum.MARKETING:
-        title_prefix = "(광고) "
-        body_prefix = "(광고) "
+        prefixes = {
+            "ko_kr": "(광고) ",
+            "en_us": "(광고) ",
+            "ja_jp": "(広告) ",
+            "ru_ru": "(Реклама) ",
+            "es_es": "(Publicidad) ",
+        }
+        title_texts = {name: prefixes[name] + text if text is not None else None for name, text in title_texts.items()}
+        body_texts = {name: prefixes[name] + text if text is not None else None for name, text in body_texts.items()}
 
-    return (
-        I18n(
-            ko_kr=title_prefix + title.ko_kr if title.ko_kr is not None else None,
-            en_us=title_prefix + title.en_us,
-        ),
-        I18n(
-            ko_kr=body_prefix + body.ko_kr if body.ko_kr is not None else None,
-            en_us=body_prefix + body.en_us,
-        ),
-    )
+    return I18n(**title_texts), I18n(**body_texts)
 
 
 async def enqueue_push_deliveries(*delivery_ids: UUID) -> None:
@@ -392,23 +390,41 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
     names = (await db.scalars(stmt)).all()
     subject_ko = "우리 앵무새가"
     subject_en = "your parrot"
+    subject_ja = "うちの子が"
+    subject_ru = "издаёт ваш попугай"
+    subject_es = "ha dicho tu loro"
 
     if len(names) == 1:
         has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
         subject_ko = names[0] + ("이" if has_final_consonant else "가")
         subject_en = names[0]
+        subject_ja = f"{names[0]}が"
+        subject_ru = f"издаёт {names[0]}"
+        subject_es = f"ha dicho {names[0]}"
     elif names:
         others = "other" if len(names) == 2 else "others"
         subject_ko = f"{names[0]} 외 {len(names) - 1}마리가"
         subject_en = f"{names[0]} and {len(names) - 1} {others}"
+        subject_ja = f"{names[0]}ほか{len(names) - 1}羽が"
+        subject_ru = f"издают {names[0]} и ещё {len(names) - 1}"
+        subject_es = f"han dicho {names[0]} y {len(names) - 1} más"
 
     _, delivery_ids = await create_notifications(
         db=db,
         kind=NotificationKindEnum.REPORT,
-        title_i18n=I18n(ko_kr="학습 리포트가 준비됐어요", en_us="Your learning report is ready"),
+        title_i18n=I18n(
+            ko_kr="학습 리포트가 준비됐어요",
+            en_us="Your learning report is ready",
+            ja_jp="学習レポートができました",
+            ru_ru="Отчёт по обучению готов",
+            es_es="Tu informe de aprendizaje está listo",
+        ),
         body_i18n=I18n(
             ko_kr=f"앵무새 소리 분석이 끝났어요. {subject_ko} 낸 소리를 들어 보세요!",
             en_us=f"We finished analyzing the sounds. Come listen to what {subject_en} said!",
+            ja_jp=f"鳴き声の分析が終わりました。{subject_ja}出した声を聞いてみましょう!",
+            ru_ru=f"Мы закончили анализ звуков. Послушайте, какие звуки {subject_ru}!",
+            es_es=f"Hemos terminado de analizar los sonidos. ¡Ven a escuchar lo que {subject_es}!",
         ),
         image_file_id=None,
         user_ids=[session.user_id],
@@ -496,8 +512,7 @@ async def get_backoffice_list(
     if query.keyword is not None:
         matched = select(I18n.id).where(
             or_(
-                I18n.ko_kr.icontains(query.keyword, autoescape=True),
-                I18n.en_us.icontains(query.keyword, autoescape=True),
+                *(getattr(I18n, locale.name.lower()).icontains(query.keyword, autoescape=True) for locale in LocaleEnum)
             )
         )
 
@@ -621,8 +636,8 @@ async def get_dispatches(
             BackofficeNotificationDispatchDTO(
                 id=dispatch.id,
                 kind=dispatch.kind,
-                title=I18nDTO(ko_kr=dispatch.title_i18n.ko_kr, en_us=dispatch.title_i18n.en_us),
-                body=I18nDTO(ko_kr=dispatch.body_i18n.ko_kr, en_us=dispatch.body_i18n.en_us),
+                title=I18nDTO.model_validate(dispatch.title_i18n, from_attributes=True),
+                body=I18nDTO.model_validate(dispatch.body_i18n, from_attributes=True),
                 image=image,
                 image_file_id=dispatch.image_file_id,
                 target=dispatch.target,
@@ -659,8 +674,7 @@ async def get_backoffice_dispatches(
     if query.keyword is not None:
         matched = select(I18n.id).where(
             or_(
-                I18n.ko_kr.icontains(query.keyword, autoescape=True),
-                I18n.en_us.icontains(query.keyword, autoescape=True),
+                *(getattr(I18n, locale.name.lower()).icontains(query.keyword, autoescape=True) for locale in LocaleEnum)
             )
         )
 
@@ -803,8 +817,8 @@ async def get_backoffice_deliveries(
                 notification_id=delivery.notification_id,
                 announcement_id=delivery.announcement_id,
                 kind=kind,
-                title=I18nDTO(ko_kr=source.title_i18n.ko_kr, en_us=source.title_i18n.en_us),
-                body=I18nDTO(ko_kr=source.body_i18n.ko_kr, en_us=source.body_i18n.en_us)
+                title=I18nDTO.model_validate(source.title_i18n, from_attributes=True),
+                body=I18nDTO.model_validate(source.body_i18n, from_attributes=True)
                 if source.body_i18n is not None
                 else None,
                 scheduled_at=delivery.scheduled_at,
@@ -955,17 +969,25 @@ async def deliver(delivery_id: UUID) -> None:
 
         if sendable:
             device = row.Device
-            locale = LocaleEnum(device.locale)
+            locale = resolve_locale(device.locale)
             body = body_i18n.get_text(locale) if body_i18n is not None else ""
             image_url = s3.generate_presigned_url(path=image_file.object_key) if image_file is not None else None
 
             if delivery.announcement_id is not None:
                 body = body[:500]
 
-            if kind == NotificationKindEnum.MARKETING and locale == LocaleEnum.KO_KR and body_i18n.ko_kr is not None:
-                body += "\n무료 수신거부: 프로필 > 설정 > 알림에서 마케팅 알림 Off"
-            elif kind == NotificationKindEnum.MARKETING:
-                body += "\nUnsubscribe for free: Profile > Settings > Notifications > turn off Marketing alerts"
+            if kind == NotificationKindEnum.MARKETING:
+                unsubscribe_texts = {
+                    LocaleEnum.KO_KR: "무료 수신거부: 프로필 > 설정 > 알림에서 마케팅 알림 Off",
+                    LocaleEnum.EN_US: (
+                        "Unsubscribe for free: Profile > Settings > Notifications > turn off Marketing alerts"
+                    ),
+                    LocaleEnum.JA_JP: "無料配信停止: プロフィール > 設定 > 通知でマーケティング通知をオフ",
+                    LocaleEnum.RU_RU: "Бесплатная отписка: Профиль > Настройки > Уведомления > отключите маркетинг",
+                    LocaleEnum.ES_ES: "Baja gratuita: Perfil > Ajustes > Notificaciones > desactiva las de marketing",
+                }
+                text_locale = locale if getattr(body_i18n, locale.name.lower()) is not None else LocaleEnum.EN_US
+                body += "\n" + unsubscribe_texts[text_locale]
 
             try:
                 await send_push(

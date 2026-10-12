@@ -59,31 +59,43 @@ class UploadRequest(BaseRequest):
 
 
 class I18nTitleRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
 
     ko_kr: Title | None = None
     en_us: Title
+    ja_jp: Title | None = None
+    ru_ru: Title | None = None
+    es_es: Title | None = None
 
 
 class I18nBodyRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
 
     ko_kr: Body | None = None
     en_us: Body
+    ja_jp: Body | None = None
+    ru_ru: Body | None = None
+    es_es: Body | None = None
 
 
 class UpdateI18nTitleRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
 
     ko_kr: Title | MISSING | None = MISSING
     en_us: Title | MISSING = MISSING
+    ja_jp: Title | MISSING | None = MISSING
+    ru_ru: Title | MISSING | None = MISSING
+    es_es: Title | MISSING | None = MISSING
 
 
 class UpdateI18nBodyRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
 
     ko_kr: Body | MISSING | None = MISSING
     en_us: Body | MISSING = MISSING
+    ja_jp: Body | MISSING | None = MISSING
+    ru_ru: Body | MISSING | None = MISSING
+    es_es: Body | MISSING | None = MISSING
 
 
 class CustomBaseModel(BaseModel):
@@ -114,10 +126,13 @@ class FileDTO(CustomBaseModel):
 
 
 class I18nDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"ko_kr"}
+    allow_null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
 
     ko_kr: str | None
     en_us: str
+    ja_jp: str | None
+    ru_ru: str | None
+    es_es: str | None
 
 
 class BaseResponse(BaseModel):

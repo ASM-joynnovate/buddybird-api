@@ -30,8 +30,8 @@ def build_backoffice_consent_dto(consent: Consent) -> BackofficeConsentDTO:
         id=consent.id,
         kind=consent.kind,
         version=consent.version,
-        title=I18nDTO(ko_kr=consent.title_i18n.ko_kr, en_us=consent.title_i18n.en_us),
-        body=I18nDTO(ko_kr=consent.body_i18n.ko_kr, en_us=consent.body_i18n.en_us),
+        title=I18nDTO.model_validate(consent.title_i18n, from_attributes=True),
+        body=I18nDTO.model_validate(consent.body_i18n, from_attributes=True),
         is_required=consent.is_required,
         published_at=consent.published_at,
     )
@@ -80,8 +80,8 @@ async def create(*, db: AsyncSession, data: CreateConsentRequest) -> BackofficeC
     consent = Consent(
         kind=data.kind,
         version=(latest_version or 0) + 1,
-        title_i18n=I18n(ko_kr=data.title.ko_kr, en_us=data.title.en_us),
-        body_i18n=I18n(ko_kr=data.body.ko_kr, en_us=data.body.en_us),
+        title_i18n=I18n(**data.title.model_dump()),
+        body_i18n=I18n(**data.body.model_dump()),
         is_required=data.is_required,
         published_at=data.published_at,
         is_deleted=False,

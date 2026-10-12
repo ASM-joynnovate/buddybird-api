@@ -235,8 +235,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
     stmt = (
         select(
             Notification.kind,
-            I18n.ko_kr,
-            I18n.en_us,
+            I18n,
             sent_at.label("sent_at"),
             func.count().label("recipient_count"),
             func.count(Notification.read_at).label("read_count"),
@@ -256,7 +255,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
         notification_lists[name] = [
             DashboardNotificationDTO(
                 kind=row.kind,
-                title=I18nDTO(ko_kr=row.ko_kr, en_us=row.en_us),
+                title=I18nDTO.model_validate(row.I18n, from_attributes=True),
                 sent_at=row.sent_at,
                 recipient_count=row.recipient_count,
                 read_count=row.read_count,
@@ -267,8 +266,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
     stmt = (
         select(
             Announcement.id,
-            I18n.ko_kr,
-            I18n.en_us,
+            I18n,
             Announcement.starts_at,
             func.count(User.id).label("read_count"),
         )
@@ -333,7 +331,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
         announcements=[
             DashboardAnnouncementDTO(
                 id=announcement.id,
-                title=I18nDTO(ko_kr=announcement.ko_kr, en_us=announcement.en_us),
+                title=I18nDTO.model_validate(announcement.I18n, from_attributes=True),
                 starts_at=announcement.starts_at,
                 read_count=announcement.read_count,
             )
