@@ -11,6 +11,7 @@ from app.schemas.sessions import (
     HeartbeatResponse,
     SessionEventListResponse,
     SessionListResponse,
+    SessionPresenceEventRequest,
     SessionResponse,
     SessionSoundListParams,
     SessionSoundListResponse,
@@ -85,9 +86,25 @@ async def add_events(
 
 
 @router.get("/{session_id}/events", name="세션 이벤트 조회")
-async def get_events(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionEventListResponse:
+async def get_events(
+    session: Annotated[Session, Depends(require_session)], db: DBSession, storage: Storage
+) -> SessionEventListResponse:
     return SessionEventListResponse(
-        message="세션 이벤트 조회 성공", data=await sessions.get_events(db=db, session=session)
+        message="세션 이벤트 조회 성공", data=await sessions.get_events(db=db, storage=storage, session=session)
+    )
+
+
+@router.post("/{session_id}/presence-events", name="앵무새 재실 이벤트 사진 업로드 URL 발급")
+async def add_presence_event(
+    session: Annotated[Session, Depends(require_session)],
+    device: ActiveDevice,
+    body: SessionPresenceEventRequest,
+    db: DBSession,
+    storage: Storage,
+) -> UploadResponse:
+    return UploadResponse(
+        message="앵무새 재실 이벤트 사진 업로드 URL 발급 성공",
+        data=await sessions.add_presence_event(db=db, storage=storage, session=session, device=device, data=body),
     )
 
 

@@ -58,6 +58,7 @@ class NotificationKindEnum(StrEnum):
     URGENT = "urgent"
     MARKETING = "marketing"
     REPORT = "report"
+    PETCAM = "petcam"
 
 
 class NotificationDispatchTargetEnum(StrEnum):
@@ -80,6 +81,8 @@ class SessionEventKindEnum(StrEnum):
     STATION_DISCONNECTED = "station_disconnected"
     STATION_RECONNECTED = "station_reconnected"
     EMERGENCY_DETECTED = "emergency_detected"
+    PARROT_ABSENT = "parrot_absent"
+    PARROT_RETURNED = "parrot_returned"
     SESSION_FINISHED = "session_finished"
 
 

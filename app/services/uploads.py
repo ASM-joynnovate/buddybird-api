@@ -13,6 +13,7 @@ from app.enums import FileStatusEnum
 from app.errors import InvalidProfilePhotoError
 from app.models import Announcement, AnnouncementImage, File, Parrot, SessionSound, User
 from app.s3 import s3
+from app.services import notifications
 from app.services.users import prepare_uploaded_photo
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,14 @@ async def process(*, key: str, size: int) -> None:
                 )
             except Exception:
                 logger.exception("앵무새 소리 판별 요청 큐 전달 실패; sound_id=%s", sound.id)
+
+        if path.split("/")[2] == "petcam":
+            try:
+                delivery_ids = await notifications.create_presence(db=db, image_file_id=file.id)
+
+                await notifications.enqueue_push_deliveries(*delivery_ids)
+            except Exception:
+                logger.exception("앵무새 재실 알림 생성 실패; file_id=%s", file.id)
 
 
 @transactional

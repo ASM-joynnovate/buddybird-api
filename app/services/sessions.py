@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid7
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import func, or_, select
@@ -20,6 +20,8 @@ from app.enums import (
 )
 from app.errors import (
     DeviceNotStationError,
+    FileSizeExceededError,
+    InvalidSessionPhotoError,
     ResourceNotFoundError,
     SessionAlreadyRunningError,
     SessionNotRunningError,
@@ -37,7 +39,8 @@ from app.models import (
     User,
     Word,
 )
-from app.schemas.base import PageParams
+from app.s3 import S3StorageClient, s3
+from app.schemas.base import PageParams, UploadDTO
 from app.schemas.sessions import (
     AcknowledgedLearningSegmentDTO,
     ActiveDurationDTO,
@@ -55,6 +58,7 @@ from app.schemas.sessions import (
     SessionEventWordDTO,
     SessionJudgmentDTO,
     SessionPeriodDTO,
+    SessionPresenceEventRequest,
     SessionProgressDTO,
     SessionScheduleDTO,
     SessionSoundsDTO,
@@ -69,6 +73,10 @@ from app.schemas.sessions import (
 from app.schemas.settings import SleepSettingsDTO
 from app.services.devices import mark_seen
 
+MAX_PRESENCE_PHOTO_BYTES = 5 * 1024 * 1024
+PRESENCE_PHOTO_TYPE = "image/jpeg"
+PRESENCE_PHOTO_RETENTION = timedelta(days=30)
+EXPIRED_PRESENCE_PHOTO_BATCH = 100
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
     .where(SoundJudgment.sound_id == SessionSound.id)
@@ -544,10 +552,82 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
     await db.flush()
 
 
-async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEventDTO]:
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def add_presence_event(
+    *,
+    db: AsyncSession,
+    storage: S3StorageClient,
+    session: Session,
+    device: Device,
+    data: SessionPresenceEventRequest,
+) -> UploadDTO:
+    verify_running(session)
+    verify_station(session, device)
+
+    if data.content_type != PRESENCE_PHOTO_TYPE:
+        raise InvalidSessionPhotoError
+
+    if data.file_size > MAX_PRESENCE_PHOTO_BYTES:
+        raise FileSizeExceededError
+
+    file_id = uuid7()
+    image_file = File(
+        id=file_id,
+        file_name="presence.jpg",
+        file_path=f"user/{session.user_id}/petcam/{session.id}/{file_id}",
+        file_size=data.file_size,
+        file_type=data.content_type,
+        is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
+    )
+
+    db.add(image_file)
+    db.add(
+        SessionEvent(
+            session_id=session.id,
+            kind=data.kind.value,
+            occurred_at=data.occurred_at,
+            image_file=image_file,
+        )
+    )
+
+    await db.flush()
+
+    return storage.generate_presigned_upload(
+        file_id=file_id,
+        path=image_file.object_key,
+        content_type=data.content_type,
+        file_size=data.file_size,
+    )
+
+
+@transactional
+async def delete_expired_presence_photos(*, db: AsyncSession) -> None:
+    stmt = (
+        select(File)
+        .join(SessionEvent, SessionEvent.image_file_id == File.id)
+        .where(SessionEvent.occurred_at < datetime.now(UTC) - PRESENCE_PHOTO_RETENTION)
+        .limit(EXPIRED_PRESENCE_PHOTO_BATCH)
+    )
+
+    for image_file in (await db.scalars(stmt)).all():
+        await s3.delete(path=image_file.object_key)
+
+        image_file.is_deleted = True
+
+
+async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Session) -> list[SessionEventDTO]:
     stmt = select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
     events = (await db.scalars(stmt)).all()
     sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
+    returned_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_RETURNED.value]
+
+    for event in events:
+        if event.kind == SessionEventKindEnum.PARROT_ABSENT.value:
+            ended_at = next((at for at in returned_ats if at > event.occurred_at), None)
+
+            if ended_at is not None:
+                ended_ats[event.id] = ended_at
 
     return [
         SessionEventDTO(
@@ -557,6 +637,9 @@ async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEvent
             ended_at=ended_ats.get(event.id),
             word=SessionEventWordDTO(id=event.word_id) if event.word_id is not None else None,
             sound_ids=sound_ids.get(event.id, []),
+            image=storage.generate_file_dto(
+                file=event.image_file if event.image_file is not None and not event.image_file.is_deleted else None
+            ),
         )
         for event in events
     ]
@@ -590,6 +673,7 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
                 ended_at=ended_ats.get(event.id),
                 word=BackofficeSessionWordDTO(id=event.word_id, name=word_name) if event.word_id is not None else None,
                 sound_ids=sound_ids.get(event.id, []),
+                image=None,
                 is_learning=is_learning,
             )
         )

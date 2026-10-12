@@ -173,8 +173,13 @@ class SessionEventWordDTO(CustomBaseModel):
     id: UUID
 
 
+class SessionPresenceEventRequest(UploadRequest):
+    kind: Literal[SessionEventKindEnum.PARROT_ABSENT, SessionEventKindEnum.PARROT_RETURNED]
+    occurred_at: datetime
+
+
 class SessionEventDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"word", "ended_at"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at", "image"}
 
     id: UUID
     kind: SessionEventKindEnum
@@ -182,6 +187,7 @@ class SessionEventDTO(CustomBaseModel):
     ended_at: datetime | None
     word: SessionEventWordDTO | None
     sound_ids: list[UUID]
+    image: FileDTO | None
 
 
 class SessionEventListResponse(BaseResponse):
@@ -189,7 +195,7 @@ class SessionEventListResponse(BaseResponse):
 
 
 class BackofficeSessionEventDTO(SessionEventDTO):
-    allow_null_fields: ClassVar[set] = {"word", "ended_at", "is_learning"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at", "image", "is_learning"}
 
     word: BackofficeSessionWordDTO | None
     is_learning: bool | None

@@ -339,6 +339,11 @@ class SessionEvent(Base):
             "occurred_at",
             postgresql_where=text("kind = 'emergency_detected'"),
         ),
+        Index(
+            "ix_session_events_image_file_id",
+            "image_file_id",
+            postgresql_where=text("image_file_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
@@ -347,6 +352,8 @@ class SessionEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     word_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=True)
     emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
+    image_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    image_file: Mapped[File | None] = relationship(lazy="selectin")
 
 
 class LearningSegment(Base):
@@ -486,7 +493,12 @@ class NotificationDispatch(Base):
 class Notification(Base):
     __tablename__ = "notifications"
     __table_args__ = (
-        UniqueConstraint("session_id", name="uq_notifications_session_id"),
+        Index(
+            "uq_notifications_session_id_report",
+            "session_id",
+            unique=True,
+            postgresql_where=text("kind = 'report'"),
+        ),
         Index("ix_notifications_user_id_sent_at", "user_id", "sent_at"),
         Index("ix_notifications_sent_at", "sent_at"),
     )

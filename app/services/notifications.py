@@ -19,6 +19,7 @@ from app.enums import (
     NotificationDispatchStatusEnum,
     NotificationDispatchTargetEnum,
     NotificationKindEnum,
+    SessionEventKindEnum,
     SessionStatusEnum,
 )
 from app.errors import (
@@ -41,6 +42,7 @@ from app.models import (
     Parrot,
     PushDelivery,
     Session,
+    SessionEvent,
     SessionSound,
     User,
     UserSetting,
@@ -83,6 +85,7 @@ KIND_ENABLED = {
     NotificationKindEnum.URGENT: true(),
     NotificationKindEnum.MARKETING: func.coalesce(UserSetting.marketing_notification_enabled, false()),
     NotificationKindEnum.REPORT: func.coalesce(UserSetting.report_notification_enabled, true()),
+    NotificationKindEnum.PETCAM: true(),
 }
 NOTIFICATION_PUSH = (
     select(
@@ -380,7 +383,9 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
     )
     uploaded_sound_id = await db.scalar(stmt)
 
-    stmt = select(Notification.id).where(Notification.session_id == session_id)
+    stmt = select(Notification.id).where(
+        Notification.session_id == session_id, Notification.kind == NotificationKindEnum.REPORT.value
+    )
     report_id = await db.scalar(stmt)
 
     if statuses[session_id] != JudgmentStatusEnum.DONE or uploaded_sound_id is None or report_id is not None:
@@ -444,6 +449,69 @@ async def send_report(*, db: AsyncSession, session_ids: list[UUID]) -> None:
             await enqueue_push_deliveries(*delivery_ids)
         except Exception:
             logger.exception("리포트 알림 생성 실패; session_id=%s", session_id)
+
+
+@transactional
+async def create_presence(*, db: AsyncSession, image_file_id: UUID) -> list[UUID]:
+    stmt = (
+        select(SessionEvent, Session.user_id)
+        .join(Session, Session.id == SessionEvent.session_id)
+        .where(SessionEvent.image_file_id == image_file_id)
+    )
+    event, user_id = (await db.execute(stmt)).one()
+
+    stmt = select(Parrot.name).where(Parrot.user_id == user_id).order_by(Parrot.created_at)
+    names = (await db.scalars(stmt)).all()
+    subject_ko = "우리 앵무새가"
+    subject_en = "your parrot"
+    subject_ja = "うちの子が"
+    subject_ru = "Попугай"
+    subject_es = "tu loro"
+
+    if len(names) == 1:
+        has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
+        subject_ko = names[0] + ("이" if has_final_consonant else "가")
+        subject_en = names[0]
+        subject_ja = f"{names[0]}が"
+        subject_ru = names[0]
+        subject_es = names[0]
+
+    title_i18n = I18n(
+        ko_kr=f"{subject_ko} 안 보여요",
+        en_us=f"We can't see {subject_en}",
+        ja_jp=f"{subject_ja}見えません",
+        ru_ru=f"{subject_ru} не в кадре",
+        es_es=f"No vemos a {subject_es}",
+    )
+
+    if event.kind == SessionEventKindEnum.PARROT_RETURNED.value:
+        title_i18n = I18n(
+            ko_kr=f"{subject_ko} 다시 보여요",
+            en_us=f"We can see {subject_en} again",
+            ja_jp=f"{subject_ja}また見えるようになりました",
+            ru_ru=f"{subject_ru} снова в кадре",
+            es_es=f"Volvemos a ver a {subject_es}",
+        )
+
+    _, delivery_ids = await create_notifications(
+        db=db,
+        kind=NotificationKindEnum.PETCAM,
+        title_i18n=title_i18n,
+        body_i18n=I18n(
+            ko_kr="눌러서 지금 모습을 확인해 보세요",
+            en_us="Tap to see what's happening now",
+            ja_jp="タップして今の様子を確認しましょう",
+            ru_ru="Нажмите, чтобы посмотреть, что происходит сейчас",
+            es_es="Toca para ver qué está pasando ahora",
+        ),
+        image_file_id=image_file_id,
+        user_ids=[user_id],
+        local_datetime=None,
+        session_id=event.session_id,
+        target=None,
+    )
+
+    return delivery_ids
 
 
 @transactional(unavailable_error=NotificationSaveUnavailableError)
