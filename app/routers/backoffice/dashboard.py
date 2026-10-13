@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import DBSession, require_consent
+from app.dependencies import DBSession, Storage, require_consent
 from app.models import Consent
 from app.schemas.dashboard import (
     AnalyticsDashboardResponse,
@@ -12,6 +12,7 @@ from app.schemas.dashboard import (
     DashboardLiveResponse,
     DashboardParams,
     DashboardResponse,
+    EmergencyDashboardResponse,
     FeedbackDashboardResponse,
     NotificationDashboardResponse,
     StabilityDashboardParams,
@@ -75,6 +76,16 @@ async def get_notification_dashboard(
     return NotificationDashboardResponse(
         message="알림 대시보드 조회 성공",
         data=await dashboard.get_notification_dashboard(db=db, query=query),
+    )
+
+
+@router.get("/emergencies", name="응급 상황 대시보드 조회")
+async def get_emergency_dashboard(
+    query: Annotated[DashboardParams, Query()], db: DBSession, storage: Storage
+) -> EmergencyDashboardResponse:
+    return EmergencyDashboardResponse(
+        message="응급 상황 대시보드 조회 성공",
+        data=await dashboard.get_emergency_dashboard(db=db, storage=storage, query=query),
     )
 
 

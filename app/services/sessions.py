@@ -49,6 +49,7 @@ from app.schemas.sessions import (
     BackofficeSessionDisconnectionDTO,
     BackofficeSessionDTO,
     BackofficeSessionEventDTO,
+    BackofficeSessionListParams,
     BackofficeSessionPeriodDTO,
     BackofficeSessionWordDTO,
     HeartbeatDTO,
@@ -276,15 +277,27 @@ async def get_list(*, db: AsyncSession, user: User, query: PageParams) -> tuple[
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, user: User, query: PageParams
-) -> tuple[list[BackofficeSessionDTO], int]:
+    *, db: AsyncSession, user: User, query: BackofficeSessionListParams
+) -> tuple[list[BackofficeSessionDTO], int, int]:
+    page = query.page
+
+    if query.session_id is not None:
+        stmt = select(Session.started_at).where(Session.id == query.session_id, Session.user_id == user.id)
+        started_at = await db.scalar(stmt)
+
+        if started_at is not None:
+            stmt = (
+                select(func.count())
+                .select_from(Session)
+                .where(Session.user_id == user.id, Session.started_at > started_at)
+            )
+            page = await db.scalar(stmt) // query.count_by_page + 1
+
     stmt = select(Session).where(Session.user_id == user.id)
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sessions = (
         await db.scalars(
-            stmt.order_by(Session.started_at.desc())
-            .offset((query.page - 1) * query.count_by_page)
-            .limit(query.count_by_page)
+            stmt.order_by(Session.started_at.desc()).offset((page - 1) * query.count_by_page).limit(query.count_by_page)
         )
     ).all()
     session_ids = [session.id for session in sessions]
@@ -336,7 +349,7 @@ async def get_backoffice_list(
             BackofficeSessionDisconnectionDTO(started_at=started_at, ended_at=None)
         )
 
-    return [
+    items = [
         BackofficeSessionDTO(
             **build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id]).model_dump(
                 exclude={"word", "period"}
@@ -353,7 +366,9 @@ async def get_backoffice_list(
             parrot_disappearances=parrot_disappearances.get(session.id, []),
         )
         for session in sessions
-    ], total
+    ]
+
+    return items, total, page
 
 
 async def get_detail(*, db: AsyncSession, session: Session) -> SessionDTO:
