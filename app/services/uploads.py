@@ -13,6 +13,7 @@ from app.enums import FileStatusEnum
 from app.errors import InvalidProfilePhotoError
 from app.models import Announcement, AnnouncementImage, File, Parrot, SessionSound, User
 from app.s3 import s3
+from app.services import notifications
 from app.services.users import prepare_uploaded_photo
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,13 @@ async def process(*, key: str, size: int) -> None:
     async with session_factory() as db:
         stmt = select(File).where(File.id == UUID(path.split("/")[-2]))
         file = await db.scalar(stmt)
+
+        if file is not None and file.status == FileStatusEnum.UPLOADED.value and path.split("/")[2] == "petcam":
+            delivery_ids = await notifications.create_emergency_notification(db=db, image_file_id=file.id)
+
+            await notifications.enqueue_push_deliveries(*delivery_ids)
+
+            return
 
         if file is None or file.status != FileStatusEnum.PENDING.value:
             logger.info("확정할 업로드가 없어 건너뜀; key=%s", key)
@@ -82,6 +90,11 @@ async def process(*, key: str, size: int) -> None:
                 )
             except Exception:
                 logger.exception("앵무새 소리 판별 요청 큐 전달 실패; sound_id=%s", sound.id)
+
+        if path.split("/")[2] == "petcam":
+            delivery_ids = await notifications.create_emergency_notification(db=db, image_file_id=file.id)
+
+            await notifications.enqueue_push_deliveries(*delivery_ids)
 
 
 @transactional

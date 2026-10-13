@@ -131,7 +131,8 @@ class DashboardLiveTodayDTO(CustomBaseModel):
 
 class DashboardLiveLast24HoursDTO(CustomBaseModel):
     heartbeat_expired_count: int
-    emergency_detected_count: int
+    sound_emergency_detected_count: int
+    parrot_disappeared_count: int
     judgment_failed_count: int
 
 
@@ -310,6 +311,7 @@ class NotificationDashboardDailyDTO(CustomBaseModel):
     announcement_count: int
     marketing_count: int
     urgent_count: int
+    emergency_count: int
 
 
 class NotificationDashboardDTO(CustomBaseModel):

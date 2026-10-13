@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
@@ -9,8 +10,12 @@ from app.schemas.sessions import (
     AddSessionEventsRequest,
     HeartbeatRequest,
     HeartbeatResponse,
+    SessionEventListParams,
     SessionEventListResponse,
     SessionListResponse,
+    SessionPetcamEventRequest,
+    SessionPetcamEventUploadResponse,
+    SessionPetcamVideoUploadRequest,
     SessionResponse,
     SessionSoundListParams,
     SessionSoundListResponse,
@@ -85,9 +90,46 @@ async def add_events(
 
 
 @router.get("/{session_id}/events", name="세션 이벤트 조회")
-async def get_events(session: Annotated[Session, Depends(require_session)], db: DBSession) -> SessionEventListResponse:
+async def get_events(
+    session: Annotated[Session, Depends(require_session)],
+    query: Annotated[SessionEventListParams, Query()],
+    db: DBSession,
+    storage: Storage,
+) -> SessionEventListResponse:
     return SessionEventListResponse(
-        message="세션 이벤트 조회 성공", data=await sessions.get_events(db=db, session=session)
+        message="세션 이벤트 조회 성공",
+        data=await sessions.get_events(db=db, storage=storage, session=session, petcam=query.petcam),
+    )
+
+
+@router.post("/{session_id}/petcam-events", name="펫캠 사진 업로드 URL 발급")
+async def add_petcam_event(
+    session: Annotated[Session, Depends(require_session)],
+    device: ActiveDevice,
+    body: SessionPetcamEventRequest,
+    db: DBSession,
+    storage: Storage,
+) -> SessionPetcamEventUploadResponse:
+    return SessionPetcamEventUploadResponse(
+        message="펫캠 사진 업로드 URL 발급 성공",
+        data=await sessions.add_petcam_event(db=db, storage=storage, session=session, device=device, data=body),
+    )
+
+
+@router.post("/{session_id}/petcam-events/{event_id}/video", name="펫캠 영상 업로드 URL 발급")
+async def add_petcam_video(
+    session: Annotated[Session, Depends(require_session)],
+    device: ActiveDevice,
+    event_id: UUID,
+    body: SessionPetcamVideoUploadRequest,
+    db: DBSession,
+    storage: Storage,
+) -> UploadResponse:
+    return UploadResponse(
+        message="펫캠 영상 업로드 URL 발급 성공",
+        data=await sessions.add_petcam_video(
+            db=db, storage=storage, session=session, device=device, event_id=event_id, data=body
+        ),
     )
 
 

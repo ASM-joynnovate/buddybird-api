@@ -58,6 +58,7 @@ class NotificationKindEnum(StrEnum):
     URGENT = "urgent"
     MARKETING = "marketing"
     REPORT = "report"
+    EMERGENCY = "emergency"
 
 
 class NotificationDispatchTargetEnum(StrEnum):
@@ -79,8 +80,15 @@ class SessionEventKindEnum(StrEnum):
     WORD_CHANGED = "word_changed"
     STATION_DISCONNECTED = "station_disconnected"
     STATION_RECONNECTED = "station_reconnected"
-    EMERGENCY_DETECTED = "emergency_detected"
+    SOUND_EMERGENCY_DETECTED = "sound_emergency_detected"
+    PARROT_DISAPPEARED = "parrot_disappeared"
+    PARROT_APPEARED = "parrot_appeared"
     SESSION_FINISHED = "session_finished"
+
+
+class SessionEventFileKindEnum(StrEnum):
+    IMAGE = "image"
+    VIDEO = "video"
 
 
 class FileStatusEnum(StrEnum):
@@ -129,7 +137,8 @@ class UserLastSessionEnum(StrEnum):
 
 class UserIssueEnum(StrEnum):
     HEARTBEAT_EXPIRED = "heartbeat_expired"
-    EMERGENCY_DETECTED = "emergency_detected"
+    SOUND_EMERGENCY_DETECTED = "sound_emergency_detected"
+    PARROT_DISAPPEARED = "parrot_disappeared"
     WITHDRAWAL_FAILED = "withdrawal_failed"
 
 
