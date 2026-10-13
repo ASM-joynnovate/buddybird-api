@@ -126,7 +126,7 @@ ISSUES = {
         .join(Session, Session.id == SessionEvent.session_id)
         .where(
             Session.user_id == User.id,
-            SessionEvent.kind == SessionEventKindEnum.EMERGENCY_DETECTED.value,
+            SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
             SessionEvent.occurred_at >= ISSUE_SINCE,
         )
     ),

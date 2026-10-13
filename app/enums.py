@@ -80,7 +80,7 @@ class SessionEventKindEnum(StrEnum):
     WORD_CHANGED = "word_changed"
     STATION_DISCONNECTED = "station_disconnected"
     STATION_RECONNECTED = "station_reconnected"
-    EMERGENCY_DETECTED = "emergency_detected"
+    SOUND_EMERGENCY_DETECTED = "sound_emergency_detected"
     PARROT_DISAPPEARED = "parrot_disappeared"
     PARROT_APPEARED = "parrot_appeared"
     SESSION_FINISHED = "session_finished"

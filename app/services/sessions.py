@@ -306,7 +306,7 @@ async def get_backoffice_list(
                 [
                     SessionEventKindEnum.STATION_DISCONNECTED.value,
                     SessionEventKindEnum.STATION_RECONNECTED.value,
-                    SessionEventKindEnum.EMERGENCY_DETECTED.value,
+                    SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
                 ]
             ),
         )
@@ -318,7 +318,7 @@ async def get_backoffice_list(
     emergency_detections: dict[UUID, list[datetime]] = {}
 
     for session_id, kind, occurred_at in events:
-        if kind == SessionEventKindEnum.EMERGENCY_DETECTED.value:
+        if kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value:
             emergency_detections.setdefault(session_id, []).append(occurred_at)
         elif kind == SessionEventKindEnum.STATION_DISCONNECTED.value:
             disconnected_at.setdefault(session_id, occurred_at)

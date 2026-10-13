@@ -391,7 +391,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         select(func.count())
         .select_from(SessionEvent)
         .where(
-            SessionEvent.kind == SessionEventKindEnum.EMERGENCY_DETECTED.value,
+            SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
             SessionEvent.occurred_at >= since,
         )
     )
