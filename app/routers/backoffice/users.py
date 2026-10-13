@@ -4,9 +4,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.dependencies import DBSession, Storage, require_backoffice_user
 from app.models import User
-from app.schemas.base import PageParams
 from app.schemas.consents import BackofficeUserConsentListResponse
-from app.schemas.sessions import BackofficeSessionListResponse
+from app.schemas.sessions import BackofficeSessionListParams, BackofficeSessionListResponse
 from app.schemas.users import BackofficeUserDetailResponse, BackofficeUserListParams, BackofficeUserListResponse
 from app.schemas.withdrawals import WithdrawalResponse
 from app.schemas.words import BackofficeWordListResponse
@@ -50,14 +49,16 @@ async def delete(
 
 @router.get("/{user_id}/sessions", name="사용자 세션 목록 조회")
 async def get_sessions(
-    user: Annotated[User, Depends(require_backoffice_user)], query: Annotated[PageParams, Query()], db: DBSession
+    user: Annotated[User, Depends(require_backoffice_user)],
+    query: Annotated[BackofficeSessionListParams, Query()],
+    db: DBSession,
 ) -> BackofficeSessionListResponse:
-    items, total = await sessions.get_backoffice_list(db=db, user=user, query=query)
+    items, total, page = await sessions.get_backoffice_list(db=db, user=user, query=query)
 
     return BackofficeSessionListResponse(
         message="사용자 세션 목록 조회 성공",
         data=items,
-        meta={**query.meta(total), "total_count": total},
+        meta={**query.model_copy(update={"page": page}).meta(total), "total_count": total},
     )
 
 
