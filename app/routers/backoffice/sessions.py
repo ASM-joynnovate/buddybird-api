@@ -12,11 +12,11 @@ router = APIRouter(prefix="/sessions")
 
 @router.get("/{session_id}/events", name="세션 이벤트 조회")
 async def get_events(
-    session: Annotated[Session, Depends(require_backoffice_session)], db: DBSession
+    session: Annotated[Session, Depends(require_backoffice_session)], db: DBSession, storage: Storage
 ) -> BackofficeSessionEventListResponse:
     return BackofficeSessionEventListResponse(
         message="세션 이벤트 조회 성공",
-        data=await sessions.get_backoffice_events(db=db, session=session),
+        data=await sessions.get_backoffice_events(db=db, storage=storage, session=session),
     )
 
 

@@ -395,7 +395,17 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             SessionEvent.occurred_at >= since,
         )
     )
-    emergency_detected_count = await db.scalar(stmt)
+    sound_emergency_detected_count = await db.scalar(stmt)
+
+    stmt = (
+        select(func.count())
+        .select_from(SessionEvent)
+        .where(
+            SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value,
+            SessionEvent.occurred_at >= since,
+        )
+    )
+    parrot_disappeared_count = await db.scalar(stmt)
 
     stmt = (
         select(func.count())
@@ -434,7 +444,8 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             ),
             last_24_hours=DashboardLiveLast24HoursDTO(
                 heartbeat_expired_count=session_counts.heartbeat_expired_count,
-                emergency_detected_count=emergency_detected_count,
+                sound_emergency_detected_count=sound_emergency_detected_count,
+                parrot_disappeared_count=parrot_disappeared_count,
                 judgment_failed_count=judgment_failed_count,
             ),
         ),

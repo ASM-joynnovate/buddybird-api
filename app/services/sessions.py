@@ -702,7 +702,9 @@ async def get_events(
     ]
 
 
-async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[BackofficeSessionEventDTO]:
+async def get_backoffice_events(
+    *, db: AsyncSession, storage: S3StorageClient, session: Session
+) -> list[BackofficeSessionEventDTO]:
     stmt = (
         select(SessionEvent, Word.name)
         .outerjoin(Word, Word.id == SessionEvent.word_id)
@@ -712,6 +714,13 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
     )
     rows = (await db.execute(stmt)).all()
     sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
+
+    stmt = (
+        select(SessionEventFile)
+        .join(SessionEvent, SessionEvent.id == SessionEventFile.event_id)
+        .where(SessionEvent.session_id == session.id)
+    )
+    files = {(event_file.event_id, event_file.kind): event_file.file for event_file in (await db.scalars(stmt)).all()}
     toggle_count = 0
     items = []
 
@@ -730,8 +739,8 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
                 ended_at=ended_ats.get(event.id),
                 word=BackofficeSessionWordDTO(id=event.word_id, name=word_name) if event.word_id is not None else None,
                 sound_ids=sound_ids.get(event.id, []),
-                image=None,
-                video=None,
+                image=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+                video=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
                 is_learning=is_learning,
             )
         )

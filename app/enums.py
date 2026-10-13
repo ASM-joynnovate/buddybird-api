@@ -137,7 +137,8 @@ class UserLastSessionEnum(StrEnum):
 
 class UserIssueEnum(StrEnum):
     HEARTBEAT_EXPIRED = "heartbeat_expired"
-    EMERGENCY_DETECTED = "emergency_detected"
+    SOUND_EMERGENCY_DETECTED = "sound_emergency_detected"
+    PARROT_DISAPPEARED = "parrot_disappeared"
     WITHDRAWAL_FAILED = "withdrawal_failed"
 
 
