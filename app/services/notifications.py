@@ -510,7 +510,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
     names = (await db.scalars(stmt)).all()
     subject_ko = "우리 앵무새가"
     subject_en = "your parrot"
-    subject_ja = "うちの子が"
+    subject_ja = "うちの子"
     subject_ru = "Попугай"
     subject_es = "tu loro"
 
@@ -518,14 +518,14 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
         subject_ko = names[0] + ("이" if has_final_consonant else "가")
         subject_en = names[0]
-        subject_ja = f"{names[0]}が"
+        subject_ja = names[0]
         subject_ru = names[0]
         subject_es = names[0]
 
     title_i18n = I18n(
         ko_kr=f"{subject_ko} 안 보여요",
         en_us=f"We can't see {subject_en}",
-        ja_jp=f"{subject_ja}見えません",
+        ja_jp=f"{subject_ja}の姿が見えません",
         ru_ru=f"{subject_ru} не в кадре",
         es_es=f"No vemos a {subject_es}",
     )
@@ -534,7 +534,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         title_i18n = I18n(
             ko_kr=f"{subject_ko} 다시 보여요",
             en_us=f"We can see {subject_en} again",
-            ja_jp=f"{subject_ja}また見えるようになりました",
+            ja_jp=f"{subject_ja}が戻ってきました",
             ru_ru=f"{subject_ru} снова в кадре",
             es_es=f"Volvemos a ver a {subject_es}",
         )
