@@ -311,6 +311,7 @@ class NotificationDashboardDailyDTO(CustomBaseModel):
     announcement_count: int
     marketing_count: int
     urgent_count: int
+    emergency_count: int
 
 
 class NotificationDashboardDTO(CustomBaseModel):

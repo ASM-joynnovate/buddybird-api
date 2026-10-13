@@ -307,6 +307,7 @@ async def get_backoffice_list(
                     SessionEventKindEnum.STATION_DISCONNECTED.value,
                     SessionEventKindEnum.STATION_RECONNECTED.value,
                     SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
+                    SessionEventKindEnum.PARROT_DISAPPEARED.value,
                 ]
             ),
         )
@@ -315,11 +316,14 @@ async def get_backoffice_list(
     events = (await db.execute(stmt)).all()
     disconnected_at: dict[UUID, datetime] = {}
     disconnections: dict[UUID, list[BackofficeSessionDisconnectionDTO]] = {}
-    emergency_detections: dict[UUID, list[datetime]] = {}
+    sound_emergency_detections: dict[UUID, list[datetime]] = {}
+    parrot_disappearances: dict[UUID, list[datetime]] = {}
 
     for session_id, kind, occurred_at in events:
         if kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value:
-            emergency_detections.setdefault(session_id, []).append(occurred_at)
+            sound_emergency_detections.setdefault(session_id, []).append(occurred_at)
+        elif kind == SessionEventKindEnum.PARROT_DISAPPEARED.value:
+            parrot_disappearances.setdefault(session_id, []).append(occurred_at)
         elif kind == SessionEventKindEnum.STATION_DISCONNECTED.value:
             disconnected_at.setdefault(session_id, occurred_at)
         elif session_id in disconnected_at:
@@ -345,7 +349,8 @@ async def get_backoffice_list(
                 ended_reason=session.ended_reason,
             ),
             disconnections=disconnections.get(session.id, []),
-            emergency_detections=emergency_detections.get(session.id, []),
+            sound_emergency_detections=sound_emergency_detections.get(session.id, []),
+            parrot_disappearances=parrot_disappearances.get(session.id, []),
         )
         for session in sessions
     ], total

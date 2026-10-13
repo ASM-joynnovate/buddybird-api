@@ -99,7 +99,8 @@ class BackofficeSessionDTO(SessionDTO):
     word: BackofficeSessionWordDTO
     period: BackofficeSessionPeriodDTO
     disconnections: list[BackofficeSessionDisconnectionDTO]
-    emergency_detections: list[datetime]
+    sound_emergency_detections: list[datetime]
+    parrot_disappearances: list[datetime]
 
 
 class BackofficeSessionListResponse(BaseResponse):

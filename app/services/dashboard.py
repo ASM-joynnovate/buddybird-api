@@ -798,6 +798,7 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
                 announcement_count=daily_counts.get((date, NotificationKindEnum.ANNOUNCEMENT.value), 0),
                 marketing_count=daily_counts.get((date, NotificationKindEnum.MARKETING.value), 0),
                 urgent_count=daily_counts.get((date, NotificationKindEnum.URGENT.value), 0),
+                emergency_count=daily_counts.get((date, NotificationKindEnum.EMERGENCY.value), 0),
             )
             for date in dates
         ],
