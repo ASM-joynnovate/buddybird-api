@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     SENTRY_API_TOKEN: SecretStr | None = None
     SENTRY_TRACES_SAMPLE_RATE: float = 1.0
 
+    CLOUDFLARE_TURN_KEY_ID: str | None = None
+    CLOUDFLARE_TURN_API_TOKEN: SecretStr | None = None
+
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "DEBUG" if _local or _env == "dev" else "INFO"
 
     @property

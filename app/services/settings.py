@@ -1,3 +1,4 @@
+from pydantic.experimental.missing_sentinel import MISSING
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,7 @@ def build_settings_dto(setting: UserSetting) -> SettingsDTO:
             push_enabled=setting.push_notification_enabled,
             announcement_enabled=setting.announcement_notification_enabled,
             report_enabled=setting.report_notification_enabled,
+            emergency_enabled=setting.emergency_notification_enabled,
             marketing_enabled=setting.marketing_notification_enabled,
             marketing_night_enabled=setting.marketing_night_notification_enabled,
         ),
@@ -66,6 +68,9 @@ async def update_notifications(*, db: AsyncSession, user: User, data: UpdateNoti
     setting.report_notification_enabled = data.report_enabled
     setting.marketing_notification_enabled = data.marketing_enabled
     setting.marketing_night_notification_enabled = data.marketing_night_enabled
+
+    if data.emergency_enabled is not MISSING:
+        setting.emergency_notification_enabled = data.emergency_enabled
 
     await db.flush()
 

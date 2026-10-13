@@ -12,7 +12,7 @@ from app.enums import (
     SessionPhaseEnum,
     SessionStatusEnum,
 )
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams, UploadRequest
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams, UploadDTO, UploadRequest
 from app.schemas.settings import SleepSettingsDTO, UpdateSleepSettingsRequest
 
 
@@ -99,7 +99,8 @@ class BackofficeSessionDTO(SessionDTO):
     word: BackofficeSessionWordDTO
     period: BackofficeSessionPeriodDTO
     disconnections: list[BackofficeSessionDisconnectionDTO]
-    emergency_detections: list[datetime]
+    sound_emergency_detections: list[datetime]
+    parrot_disappearances: list[datetime]
 
 
 class BackofficeSessionListResponse(BaseResponse):
@@ -173,8 +174,26 @@ class SessionEventWordDTO(CustomBaseModel):
     id: UUID
 
 
+class SessionPetcamEventRequest(BaseRequest):
+    kind: Literal[SessionEventKindEnum.PARROT_DISAPPEARED, SessionEventKindEnum.PARROT_APPEARED]
+    occurred_at: datetime
+    file_size: int = Field(gt=0)
+
+
+class SessionPetcamEventUploadDTO(UploadDTO):
+    event_id: UUID
+
+
+class SessionPetcamEventUploadResponse(BaseResponse):
+    data: SessionPetcamEventUploadDTO
+
+
+class SessionPetcamVideoUploadRequest(BaseRequest):
+    file_size: int = Field(gt=0)
+
+
 class SessionEventDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"word", "ended_at"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at", "image", "video"}
 
     id: UUID
     kind: SessionEventKindEnum
@@ -182,6 +201,14 @@ class SessionEventDTO(CustomBaseModel):
     ended_at: datetime | None
     word: SessionEventWordDTO | None
     sound_ids: list[UUID]
+    image: FileDTO | None
+    video: FileDTO | None
+
+
+class SessionEventListParams(BaseRequest):
+    model_config = ConfigDict(extra="ignore")
+
+    petcam: bool = False
 
 
 class SessionEventListResponse(BaseResponse):
@@ -189,7 +216,7 @@ class SessionEventListResponse(BaseResponse):
 
 
 class BackofficeSessionEventDTO(SessionEventDTO):
-    allow_null_fields: ClassVar[set] = {"word", "ended_at", "is_learning"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at", "image", "video", "is_learning"}
 
     word: BackofficeSessionWordDTO | None
     is_learning: bool | None

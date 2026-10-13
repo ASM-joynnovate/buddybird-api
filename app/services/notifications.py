@@ -19,6 +19,8 @@ from app.enums import (
     NotificationDispatchStatusEnum,
     NotificationDispatchTargetEnum,
     NotificationKindEnum,
+    SessionEventFileKindEnum,
+    SessionEventKindEnum,
     SessionStatusEnum,
 )
 from app.errors import (
@@ -41,6 +43,8 @@ from app.models import (
     Parrot,
     PushDelivery,
     Session,
+    SessionEvent,
+    SessionEventFile,
     SessionSound,
     User,
     UserSetting,
@@ -83,6 +87,7 @@ KIND_ENABLED = {
     NotificationKindEnum.URGENT: true(),
     NotificationKindEnum.MARKETING: func.coalesce(UserSetting.marketing_notification_enabled, false()),
     NotificationKindEnum.REPORT: func.coalesce(UserSetting.report_notification_enabled, true()),
+    NotificationKindEnum.EMERGENCY: func.coalesce(UserSetting.emergency_notification_enabled, true()),
 }
 NOTIFICATION_PUSH = (
     select(
@@ -380,7 +385,9 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
     )
     uploaded_sound_id = await db.scalar(stmt)
 
-    stmt = select(Notification.id).where(Notification.session_id == session_id)
+    stmt = select(Notification.id).where(
+        Notification.session_id == session_id, Notification.kind == NotificationKindEnum.REPORT.value
+    )
     report_id = await db.scalar(stmt)
 
     if statuses[session_id] != JudgmentStatusEnum.DONE or uploaded_sound_id is None or report_id is not None:
@@ -444,6 +451,113 @@ async def send_report(*, db: AsyncSession, session_ids: list[UUID]) -> None:
             await enqueue_push_deliveries(*delivery_ids)
         except Exception:
             logger.exception("리포트 알림 생성 실패; session_id=%s", session_id)
+
+
+@transactional
+async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID) -> list[UUID]:
+    stmt = (
+        select(SessionEvent, Session.user_id, Session.status)
+        .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
+        .join(Session, Session.id == SessionEvent.session_id)
+        .where(
+            SessionEventFile.file_id == image_file_id,
+            SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
+        )
+    )
+    row = (await db.execute(stmt)).first()
+
+    if row is None:
+        return []
+
+    event, user_id, session_status = row
+
+    if session_status != SessionStatusEnum.RUNNING.value:
+        return []
+
+    petcam_kinds = [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
+    stmt = (
+        select(SessionEvent.kind)
+        .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
+        .join(File, File.id == SessionEventFile.file_id)
+        .where(
+            SessionEvent.session_id == event.session_id,
+            SessionEvent.kind.in_(petcam_kinds),
+            SessionEvent.occurred_at < event.occurred_at,
+            SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
+            File.status == FileStatusEnum.UPLOADED.value,
+        )
+        .order_by(SessionEvent.occurred_at.desc())
+        .limit(1)
+    )
+    previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_APPEARED.value
+
+    if previous_kind == event.kind:
+        return []
+
+    stmt = select(File.id).where(File.id == image_file_id).with_for_update()
+    await db.execute(stmt)
+
+    stmt = (
+        select(Notification.id)
+        .where(Notification.user_id == user_id, Notification.image_file_id == image_file_id)
+        .execution_options(include_deleted=True)
+    )
+
+    if await db.scalar(stmt) is not None:
+        return []
+
+    stmt = select(Parrot.name).where(Parrot.user_id == user_id).order_by(Parrot.created_at)
+    names = (await db.scalars(stmt)).all()
+    subject_ko = "우리 앵무새가"
+    subject_en = "your parrot"
+    subject_ja = "うちの子"
+    subject_ru = "Попугай"
+    subject_es = "tu loro"
+
+    if len(names) == 1:
+        has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
+        subject_ko = names[0] + ("이" if has_final_consonant else "가")
+        subject_en = names[0]
+        subject_ja = names[0]
+        subject_ru = names[0]
+        subject_es = names[0]
+
+    title_i18n = I18n(
+        ko_kr=f"{subject_ko} 안 보여요",
+        en_us=f"We can't see {subject_en}",
+        ja_jp=f"{subject_ja}の姿が見えません",
+        ru_ru=f"{subject_ru} не в кадре",
+        es_es=f"No vemos a {subject_es}",
+    )
+
+    if event.kind == SessionEventKindEnum.PARROT_APPEARED.value:
+        title_i18n = I18n(
+            ko_kr=f"{subject_ko} 다시 보여요",
+            en_us=f"We can see {subject_en} again",
+            ja_jp=f"{subject_ja}が戻ってきました",
+            ru_ru=f"{subject_ru} снова в кадре",
+            es_es=f"Volvemos a ver a {subject_es}",
+        )
+
+    _, delivery_ids = await create_notifications(
+        db=db,
+        kind=NotificationKindEnum.EMERGENCY,
+        title_i18n=title_i18n,
+        body_i18n=I18n(
+            ko_kr="눌러서 지금 모습을 확인해 보세요",
+            en_us="Tap to see what's happening now",
+            ja_jp="タップして今の様子を確認しましょう",
+            ru_ru="Нажмите, чтобы посмотреть, что происходит сейчас",
+            es_es="Toca para ver qué está pasando ahora",
+        ),
+        image_file_id=image_file_id,
+        user_ids=[user_id],
+        local_datetime=None,
+        session_id=event.session_id,
+        target=None,
+    )
+
+    return delivery_ids
 
 
 @transactional(unavailable_error=NotificationSaveUnavailableError)
@@ -949,13 +1063,18 @@ async def deliver(delivery_id: UUID) -> None:
             .where(
                 Device.id == delivery.device_id,
                 Device.push_token.is_not(None),
-                Device.id.not_in(
-                    select(Session.station_device_id).where(Session.status == SessionStatusEnum.RUNNING.value)
-                ),
                 PUSH_ENABLED,
                 KIND_ENABLED[kind],
             )
         )
+
+        if kind != NotificationKindEnum.EMERGENCY:
+            stmt = stmt.where(
+                Device.id.not_in(
+                    select(Session.station_device_id).where(Session.status == SessionStatusEnum.RUNNING.value)
+                )
+            )
+
         row = (await db.execute(stmt)).first()
         sendable = (
             row is not None

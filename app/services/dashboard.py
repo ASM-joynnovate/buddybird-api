@@ -241,7 +241,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             func.count(Notification.read_at).label("read_count"),
         )
         .join(I18n, I18n.id == Notification.title_i18n_id)
-        .where(Notification.kind != NotificationKindEnum.REPORT.value)
+        .where(Notification.kind.not_in([NotificationKindEnum.REPORT.value, NotificationKindEnum.EMERGENCY.value]))
         .group_by(Notification.kind, I18n.id)
         .limit(5)
     )
@@ -391,11 +391,21 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         select(func.count())
         .select_from(SessionEvent)
         .where(
-            SessionEvent.kind == SessionEventKindEnum.EMERGENCY_DETECTED.value,
+            SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
             SessionEvent.occurred_at >= since,
         )
     )
-    emergency_detected_count = await db.scalar(stmt)
+    sound_emergency_detected_count = await db.scalar(stmt)
+
+    stmt = (
+        select(func.count())
+        .select_from(SessionEvent)
+        .where(
+            SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value,
+            SessionEvent.occurred_at >= since,
+        )
+    )
+    parrot_disappeared_count = await db.scalar(stmt)
 
     stmt = (
         select(func.count())
@@ -434,7 +444,8 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             ),
             last_24_hours=DashboardLiveLast24HoursDTO(
                 heartbeat_expired_count=session_counts.heartbeat_expired_count,
-                emergency_detected_count=emergency_detected_count,
+                sound_emergency_detected_count=sound_emergency_detected_count,
+                parrot_disappeared_count=parrot_disappeared_count,
                 judgment_failed_count=judgment_failed_count,
             ),
         ),
@@ -787,6 +798,7 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
                 announcement_count=daily_counts.get((date, NotificationKindEnum.ANNOUNCEMENT.value), 0),
                 marketing_count=daily_counts.get((date, NotificationKindEnum.MARKETING.value), 0),
                 urgent_count=daily_counts.get((date, NotificationKindEnum.URGENT.value), 0),
+                emergency_count=daily_counts.get((date, NotificationKindEnum.EMERGENCY.value), 0),
             )
             for date in dates
         ],

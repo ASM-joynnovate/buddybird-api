@@ -1,5 +1,7 @@
 from datetime import time
 
+from pydantic.experimental.missing_sentinel import MISSING
+
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel
 
 
@@ -12,6 +14,7 @@ class NotificationSettingsDTO(CustomBaseModel):
     push_enabled: bool
     announcement_enabled: bool
     report_enabled: bool
+    emergency_enabled: bool
     marketing_enabled: bool
     marketing_night_enabled: bool
 
@@ -34,5 +37,6 @@ class UpdateNotificationSettingsRequest(BaseRequest):
     push_enabled: bool
     announcement_enabled: bool
     report_enabled: bool
+    emergency_enabled: bool | MISSING = MISSING
     marketing_enabled: bool
     marketing_night_enabled: bool

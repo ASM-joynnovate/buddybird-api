@@ -172,6 +172,9 @@ class UserSetting(Base):
     report_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
+    emergency_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
     marketing_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
@@ -335,9 +338,9 @@ class SessionEvent(Base):
     __table_args__ = (
         Index("ix_session_events_session_id_occurred_at", "session_id", "occurred_at"),
         Index(
-            "ix_session_events_occurred_at_emergency_detected",
+            "ix_session_events_occurred_at_sound_emergency_detected",
             "occurred_at",
-            postgresql_where=text("kind = 'emergency_detected'"),
+            postgresql_where=text("kind = 'sound_emergency_detected'"),
         ),
     )
 
@@ -468,6 +471,16 @@ class SessionEventSound(Base):
     sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)
 
 
+class SessionEventFile(Base):
+    __tablename__ = "session_event_files"
+    __table_args__ = (UniqueConstraint("file_id", name="uq_session_event_files_file_id"),)
+
+    event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
+    file: Mapped[File] = relationship(lazy="selectin")
+
+
 class NotificationDispatch(Base):
     __tablename__ = "notification_dispatches"
 
@@ -486,7 +499,12 @@ class NotificationDispatch(Base):
 class Notification(Base):
     __tablename__ = "notifications"
     __table_args__ = (
-        UniqueConstraint("session_id", name="uq_notifications_session_id"),
+        Index(
+            "uq_notifications_session_id_report",
+            "session_id",
+            unique=True,
+            postgresql_where=text("kind = 'report'"),
+        ),
         Index("ix_notifications_user_id_sent_at", "user_id", "sent_at"),
         Index("ix_notifications_sent_at", "sent_at"),
     )

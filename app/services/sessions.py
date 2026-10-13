@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid7
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import func, or_, select
@@ -14,12 +14,14 @@ from app.enums import (
     JudgmentStatusEnum,
     SessionActorEnum,
     SessionEndReasonEnum,
+    SessionEventFileKindEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
     SoundJudgmentStatusEnum,
 )
 from app.errors import (
     DeviceNotStationError,
+    FileSizeExceededError,
     ResourceNotFoundError,
     SessionAlreadyRunningError,
     SessionNotRunningError,
@@ -31,13 +33,15 @@ from app.models import (
     LearningSegment,
     Session,
     SessionEvent,
+    SessionEventFile,
     SessionEventSound,
     SessionSound,
     SoundJudgment,
     User,
     Word,
 )
-from app.schemas.base import PageParams
+from app.s3 import S3StorageClient
+from app.schemas.base import PageParams, UploadDTO
 from app.schemas.sessions import (
     AcknowledgedLearningSegmentDTO,
     ActiveDurationDTO,
@@ -55,6 +59,9 @@ from app.schemas.sessions import (
     SessionEventWordDTO,
     SessionJudgmentDTO,
     SessionPeriodDTO,
+    SessionPetcamEventRequest,
+    SessionPetcamEventUploadDTO,
+    SessionPetcamVideoUploadRequest,
     SessionProgressDTO,
     SessionScheduleDTO,
     SessionSoundsDTO,
@@ -69,6 +76,10 @@ from app.schemas.sessions import (
 from app.schemas.settings import SleepSettingsDTO
 from app.services.devices import mark_seen
 
+MAX_PETCAM_PHOTO_BYTES = 5 * 1024 * 1024
+PETCAM_PHOTO_TYPE = "image/jpeg"
+MAX_PETCAM_VIDEO_BYTES = 100 * 1024 * 1024
+PETCAM_VIDEO_TYPE = "video/mp4"
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
     .where(SoundJudgment.sound_id == SessionSound.id)
@@ -295,7 +306,8 @@ async def get_backoffice_list(
                 [
                     SessionEventKindEnum.STATION_DISCONNECTED.value,
                     SessionEventKindEnum.STATION_RECONNECTED.value,
-                    SessionEventKindEnum.EMERGENCY_DETECTED.value,
+                    SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
+                    SessionEventKindEnum.PARROT_DISAPPEARED.value,
                 ]
             ),
         )
@@ -304,11 +316,14 @@ async def get_backoffice_list(
     events = (await db.execute(stmt)).all()
     disconnected_at: dict[UUID, datetime] = {}
     disconnections: dict[UUID, list[BackofficeSessionDisconnectionDTO]] = {}
-    emergency_detections: dict[UUID, list[datetime]] = {}
+    sound_emergency_detections: dict[UUID, list[datetime]] = {}
+    parrot_disappearances: dict[UUID, list[datetime]] = {}
 
     for session_id, kind, occurred_at in events:
-        if kind == SessionEventKindEnum.EMERGENCY_DETECTED.value:
-            emergency_detections.setdefault(session_id, []).append(occurred_at)
+        if kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value:
+            sound_emergency_detections.setdefault(session_id, []).append(occurred_at)
+        elif kind == SessionEventKindEnum.PARROT_DISAPPEARED.value:
+            parrot_disappearances.setdefault(session_id, []).append(occurred_at)
         elif kind == SessionEventKindEnum.STATION_DISCONNECTED.value:
             disconnected_at.setdefault(session_id, occurred_at)
         elif session_id in disconnected_at:
@@ -334,7 +349,8 @@ async def get_backoffice_list(
                 ended_reason=session.ended_reason,
             ),
             disconnections=disconnections.get(session.id, []),
-            emergency_detections=emergency_detections.get(session.id, []),
+            sound_emergency_detections=sound_emergency_detections.get(session.id, []),
+            parrot_disappearances=parrot_disappearances.get(session.id, []),
         )
         for session in sessions
     ], total
@@ -544,10 +560,137 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
     await db.flush()
 
 
-async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEventDTO]:
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def add_petcam_event(
+    *,
+    db: AsyncSession,
+    storage: S3StorageClient,
+    session: Session,
+    device: Device,
+    data: SessionPetcamEventRequest,
+) -> SessionPetcamEventUploadDTO:
+    verify_station(session, device)
+
+    if data.file_size > MAX_PETCAM_PHOTO_BYTES:
+        raise FileSizeExceededError
+
+    file_id = uuid7()
+    image_file = File(
+        id=file_id,
+        file_name="petcam.jpg",
+        file_path=f"user/{session.user_id}/petcam/{session.id}/{file_id}",
+        file_size=data.file_size,
+        file_type=PETCAM_PHOTO_TYPE,
+        is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
+    )
+    event = SessionEvent(
+        session_id=session.id,
+        kind=data.kind.value,
+        occurred_at=data.occurred_at,
+    )
+
+    db.add(image_file)
+    db.add(event)
+
+    await db.flush()
+
+    db.add(SessionEventFile(event_id=event.id, kind=SessionEventFileKindEnum.IMAGE.value, file=image_file))
+
+    await db.flush()
+
+    upload = storage.generate_presigned_upload(
+        file_id=file_id,
+        path=image_file.object_key,
+        content_type=PETCAM_PHOTO_TYPE,
+        file_size=data.file_size,
+    )
+
+    return SessionPetcamEventUploadDTO(**upload.model_dump(), event_id=event.id)
+
+
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def add_petcam_video(
+    *,
+    db: AsyncSession,
+    storage: S3StorageClient,
+    session: Session,
+    device: Device,
+    event_id: UUID,
+    data: SessionPetcamVideoUploadRequest,
+) -> UploadDTO:
+    verify_station(session, device)
+
+    if data.file_size > MAX_PETCAM_VIDEO_BYTES:
+        raise FileSizeExceededError
+
+    stmt = select(SessionEvent.id).where(SessionEvent.id == event_id, SessionEvent.session_id == session.id)
+
+    if await db.scalar(stmt) is None:
+        raise ResourceNotFoundError
+
+    file_id = uuid7()
+    video_file = File(
+        id=file_id,
+        file_name="petcam.mp4",
+        file_path=f"user/{session.user_id}/petcam/{session.id}/{file_id}",
+        file_size=data.file_size,
+        file_type=PETCAM_VIDEO_TYPE,
+        is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
+    )
+
+    db.add(video_file)
+
+    stmt = select(SessionEventFile).where(
+        SessionEventFile.event_id == event_id, SessionEventFile.kind == SessionEventFileKindEnum.VIDEO.value
+    )
+    event_file = await db.scalar(stmt)
+
+    if event_file is None:
+        db.add(SessionEventFile(event_id=event_id, kind=SessionEventFileKindEnum.VIDEO.value, file=video_file))
+    else:
+        event_file.file = video_file
+
+    await db.flush()
+
+    return storage.generate_presigned_upload(
+        file_id=file_id,
+        path=video_file.object_key,
+        content_type=PETCAM_VIDEO_TYPE,
+        file_size=data.file_size,
+    )
+
+
+async def get_events(
+    *, db: AsyncSession, storage: S3StorageClient, session: Session, petcam: bool
+) -> list[SessionEventDTO]:
     stmt = select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
+
+    if not petcam:
+        stmt = stmt.where(
+            SessionEvent.kind.not_in(
+                [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
+            )
+        )
+
     events = (await db.scalars(stmt)).all()
     sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
+    appeared_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_APPEARED.value]
+
+    for event in events:
+        if event.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value:
+            ended_at = next((at for at in appeared_ats if at > event.occurred_at), None)
+
+            if ended_at is not None:
+                ended_ats[event.id] = ended_at
+
+    stmt = (
+        select(SessionEventFile)
+        .join(SessionEvent, SessionEvent.id == SessionEventFile.event_id)
+        .where(SessionEvent.session_id == session.id)
+    )
+    files = {(event_file.event_id, event_file.kind): event_file.file for event_file in (await db.scalars(stmt)).all()}
 
     return [
         SessionEventDTO(
@@ -557,12 +700,16 @@ async def get_events(*, db: AsyncSession, session: Session) -> list[SessionEvent
             ended_at=ended_ats.get(event.id),
             word=SessionEventWordDTO(id=event.word_id) if event.word_id is not None else None,
             sound_ids=sound_ids.get(event.id, []),
+            image=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+            video=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
         )
         for event in events
     ]
 
 
-async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[BackofficeSessionEventDTO]:
+async def get_backoffice_events(
+    *, db: AsyncSession, storage: S3StorageClient, session: Session
+) -> list[BackofficeSessionEventDTO]:
     stmt = (
         select(SessionEvent, Word.name)
         .outerjoin(Word, Word.id == SessionEvent.word_id)
@@ -572,6 +719,13 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
     )
     rows = (await db.execute(stmt)).all()
     sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
+
+    stmt = (
+        select(SessionEventFile)
+        .join(SessionEvent, SessionEvent.id == SessionEventFile.event_id)
+        .where(SessionEvent.session_id == session.id)
+    )
+    files = {(event_file.event_id, event_file.kind): event_file.file for event_file in (await db.scalars(stmt)).all()}
     toggle_count = 0
     items = []
 
@@ -590,6 +744,8 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
                 ended_at=ended_ats.get(event.id),
                 word=BackofficeSessionWordDTO(id=event.word_id, name=word_name) if event.word_id is not None else None,
                 sound_ids=sound_ids.get(event.id, []),
+                image=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+                video=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
                 is_learning=is_learning,
             )
         )
