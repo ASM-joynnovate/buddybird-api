@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.16.0...v2.17.0) (2026-10-13)
+
+
+### Features
+
+* **app-updates:** allow app update lookup without login ([#149](https://github.com/ASM-joynnovate/buddybird-api/issues/149)) ([6309918](https://github.com/ASM-joynnovate/buddybird-api/commit/6309918725440921bd57f7cc4827f04a43cd0913))
+
 ## [2.16.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.15.0...v2.16.0) (2026-10-13)
 
 
