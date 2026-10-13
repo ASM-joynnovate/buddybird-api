@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.15.0...v2.16.0) (2026-10-13)
+
+
+### Features
+
+* **backoffice:** add emergency list and dashboard [BB-679] ([#146](https://github.com/ASM-joynnovate/buddybird-api/issues/146)) ([cf8e657](https://github.com/ASM-joynnovate/buddybird-api/commit/cf8e657ddea1cbade29ffb505b2edbf0a49b052f))
+
 ## [2.15.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.14.0...v2.15.0) (2026-10-13)
 
 
