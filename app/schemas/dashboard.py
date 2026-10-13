@@ -2,13 +2,16 @@ from datetime import date, datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from app.enums import (
     NotificationKindEnum,
     OAuthProviderEnum,
     PlatformEnum,
     SessionPhaseEnum,
+    StabilityEnvironmentEnum,
+    StabilityIssueLevelEnum,
+    StabilityIssuePriorityEnum,
     StabilityIssueSortEnum,
     UserIssueEnum,
     UserLastSessionEnum,
@@ -422,10 +425,22 @@ class StabilityDashboardReleaseDTO(CustomBaseModel):
     user_count: int
 
 
+class StabilityDashboardIssueReleaseDTO(CustomBaseModel):
+    project: str
+    release: str
+
+
 class StabilityDashboardIssueDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"culprit", "release"}
+
+    short_id: str
     project: str
     title: str
+    culprit: str | None
     level: str
+    substatus: str
+    is_unhandled: bool
+    release: str | None
     count: int
     user_count: int
     first_seen: datetime
@@ -436,6 +451,7 @@ class StabilityDashboardIssueDTO(CustomBaseModel):
 class StabilityDashboardDTO(CustomBaseModel):
     projects: list[StabilityDashboardProjectDTO]
     releases: list[StabilityDashboardReleaseDTO]
+    issue_releases: list[StabilityDashboardIssueReleaseDTO]
     issues: list[StabilityDashboardIssueDTO]
 
 
@@ -457,6 +473,15 @@ class DashboardParams(BaseRequest):
 
 class StabilityDashboardParams(DashboardParams):
     sort: StabilityIssueSortEnum = StabilityIssueSortEnum.DATE
+    environment: StabilityEnvironmentEnum | None = None
+    project: str | None = None
+    release: str | None = Field(None, pattern=r"^\S+$")
+    level: StabilityIssueLevelEnum | None = None
+    priority: StabilityIssuePriorityEnum | None = None
+    min_user_count: int | None = Field(None, ge=1)
+    is_new: bool | None = None
+    is_unhandled: bool | None = None
+    is_regressed: bool | None = None
 
 
 class AppUpdateDashboardParams(BaseRequest):

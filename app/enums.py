@@ -206,3 +206,22 @@ class StabilityIssueSortEnum(StrEnum):
     NEW = "new"
     FREQ = "freq"
     USER = "user"
+
+
+class StabilityEnvironmentEnum(StrEnum):
+    PROD = "prod"
+    DEV = "dev"
+    LOCAL = "local"
+
+
+class StabilityIssueLevelEnum(StrEnum):
+    FATAL = "fatal"
+    ERROR = "error"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class StabilityIssuePriorityEnum(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
