@@ -18,7 +18,7 @@ from app.enums import (
     WithdrawalSessionRangeEnum,
     WithdrawalUsagePeriodEnum,
 )
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, I18nDTO
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, I18nDTO
 
 
 class DashboardDailyCountDTO(CustomBaseModel):
@@ -322,6 +322,56 @@ class NotificationDashboardDTO(CustomBaseModel):
 
 class NotificationDashboardResponse(BaseResponse):
     data: NotificationDashboardDTO
+
+
+class EmergencyDashboardEmergenciesDTO(CustomBaseModel):
+    count: int
+    previous_count: int
+    sound_count: int
+    vision_count: int
+
+
+class EmergencyDashboardDailyDTO(CustomBaseModel):
+    date: date
+    sound_count: int
+    vision_count: int
+
+
+class EmergencyDashboardHourlyDTO(CustomBaseModel):
+    hour: int
+    count: int
+
+
+class EmergencyDashboardUserDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"nickname", "photo_file"}
+
+    id: UUID
+    nickname: str | None
+    photo_file: FileDTO | None
+    sound_count: int
+    vision_count: int
+
+
+class EmergencyDashboardNotificationsDTO(CustomBaseModel):
+    read_count: int
+    unread_count: int
+    none_count: int
+
+
+class EmergencyDashboardDTO(CustomBaseModel):
+    emergencies: EmergencyDashboardEmergenciesDTO
+    daily: list[EmergencyDashboardDailyDTO]
+    hourly: list[EmergencyDashboardHourlyDTO]
+    users: list[EmergencyDashboardUserDTO]
+    ongoing_count: int
+    notifications: EmergencyDashboardNotificationsDTO
+    platforms: list[DashboardPlatformDTO]
+    session_count: int
+    analyzed_sound_count: int
+
+
+class EmergencyDashboardResponse(BaseResponse):
+    data: EmergencyDashboardDTO
 
 
 class AppUpdateDashboardDTO(CustomBaseModel):

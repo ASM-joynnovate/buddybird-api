@@ -103,6 +103,10 @@ class BackofficeSessionDTO(SessionDTO):
     parrot_disappearances: list[datetime]
 
 
+class BackofficeSessionListParams(PageParams):
+    session_id: UUID | None = None
+
+
 class BackofficeSessionListResponse(BaseResponse):
     data: list[BackofficeSessionDTO]
 

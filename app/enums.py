@@ -142,6 +142,12 @@ class UserIssueEnum(StrEnum):
     WITHDRAWAL_FAILED = "withdrawal_failed"
 
 
+class EmergencyNotificationEnum(StrEnum):
+    READ = "read"
+    UNREAD = "unread"
+    NONE = "none"
+
+
 class SortOrderEnum(StrEnum):
     ASC = "asc"
     DESC = "desc"

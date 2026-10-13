@@ -1,11 +1,12 @@
 from datetime import UTC, datetime, time, timedelta
 
-from sqlalchemy import Date, Row, and_, case, cast, exists, func, not_, or_, select, true
+from sqlalchemy import Date, Integer, Row, and_, case, cast, exists, func, not_, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.enums import (
     ConsentStatusEnum,
+    EmergencyNotificationEnum,
     NotificationKindEnum,
     OAuthProviderEnum,
     SessionEndReasonEnum,
@@ -32,12 +33,14 @@ from app.models import (
     Session,
     SessionEvent,
     SessionSound,
+    SoundAnalysis,
     User,
     UserConsent,
     UserIdentity,
     UserWithdrawal,
     UserWithdrawalFailure,
 )
+from app.s3 import S3StorageClient
 from app.schemas.base import I18nDTO
 from app.schemas.dashboard import (
     AppUpdateDashboardDTO,
@@ -73,6 +76,12 @@ from app.schemas.dashboard import (
     DashboardSessionsDTO,
     DashboardUsersDTO,
     DashboardWithdrawalsDTO,
+    EmergencyDashboardDailyDTO,
+    EmergencyDashboardDTO,
+    EmergencyDashboardEmergenciesDTO,
+    EmergencyDashboardHourlyDTO,
+    EmergencyDashboardNotificationsDTO,
+    EmergencyDashboardUserDTO,
     FeedbackDashboardDTO,
     FeedbackDashboardFeedbackDTO,
     FeedbackDashboardLocaleDTO,
@@ -95,6 +104,7 @@ from app.schemas.dashboard import (
     WithdrawalDashboardUsagePeriodDTO,
 )
 from app.services.devices import LAST_SEEN_DEVICE, MIN_SUPPORTED_APP_UPDATE, VERSION_UNSUPPORTED
+from app.services.emergencies import EMERGENCY_KINDS, IS_ONGOING, NOTIFICATION_STATUS
 from app.services.notifications import NOTIFICATION_PUSH
 from app.services.sessions import SESSION_COUNT
 from app.services.users import ISSUES, LAST_SESSION, PUSHABLE
@@ -802,6 +812,141 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
             )
             for date in dates
         ],
+    )
+
+
+async def get_emergency_dashboard(
+    *, db: AsyncSession, storage: S3StorageClient, query: DashboardParams
+) -> EmergencyDashboardDTO:
+    dates, period_start, period_end, previous_start = get_period(query)
+    is_sound = SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value
+    is_vision = SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value
+    in_period = and_(
+        SessionEvent.kind.in_(EMERGENCY_KINDS),
+        SessionEvent.occurred_at >= period_start,
+        SessionEvent.occurred_at < period_end,
+    )
+
+    stmt = (
+        select(
+            func.count().filter(in_period).label("emergency_count"),
+            func.count().filter(SessionEvent.occurred_at < period_start).label("previous_emergency_count"),
+            func.count().filter(in_period, is_sound).label("sound_count"),
+            func.count().filter(in_period, is_vision).label("vision_count"),
+            func.count().filter(in_period, IS_ONGOING).label("ongoing_count"),
+        )
+        .select_from(SessionEvent)
+        .join(Session, Session.id == SessionEvent.session_id)
+        .where(
+            SessionEvent.kind.in_(EMERGENCY_KINDS),
+            SessionEvent.occurred_at >= previous_start,
+            SessionEvent.occurred_at < period_end,
+        )
+        .execution_options(include_deleted=True)
+    )
+    emergency_counts = (await db.execute(stmt)).one()
+
+    local_time = func.timezone(SEOUL.key, SessionEvent.occurred_at)
+    local_date = cast(local_time, Date)
+    stmt = select(local_date, SessionEvent.kind, func.count()).where(in_period).group_by(local_date, SessionEvent.kind)
+    daily_counts = {(date, kind): count for date, kind, count in (await db.execute(stmt)).all()}
+
+    local_hour = cast(func.extract("hour", local_time), Integer)
+    stmt = select(local_hour.label("local_hour"), func.count()).where(in_period).group_by("local_hour")
+    hourly_counts = dict((await db.execute(stmt)).all())
+
+    stmt = (
+        select(
+            User,
+            func.count().filter(is_sound).label("sound_count"),
+            func.count().filter(is_vision).label("vision_count"),
+        )
+        .select_from(SessionEvent)
+        .join(Session, Session.id == SessionEvent.session_id)
+        .join(User, User.id == Session.user_id)
+        .where(in_period)
+        .group_by(User.id)
+        .order_by(func.count().desc())
+        .limit(5)
+        .execution_options(include_deleted=True)
+    )
+    users = (await db.execute(stmt)).all()
+
+    stmt = (
+        select(NOTIFICATION_STATUS.label("status"), func.count())
+        .select_from(SessionEvent)
+        .where(in_period, is_vision)
+        .group_by("status")
+        .execution_options(include_deleted=True)
+    )
+    notification_counts = dict((await db.execute(stmt)).all())
+
+    stmt = (
+        select(Device.platform, func.count())
+        .select_from(SessionEvent)
+        .join(Session, Session.id == SessionEvent.session_id)
+        .join(Device, Device.id == Session.station_device_id)
+        .where(in_period)
+        .group_by(Device.platform)
+        .execution_options(include_deleted=True)
+    )
+    platform_counts = (await db.execute(stmt)).all()
+
+    stmt = (
+        select(func.count())
+        .select_from(Session)
+        .where(Session.started_at >= period_start, Session.started_at < period_end)
+        .execution_options(include_deleted=True)
+    )
+    session_count = await db.scalar(stmt)
+
+    stmt = (
+        select(func.count())
+        .select_from(SessionSound)
+        .where(
+            SessionSound.captured_at >= period_start,
+            SessionSound.captured_at < period_end,
+            exists().where(SoundAnalysis.sound_id == SessionSound.id),
+        )
+        .execution_options(include_deleted=True)
+    )
+    analyzed_sound_count = await db.scalar(stmt)
+
+    return EmergencyDashboardDTO(
+        emergencies=EmergencyDashboardEmergenciesDTO(
+            count=emergency_counts.emergency_count,
+            previous_count=emergency_counts.previous_emergency_count,
+            sound_count=emergency_counts.sound_count,
+            vision_count=emergency_counts.vision_count,
+        ),
+        daily=[
+            EmergencyDashboardDailyDTO(
+                date=date,
+                sound_count=daily_counts.get((date, SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value), 0),
+                vision_count=daily_counts.get((date, SessionEventKindEnum.PARROT_DISAPPEARED.value), 0),
+            )
+            for date in dates
+        ],
+        hourly=[EmergencyDashboardHourlyDTO(hour=hour, count=hourly_counts.get(hour, 0)) for hour in range(24)],
+        users=[
+            EmergencyDashboardUserDTO(
+                id=row.User.id,
+                nickname=row.User.nickname,
+                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                sound_count=row.sound_count,
+                vision_count=row.vision_count,
+            )
+            for row in users
+        ],
+        ongoing_count=emergency_counts.ongoing_count,
+        notifications=EmergencyDashboardNotificationsDTO(
+            read_count=notification_counts.get(EmergencyNotificationEnum.READ.value, 0),
+            unread_count=notification_counts.get(EmergencyNotificationEnum.UNREAD.value, 0),
+            none_count=notification_counts.get(EmergencyNotificationEnum.NONE.value, 0),
+        ),
+        platforms=[DashboardPlatformDTO(platform=platform, count=count) for platform, count in platform_counts],
+        session_count=session_count,
+        analyzed_sound_count=analyzed_sound_count,
     )
 
 
