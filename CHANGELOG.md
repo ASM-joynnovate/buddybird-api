@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.15.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.14.0...v2.15.0) (2026-10-13)
+
+
+### Features
+
+* **backoffice:** add issue filters to stability dashboard [BB-677] ([#144](https://github.com/ASM-joynnovate/buddybird-api/issues/144)) ([fc20503](https://github.com/ASM-joynnovate/buddybird-api/commit/fc20503f040b9bd7df0a0ae975f08bc9fbef12a5))
+* **petcam:** add turn credential endpoint [BB-658] ([#141](https://github.com/ASM-joynnovate/buddybird-api/issues/141)) ([418d1ac](https://github.com/ASM-joynnovate/buddybird-api/commit/418d1ac8e8bbf26d05fed76128fad3f65b6fdd17))
+* **sessions:** add petcam emergency events and notifications [BB-667] ([#142](https://github.com/ASM-joynnovate/buddybird-api/issues/142)) ([9246794](https://github.com/ASM-joynnovate/buddybird-api/commit/92467941330c98893017aa1ded57c8f9bf3963b9))
+
 ## [2.14.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.13.0...v2.14.0) (2026-10-12)
 
 
