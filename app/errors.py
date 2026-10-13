@@ -250,6 +250,12 @@ class DashboardSourceUnavailableError(CustomError):
     message = "외부 서비스의 데이터를 일시적으로 조회할 수 없습니다."
 
 
+class PetcamTurnUnavailableError(CustomError):
+    status_code = 503
+    error_code = "PETCAM__TURN_UNAVAILABLE"
+    message = "영상 중계 접속 정보를 일시적으로 발급할 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

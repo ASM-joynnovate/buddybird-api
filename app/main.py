@@ -27,6 +27,7 @@ from app.routers import (
     feedback,
     notifications,
     parrots,
+    petcam,
     reports,
     sessions,
     settings,
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     application.include_router(notifications.router, prefix="/api/v1", tags=["알림"])
     application.include_router(app_updates.router, prefix="/api/v1", tags=["앱 업데이트"])
     application.include_router(reports.router, prefix="/api/v1", tags=["리포트"])
+    application.include_router(petcam.router, prefix="/api/v1", tags=["펫캠"])
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:
