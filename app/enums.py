@@ -58,7 +58,7 @@ class NotificationKindEnum(StrEnum):
     URGENT = "urgent"
     MARKETING = "marketing"
     REPORT = "report"
-    PETCAM = "petcam"
+    EMERGENCY = "emergency"
 
 
 class NotificationDispatchTargetEnum(StrEnum):
@@ -81,9 +81,14 @@ class SessionEventKindEnum(StrEnum):
     STATION_DISCONNECTED = "station_disconnected"
     STATION_RECONNECTED = "station_reconnected"
     EMERGENCY_DETECTED = "emergency_detected"
-    PARROT_NOT_VISIBLE = "parrot_not_visible"
-    PARROT_VISIBLE = "parrot_visible"
+    PARROT_DISAPPEARED = "parrot_disappeared"
+    PARROT_APPEARED = "parrot_appeared"
     SESSION_FINISHED = "session_finished"
+
+
+class SessionEventFileKindEnum(StrEnum):
+    IMAGE = "image"
+    VIDEO = "video"
 
 
 class FileStatusEnum(StrEnum):

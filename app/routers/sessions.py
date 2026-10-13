@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
@@ -12,12 +13,14 @@ from app.schemas.sessions import (
     SessionEventListParams,
     SessionEventListResponse,
     SessionListResponse,
+    SessionPetcamEventRequest,
+    SessionPetcamEventUploadResponse,
+    SessionPetcamVideoUploadRequest,
     SessionResponse,
     SessionSoundListParams,
     SessionSoundListResponse,
     SessionSoundUploadRequest,
     SessionSummaryResponse,
-    SessionVisibilityEventRequest,
     StartSessionRequest,
 )
 from app.services import notifications, session_sounds, sessions
@@ -95,21 +98,38 @@ async def get_events(
 ) -> SessionEventListResponse:
     return SessionEventListResponse(
         message="세션 이벤트 조회 성공",
-        data=await sessions.get_events(db=db, storage=storage, session=session, visibility=query.visibility),
+        data=await sessions.get_events(db=db, storage=storage, session=session, petcam=query.petcam),
     )
 
 
-@router.post("/{session_id}/visibility-events", name="앵무새 보임 여부 이벤트 사진 업로드 URL 발급")
-async def add_visibility_event(
+@router.post("/{session_id}/petcam-events", name="펫캠 사진 업로드 URL 발급")
+async def add_petcam_event(
     session: Annotated[Session, Depends(require_session)],
     device: ActiveDevice,
-    body: SessionVisibilityEventRequest,
+    body: SessionPetcamEventRequest,
+    db: DBSession,
+    storage: Storage,
+) -> SessionPetcamEventUploadResponse:
+    return SessionPetcamEventUploadResponse(
+        message="펫캠 사진 업로드 URL 발급 성공",
+        data=await sessions.add_petcam_event(db=db, storage=storage, session=session, device=device, data=body),
+    )
+
+
+@router.post("/{session_id}/petcam-events/{event_id}/video", name="펫캠 영상 업로드 URL 발급")
+async def add_petcam_video(
+    session: Annotated[Session, Depends(require_session)],
+    device: ActiveDevice,
+    event_id: UUID,
+    body: SessionPetcamVideoUploadRequest,
     db: DBSession,
     storage: Storage,
 ) -> UploadResponse:
     return UploadResponse(
-        message="앵무새 보임 여부 이벤트 사진 업로드 URL 발급 성공",
-        data=await sessions.add_visibility_event(db=db, storage=storage, session=session, device=device, data=body),
+        message="펫캠 영상 업로드 URL 발급 성공",
+        data=await sessions.add_petcam_video(
+            db=db, storage=storage, session=session, device=device, event_id=event_id, data=body
+        ),
     )
 
 

@@ -16,7 +16,7 @@ from app.db import session_factory
 from app.services import uploads
 from app.services.notifications import deliver, dispatch_due_pushes, send_report
 from app.services.session_sounds import mark_parrot_detection_failed, save_parrot_detection
-from app.services.sessions import delete_expired_visibility_photos, finish_expired_sessions
+from app.services.sessions import finish_expired_sessions
 from app.services.withdrawals import dispatch_due_withdrawals, process_user_withdrawal
 from app.sqs import get_sqs
 
@@ -46,7 +46,6 @@ async def run_periodic_command(body: dict) -> None:
             session_ids = await finish_expired_sessions(db=db)
 
             await send_report(db=db, session_ids=session_ids)
-            await delete_expired_visibility_photos(db=db)
     elif body["type"] == "push.dispatch":
         await dispatch_due_pushes()
 

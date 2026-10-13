@@ -172,6 +172,9 @@ class UserSetting(Base):
     report_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
+    emergency_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
     marketing_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
@@ -339,11 +342,6 @@ class SessionEvent(Base):
             "occurred_at",
             postgresql_where=text("kind = 'emergency_detected'"),
         ),
-        Index(
-            "ix_session_events_image_file_id",
-            "image_file_id",
-            postgresql_where=text("image_file_id IS NOT NULL"),
-        ),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
@@ -352,8 +350,6 @@ class SessionEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     word_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=True)
     emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
-    image_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
-    image_file: Mapped[File | None] = relationship(lazy="selectin")
 
 
 class LearningSegment(Base):
@@ -473,6 +469,16 @@ class SessionEventSound(Base):
 
     event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
     sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)
+
+
+class SessionEventFile(Base):
+    __tablename__ = "session_event_files"
+    __table_args__ = (UniqueConstraint("file_id", name="uq_session_event_files_file_id"),)
+
+    event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
+    file: Mapped[File] = relationship(lazy="selectin")
 
 
 class NotificationDispatch(Base):

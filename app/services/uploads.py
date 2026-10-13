@@ -27,7 +27,7 @@ async def process(*, key: str, size: int) -> None:
         file = await db.scalar(stmt)
 
         if file is not None and file.status == FileStatusEnum.UPLOADED.value and path.split("/")[2] == "petcam":
-            delivery_ids = await notifications.create_visibility(db=db, image_file_id=file.id)
+            delivery_ids = await notifications.create_emergency_notification(db=db, image_file_id=file.id)
 
             await notifications.enqueue_push_deliveries(*delivery_ids)
 
@@ -92,7 +92,7 @@ async def process(*, key: str, size: int) -> None:
                 logger.exception("앵무새 소리 판별 요청 큐 전달 실패; sound_id=%s", sound.id)
 
         if path.split("/")[2] == "petcam":
-            delivery_ids = await notifications.create_visibility(db=db, image_file_id=file.id)
+            delivery_ids = await notifications.create_emergency_notification(db=db, image_file_id=file.id)
 
             await notifications.enqueue_push_deliveries(*delivery_ids)
 

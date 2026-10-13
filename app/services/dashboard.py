@@ -241,7 +241,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             func.count(Notification.read_at).label("read_count"),
         )
         .join(I18n, I18n.id == Notification.title_i18n_id)
-        .where(Notification.kind != NotificationKindEnum.REPORT.value)
+        .where(Notification.kind.not_in([NotificationKindEnum.REPORT.value, NotificationKindEnum.EMERGENCY.value]))
         .group_by(Notification.kind, I18n.id)
         .limit(5)
     )

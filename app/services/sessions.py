@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid7
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,7 @@ from app.enums import (
     JudgmentStatusEnum,
     SessionActorEnum,
     SessionEndReasonEnum,
+    SessionEventFileKindEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
     SoundJudgmentStatusEnum,
@@ -32,6 +33,7 @@ from app.models import (
     LearningSegment,
     Session,
     SessionEvent,
+    SessionEventFile,
     SessionEventSound,
     SessionSound,
     SoundJudgment,
@@ -57,6 +59,9 @@ from app.schemas.sessions import (
     SessionEventWordDTO,
     SessionJudgmentDTO,
     SessionPeriodDTO,
+    SessionPetcamEventRequest,
+    SessionPetcamEventUploadDTO,
+    SessionPetcamVideoUploadRequest,
     SessionProgressDTO,
     SessionScheduleDTO,
     SessionSoundsDTO,
@@ -65,16 +70,16 @@ from app.schemas.sessions import (
     SessionSummarySessionDTO,
     SessionSummaryTotalDTO,
     SessionSummaryWordDTO,
-    SessionVisibilityEventRequest,
     SessionWordDTO,
     StartSessionRequest,
 )
 from app.schemas.settings import SleepSettingsDTO
 from app.services.devices import mark_seen
 
-MAX_VISIBILITY_PHOTO_BYTES = 5 * 1024 * 1024
-VISIBILITY_PHOTO_TYPE = "image/jpeg"
-VISIBILITY_PHOTO_RETENTION = timedelta(days=30)
+MAX_PETCAM_PHOTO_BYTES = 5 * 1024 * 1024
+PETCAM_PHOTO_TYPE = "image/jpeg"
+MAX_PETCAM_VIDEO_BYTES = 100 * 1024 * 1024
+PETCAM_VIDEO_TYPE = "video/mp4"
 LATEST_JUDGED_WORD_ID = (
     select(SoundJudgment.word_id)
     .where(SoundJudgment.sound_id == SessionSound.id)
@@ -551,86 +556,136 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
-async def add_visibility_event(
+async def add_petcam_event(
     *,
     db: AsyncSession,
     storage: S3StorageClient,
     session: Session,
     device: Device,
-    data: SessionVisibilityEventRequest,
-) -> UploadDTO:
+    data: SessionPetcamEventRequest,
+) -> SessionPetcamEventUploadDTO:
     verify_station(session, device)
 
-    if data.file_size > MAX_VISIBILITY_PHOTO_BYTES:
+    if data.file_size > MAX_PETCAM_PHOTO_BYTES:
         raise FileSizeExceededError
 
     file_id = uuid7()
     image_file = File(
         id=file_id,
-        file_name="visibility.jpg",
+        file_name="petcam.jpg",
         file_path=f"user/{session.user_id}/petcam/{session.id}/{file_id}",
         file_size=data.file_size,
-        file_type=VISIBILITY_PHOTO_TYPE,
+        file_type=PETCAM_PHOTO_TYPE,
+        is_deleted=False,
+        status=FileStatusEnum.PENDING.value,
+    )
+    event = SessionEvent(
+        session_id=session.id,
+        kind=data.kind.value,
+        occurred_at=data.occurred_at,
+    )
+
+    db.add(image_file)
+    db.add(event)
+
+    await db.flush()
+
+    db.add(SessionEventFile(event_id=event.id, kind=SessionEventFileKindEnum.IMAGE.value, file=image_file))
+
+    await db.flush()
+
+    upload = storage.generate_presigned_upload(
+        file_id=file_id,
+        path=image_file.object_key,
+        content_type=PETCAM_PHOTO_TYPE,
+        file_size=data.file_size,
+    )
+
+    return SessionPetcamEventUploadDTO(**upload.model_dump(), event_id=event.id)
+
+
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def add_petcam_video(
+    *,
+    db: AsyncSession,
+    storage: S3StorageClient,
+    session: Session,
+    device: Device,
+    event_id: UUID,
+    data: SessionPetcamVideoUploadRequest,
+) -> UploadDTO:
+    verify_station(session, device)
+
+    if data.file_size > MAX_PETCAM_VIDEO_BYTES:
+        raise FileSizeExceededError
+
+    stmt = select(SessionEvent.id).where(SessionEvent.id == event_id, SessionEvent.session_id == session.id)
+
+    if await db.scalar(stmt) is None:
+        raise ResourceNotFoundError
+
+    file_id = uuid7()
+    video_file = File(
+        id=file_id,
+        file_name="petcam.mp4",
+        file_path=f"user/{session.user_id}/petcam/{session.id}/{file_id}",
+        file_size=data.file_size,
+        file_type=PETCAM_VIDEO_TYPE,
         is_deleted=False,
         status=FileStatusEnum.PENDING.value,
     )
 
-    db.add(image_file)
-    db.add(
-        SessionEvent(
-            session_id=session.id,
-            kind=data.kind.value,
-            occurred_at=data.occurred_at,
-            image_file=image_file,
-        )
+    db.add(video_file)
+
+    stmt = select(SessionEventFile).where(
+        SessionEventFile.event_id == event_id, SessionEventFile.kind == SessionEventFileKindEnum.VIDEO.value
     )
+    event_file = await db.scalar(stmt)
+
+    if event_file is None:
+        db.add(SessionEventFile(event_id=event_id, kind=SessionEventFileKindEnum.VIDEO.value, file=video_file))
+    else:
+        event_file.file = video_file
 
     await db.flush()
 
     return storage.generate_presigned_upload(
         file_id=file_id,
-        path=image_file.object_key,
-        content_type=VISIBILITY_PHOTO_TYPE,
+        path=video_file.object_key,
+        content_type=PETCAM_VIDEO_TYPE,
         file_size=data.file_size,
     )
 
 
-@transactional
-async def delete_expired_visibility_photos(*, db: AsyncSession) -> None:
-    stmt = (
-        update(File)
-        .where(
-            File.id.in_(select(SessionEvent.image_file_id).where(SessionEvent.image_file_id.is_not(None))),
-            File.created_at < datetime.now(UTC) - VISIBILITY_PHOTO_RETENTION,
-            File.is_deleted.is_(False),
-        )
-        .values(is_deleted=True)
-    )
-    await db.execute(stmt)
-
-
 async def get_events(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, visibility: bool
+    *, db: AsyncSession, storage: S3StorageClient, session: Session, petcam: bool
 ) -> list[SessionEventDTO]:
     stmt = select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.occurred_at)
 
-    if not visibility:
+    if not petcam:
         stmt = stmt.where(
             SessionEvent.kind.not_in(
-                [SessionEventKindEnum.PARROT_NOT_VISIBLE.value, SessionEventKindEnum.PARROT_VISIBLE.value]
+                [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
             )
         )
 
     events = (await db.scalars(stmt)).all()
     sound_ids, ended_ats = await get_event_sounds(db=db, session=session)
-    visible_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_VISIBLE.value]
+    appeared_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_APPEARED.value]
 
     for event in events:
-        if event.kind == SessionEventKindEnum.PARROT_NOT_VISIBLE.value:
-            ended_at = next((at for at in visible_ats if at > event.occurred_at), None)
+        if event.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value:
+            ended_at = next((at for at in appeared_ats if at > event.occurred_at), None)
 
             if ended_at is not None:
                 ended_ats[event.id] = ended_at
+
+    stmt = (
+        select(SessionEventFile)
+        .join(SessionEvent, SessionEvent.id == SessionEventFile.event_id)
+        .where(SessionEvent.session_id == session.id)
+    )
+    files = {(event_file.event_id, event_file.kind): event_file.file for event_file in (await db.scalars(stmt)).all()}
 
     return [
         SessionEventDTO(
@@ -640,9 +695,8 @@ async def get_events(
             ended_at=ended_ats.get(event.id),
             word=SessionEventWordDTO(id=event.word_id) if event.word_id is not None else None,
             sound_ids=sound_ids.get(event.id, []),
-            image=storage.generate_file_dto(
-                file=event.image_file if event.image_file is not None and not event.image_file.is_deleted else None
-            ),
+            image=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+            video=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
         )
         for event in events
     ]
@@ -677,6 +731,7 @@ async def get_backoffice_events(*, db: AsyncSession, session: Session) -> list[B
                 word=BackofficeSessionWordDTO(id=event.word_id, name=word_name) if event.word_id is not None else None,
                 sound_ids=sound_ids.get(event.id, []),
                 image=None,
+                video=None,
                 is_learning=is_learning,
             )
         )

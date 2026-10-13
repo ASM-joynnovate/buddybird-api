@@ -19,6 +19,7 @@ from app.enums import (
     NotificationDispatchStatusEnum,
     NotificationDispatchTargetEnum,
     NotificationKindEnum,
+    SessionEventFileKindEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
 )
@@ -43,6 +44,7 @@ from app.models import (
     PushDelivery,
     Session,
     SessionEvent,
+    SessionEventFile,
     SessionSound,
     User,
     UserSetting,
@@ -85,7 +87,7 @@ KIND_ENABLED = {
     NotificationKindEnum.URGENT: true(),
     NotificationKindEnum.MARKETING: func.coalesce(UserSetting.marketing_notification_enabled, false()),
     NotificationKindEnum.REPORT: func.coalesce(UserSetting.report_notification_enabled, true()),
-    NotificationKindEnum.PETCAM: true(),
+    NotificationKindEnum.EMERGENCY: func.coalesce(UserSetting.emergency_notification_enabled, true()),
 }
 NOTIFICATION_PUSH = (
     select(
@@ -452,11 +454,15 @@ async def send_report(*, db: AsyncSession, session_ids: list[UUID]) -> None:
 
 
 @transactional
-async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UUID]:
+async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID) -> list[UUID]:
     stmt = (
         select(SessionEvent, Session.user_id, Session.status)
+        .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
         .join(Session, Session.id == SessionEvent.session_id)
-        .where(SessionEvent.image_file_id == image_file_id)
+        .where(
+            SessionEventFile.file_id == image_file_id,
+            SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
+        )
     )
     row = (await db.execute(stmt)).first()
 
@@ -468,18 +474,22 @@ async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UU
     if session_status != SessionStatusEnum.RUNNING.value:
         return []
 
-    visibility_kinds = [SessionEventKindEnum.PARROT_NOT_VISIBLE.value, SessionEventKindEnum.PARROT_VISIBLE.value]
+    petcam_kinds = [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
     stmt = (
         select(SessionEvent.kind)
+        .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
+        .join(File, File.id == SessionEventFile.file_id)
         .where(
             SessionEvent.session_id == event.session_id,
-            SessionEvent.kind.in_(visibility_kinds),
+            SessionEvent.kind.in_(petcam_kinds),
             SessionEvent.occurred_at < event.occurred_at,
+            SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
+            File.status == FileStatusEnum.UPLOADED.value,
         )
         .order_by(SessionEvent.occurred_at.desc())
         .limit(1)
     )
-    previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_VISIBLE.value
+    previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_APPEARED.value
 
     if previous_kind == event.kind:
         return []
@@ -520,7 +530,7 @@ async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UU
         es_es=f"No vemos a {subject_es}",
     )
 
-    if event.kind == SessionEventKindEnum.PARROT_VISIBLE.value:
+    if event.kind == SessionEventKindEnum.PARROT_APPEARED.value:
         title_i18n = I18n(
             ko_kr=f"{subject_ko} 다시 보여요",
             en_us=f"We can see {subject_en} again",
@@ -531,7 +541,7 @@ async def create_visibility(*, db: AsyncSession, image_file_id: UUID) -> list[UU
 
     _, delivery_ids = await create_notifications(
         db=db,
-        kind=NotificationKindEnum.PETCAM,
+        kind=NotificationKindEnum.EMERGENCY,
         title_i18n=title_i18n,
         body_i18n=I18n(
             ko_kr="눌러서 지금 모습을 확인해 보세요",
@@ -1053,13 +1063,18 @@ async def deliver(delivery_id: UUID) -> None:
             .where(
                 Device.id == delivery.device_id,
                 Device.push_token.is_not(None),
-                Device.id.not_in(
-                    select(Session.station_device_id).where(Session.status == SessionStatusEnum.RUNNING.value)
-                ),
                 PUSH_ENABLED,
                 KIND_ENABLED[kind],
             )
         )
+
+        if kind != NotificationKindEnum.EMERGENCY:
+            stmt = stmt.where(
+                Device.id.not_in(
+                    select(Session.station_device_id).where(Session.status == SessionStatusEnum.RUNNING.value)
+                )
+            )
+
         row = (await db.execute(stmt)).first()
         sendable = (
             row is not None
