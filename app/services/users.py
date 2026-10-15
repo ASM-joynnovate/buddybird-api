@@ -48,6 +48,7 @@ from app.errors import (
 )
 from app.models import (
     Device,
+    DeviceActivity,
     File,
     Parrot,
     Session,
@@ -324,6 +325,34 @@ async def get_backoffice_list(
                 Device.is_deleted.is_(False),
             )
         )
+
+    if query.country is not None:
+        last_countries = (
+            select(DeviceActivity.user_id, DeviceActivity.country)
+            .join(Device, Device.id == DeviceActivity.device_id)
+            .distinct(DeviceActivity.user_id)
+            .order_by(
+                DeviceActivity.user_id,
+                DeviceActivity.activity_date.desc(),
+                Device.last_seen_at.desc().nulls_last(),
+            )
+            .subquery()
+        )
+
+        conditions.append(
+            User.id.in_(select(last_countries.c.user_id).where(last_countries.c.country == query.country))
+        )
+
+    if query.locale is not None:
+        last_locale = (
+            select(Device.locale)
+            .where(Device.user_id == User.id, Device.is_deleted.is_(False))
+            .order_by(Device.last_seen_at.desc().nulls_last())
+            .limit(1)
+            .scalar_subquery()
+        )
+
+        conditions.append(last_locale == query.locale)
 
     if query.has_unsupported_device is not None:
         has_unsupported_device = exists(
