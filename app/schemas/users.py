@@ -17,7 +17,7 @@ from app.enums import (
     UserSortEnum,
 )
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams
-from app.schemas.devices import BackofficeDeviceDTO, BackofficeLastSeenDeviceDTO
+from app.schemas.devices import BackofficeDeviceDTO, BackofficeLastSeenDeviceDTO, Locale
 from app.schemas.parrots import BackofficeParrotDTO
 from app.schemas.settings import SettingsDTO
 from app.schemas.withdrawals import BackofficeWithdrawalDTO
@@ -119,6 +119,8 @@ class BackofficeUserListParams(PageParams):
     provider: OAuthProviderEnum | None = None
     is_anonymous: bool | None = None
     platform: PlatformEnum | None = None
+    country: str | None = Field(None, pattern=r"^[A-Z]{2}$")
+    locale: Locale | None = None
     has_unsupported_device: bool | None = None
     is_pushable: bool | None = None
     is_marketing_enabled: bool | None = None
