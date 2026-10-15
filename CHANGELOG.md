@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.17.0...v2.18.0) (2026-10-15)
+
+
+### Features
+
+* **backoffice:** add country and locale filters to user list [BB-697] ([#152](https://github.com/ASM-joynnovate/buddybird-api/issues/152)) ([5a091e3](https://github.com/ASM-joynnovate/buddybird-api/commit/5a091e329788dec9d83d4a23840c9af73060f43a))
+
 ## [2.17.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.16.0...v2.17.0) (2026-10-13)
 
 
