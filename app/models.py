@@ -375,9 +375,9 @@ class SessionEvent(Base):
     __table_args__ = (
         Index("ix_session_events_session_id_occurred_at", "session_id", "occurred_at"),
         Index(
-            "ix_session_events_occurred_at_sound_emergency_detected",
+            "ix_session_events_occurred_at_distress_call_detected",
             "occurred_at",
-            postgresql_where=text("kind = 'sound_emergency_detected'"),
+            postgresql_where=text("kind = 'distress_call_detected'"),
         ),
     )
 

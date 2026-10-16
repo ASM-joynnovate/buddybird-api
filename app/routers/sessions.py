@@ -98,7 +98,13 @@ async def get_events(
 ) -> SessionEventListResponse:
     return SessionEventListResponse(
         message="세션 이벤트 조회 성공",
-        data=await sessions.get_events(db=db, storage=storage, session=session, petcam=query.petcam),
+        data=await sessions.get_events(
+            db=db,
+            storage=storage,
+            session=session,
+            petcam=query.petcam,
+            distress_call=query.distress_call,
+        ),
     )
 
 

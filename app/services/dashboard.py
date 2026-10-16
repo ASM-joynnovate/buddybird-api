@@ -401,11 +401,11 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         select(func.count())
         .select_from(SessionEvent)
         .where(
-            SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
+            SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
             SessionEvent.occurred_at >= since,
         )
     )
-    sound_emergency_detected_count = await db.scalar(stmt)
+    distress_call_detected_count = await db.scalar(stmt)
 
     stmt = (
         select(func.count())
@@ -454,7 +454,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             ),
             last_24_hours=DashboardLiveLast24HoursDTO(
                 heartbeat_expired_count=session_counts.heartbeat_expired_count,
-                sound_emergency_detected_count=sound_emergency_detected_count,
+                distress_call_detected_count=distress_call_detected_count,
                 parrot_disappeared_count=parrot_disappeared_count,
                 judgment_failed_count=judgment_failed_count,
             ),
@@ -819,7 +819,7 @@ async def get_emergency_dashboard(
     *, db: AsyncSession, storage: S3StorageClient, query: DashboardParams
 ) -> EmergencyDashboardDTO:
     dates, period_start, period_end, previous_start = get_period(query)
-    is_sound = SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value
+    is_sound = SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value
     is_vision = SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value
     in_period = and_(
         SessionEvent.kind.in_(EMERGENCY_KINDS),
@@ -922,7 +922,7 @@ async def get_emergency_dashboard(
         daily=[
             EmergencyDashboardDailyDTO(
                 date=date,
-                sound_count=daily_counts.get((date, SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value), 0),
+                sound_count=daily_counts.get((date, SessionEventKindEnum.DISTRESS_CALL_DETECTED.value), 0),
                 vision_count=daily_counts.get((date, SessionEventKindEnum.PARROT_DISAPPEARED.value), 0),
             )
             for date in dates
