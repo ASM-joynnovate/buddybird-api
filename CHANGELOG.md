@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.19.0...v2.19.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **settings:** drop notification columns from user settings ([40619b2](https://github.com/ASM-joynnovate/buddybird-api/commit/40619b2e389552d04d6532bf012faf7f8a12bd5b))
+
 ## [2.19.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.18.0...v2.19.0) (2026-10-16)
 
 
