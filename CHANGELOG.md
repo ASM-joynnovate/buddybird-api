@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.19.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.18.0...v2.19.0) (2026-10-16)
+
+
+### Features
+
+* **sessions:** rename sound emergency event to distress call ([#157](https://github.com/ASM-joynnovate/buddybird-api/issues/157)) ([eba2edc](https://github.com/ASM-joynnovate/buddybird-api/commit/eba2edc6a6815b14343b43e84d40939bb5d7d354))
+* **settings:** manage notification settings by item ([#155](https://github.com/ASM-joynnovate/buddybird-api/issues/155)) ([db4d703](https://github.com/ASM-joynnovate/buddybird-api/commit/db4d703827a203b7b239a43e2c158492588485cd))
+
 ## [2.18.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.17.0...v2.18.0) (2026-10-15)
 
 
