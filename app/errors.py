@@ -208,6 +208,18 @@ class PushDeliveryRetryError(Exception):
     pass
 
 
+class NotificationSettingSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "NOTIFICATION_SETTING__SAVE_UNAVAILABLE"
+    message = "알림 설정 항목을 일시적으로 저장할 수 없습니다."
+
+
+class DuplicateNotificationSettingKindError(CustomError):
+    status_code = 409
+    error_code = "NOTIFICATION_SETTING__DUPLICATE_KIND"
+    message = "같은 종류의 알림 설정 항목이 이미 있습니다."
+
+
 class ConsentSaveUnavailableError(CustomError):
     status_code = 503
     error_code = "CONSENT__SAVE_UNAVAILABLE"

@@ -197,6 +197,43 @@ class I18n(Base):
         return getattr(self, locale.name.lower()) or self.en_us
 
 
+class NotificationSettingGroup(Base):
+    __tablename__ = "notification_setting_groups"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    title_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    description_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
+    description_i18n: Mapped[I18n | None] = relationship(lazy="selectin", foreign_keys=[description_i18n_id])
+
+
+class NotificationSettingItem(Base):
+    __tablename__ = "notification_setting_items"
+    __table_args__ = (UniqueConstraint("kind", name="uq_notification_setting_items_kind"),)
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    group_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(NotificationSettingGroup.id), nullable=True)
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    title_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    description_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
+    default_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
+    description_i18n: Mapped[I18n | None] = relationship(lazy="selectin", foreign_keys=[description_i18n_id])
+
+
+class UserNotificationSetting(Base):
+    __tablename__ = "user_notification_settings"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", name="uq_user_notification_settings_user_id_item_id"),)
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    item_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(NotificationSettingItem.id), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Consent(Base):
     __tablename__ = "consents"
     __table_args__ = (

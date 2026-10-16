@@ -17,7 +17,6 @@ from sqlalchemy import (
     cast,
     desc,
     exists,
-    false,
     func,
     not_,
     or_,
@@ -32,6 +31,7 @@ from sqlalchemy.orm import aliased, joinedload
 from app.db import transactional
 from app.enums import (
     FileStatusEnum,
+    NotificationSettingKindEnum,
     SessionEndReasonEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
@@ -76,7 +76,7 @@ from app.schemas.users import (
 )
 from app.services import devices
 from app.services.sessions import SESSION_COUNT
-from app.services.settings import build_settings_dto
+from app.services.settings import ITEM_ENABLED, build_settings_dto
 from app.services.withdrawals import build_backoffice_withdrawal_dto
 from app.utils import SEOUL
 
@@ -366,8 +366,8 @@ async def get_backoffice_list(
     if query.is_pushable is not None:
         conditions.append(PUSHABLE if query.is_pushable else not_(PUSHABLE))
 
-    is_announcement_enabled = func.coalesce(UserSetting.announcement_notification_enabled, true())
-    is_marketing_enabled = func.coalesce(UserSetting.marketing_notification_enabled, false())
+    is_announcement_enabled = ITEM_ENABLED[NotificationSettingKindEnum.ANNOUNCEMENT]
+    is_marketing_enabled = ITEM_ENABLED[NotificationSettingKindEnum.MARKETING]
 
     if query.is_marketing_enabled is not None:
         conditions.append(is_marketing_enabled if query.is_marketing_enabled else not_(is_marketing_enabled))
@@ -375,13 +375,7 @@ async def get_backoffice_list(
     if query.issue is not None:
         conditions.append(ISSUES[query.issue])
 
-    stmt = (
-        select(func.count())
-        .select_from(User)
-        .outerjoin(UserSetting, UserSetting.user_id == User.id)
-        .where(*conditions)
-        .execution_options(include_deleted=True)
-    )
+    stmt = select(func.count()).select_from(User).where(*conditions).execution_options(include_deleted=True)
     total = await db.scalar(stmt)
 
     session_end = func.coalesce(Session.ended_at, now)
@@ -488,7 +482,6 @@ async def get_backoffice_list(
         )
         .select_from(User)
         .options(joinedload(User.photo_file))
-        .outerjoin(UserSetting, UserSetting.user_id == User.id)
         .outerjoin(first_parrot, true())
         .outerjoin(parrot_photo_file, parrot_photo_file.id == first_parrot.c.photo_file_id)
         .outerjoin(
@@ -566,7 +559,7 @@ async def get_backoffice_detail(*, db: AsyncSession, storage: S3StorageClient, u
         **build_backoffice_user_dto(user).model_dump(),
         photo_file=storage.generate_file_dto(file=user.photo_file),
         providers=providers,
-        settings=build_settings_dto(setting) if setting is not None else None,
+        settings=await build_settings_dto(db=db, setting=setting) if setting is not None else None,
         parrots=[
             BackofficeParrotDTO(
                 id=parrot.id,

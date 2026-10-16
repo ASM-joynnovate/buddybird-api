@@ -1,11 +1,11 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.db import get_or_404
-from app.dependencies import DBSession, Storage
-from app.models import User
+from app.dependencies import DBSession, Storage, require_notification_setting_group, require_notification_setting_item
+from app.models import NotificationSettingGroup, NotificationSettingItem, User
 from app.schemas.base import UploadRequest, UploadResponse
 from app.schemas.notifications import (
     BackofficeNotificationAudienceParams,
@@ -23,7 +23,17 @@ from app.schemas.notifications import (
     BroadcastNotificationResponse,
     SendNotificationRequest,
 )
-from app.services import notifications
+from app.schemas.settings import (
+    BackofficeNotificationSettingGroupListResponse,
+    BackofficeNotificationSettingGroupResponse,
+    BackofficeNotificationSettingItemListResponse,
+    BackofficeNotificationSettingItemResponse,
+    CreateNotificationSettingGroupRequest,
+    CreateNotificationSettingItemRequest,
+    UpdateNotificationSettingGroupRequest,
+    UpdateNotificationSettingItemRequest,
+)
+from app.services import notifications, settings
 
 router = APIRouter(prefix="/notifications")
 
@@ -118,4 +128,60 @@ async def add_image(body: UploadRequest, db: DBSession, storage: Storage) -> Upl
     return UploadResponse(
         message="알림 사진 업로드 URL 발급 성공",
         data=await notifications.add_image(db=db, storage=storage, data=body),
+    )
+
+
+@router.get("/settings/groups", name="알림 설정 묶음 목록 조회")
+async def get_setting_groups(db: DBSession) -> BackofficeNotificationSettingGroupListResponse:
+    return BackofficeNotificationSettingGroupListResponse(
+        message="알림 설정 묶음 목록 조회 성공", data=await settings.get_backoffice_notification_setting_groups(db=db)
+    )
+
+
+@router.post("/settings/groups", name="알림 설정 묶음 생성")
+async def create_setting_group(
+    body: CreateNotificationSettingGroupRequest, db: DBSession
+) -> BackofficeNotificationSettingGroupResponse:
+    return BackofficeNotificationSettingGroupResponse(
+        message="알림 설정 묶음 생성 성공", data=await settings.create_notification_setting_group(db=db, data=body)
+    )
+
+
+@router.patch("/settings/groups/{group_id}", name="알림 설정 묶음 수정")
+async def update_setting_group(
+    group: Annotated[NotificationSettingGroup, Depends(require_notification_setting_group)],
+    body: UpdateNotificationSettingGroupRequest,
+    db: DBSession,
+) -> BackofficeNotificationSettingGroupResponse:
+    return BackofficeNotificationSettingGroupResponse(
+        message="알림 설정 묶음 수정 성공",
+        data=await settings.update_notification_setting_group(db=db, group=group, data=body),
+    )
+
+
+@router.get("/settings/items", name="알림 설정 항목 목록 조회")
+async def get_setting_items(db: DBSession) -> BackofficeNotificationSettingItemListResponse:
+    return BackofficeNotificationSettingItemListResponse(
+        message="알림 설정 항목 목록 조회 성공", data=await settings.get_backoffice_notification_setting_items(db=db)
+    )
+
+
+@router.post("/settings/items", name="알림 설정 항목 생성")
+async def create_setting_item(
+    body: CreateNotificationSettingItemRequest, db: DBSession
+) -> BackofficeNotificationSettingItemResponse:
+    return BackofficeNotificationSettingItemResponse(
+        message="알림 설정 항목 생성 성공", data=await settings.create_notification_setting_item(db=db, data=body)
+    )
+
+
+@router.patch("/settings/items/{item_id}", name="알림 설정 항목 수정")
+async def update_setting_item(
+    item: Annotated[NotificationSettingItem, Depends(require_notification_setting_item)],
+    body: UpdateNotificationSettingItemRequest,
+    db: DBSession,
+) -> BackofficeNotificationSettingItemResponse:
+    return BackofficeNotificationSettingItemResponse(
+        message="알림 설정 항목 수정 성공",
+        data=await settings.update_notification_setting_item(db=db, item=item, data=body),
     )
