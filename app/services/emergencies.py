@@ -42,7 +42,7 @@ from app.schemas.users import BackofficeUserParrotDTO
 from app.utils import SEOUL
 
 EMERGENCY_KINDS = [
-    SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
+    SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
     SessionEventKindEnum.PARROT_DISAPPEARED.value,
 ]
 APPEARED_EVENT = aliased(SessionEvent)
@@ -199,7 +199,7 @@ async def get_backoffice_list(
         sound_dto = None
         vision_dto = None
 
-        if event.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value:
+        if event.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value:
             event_sounds = sounds.get(event.id, [])
 
             if event_sounds:

@@ -122,12 +122,12 @@ ISSUES = {
         Session.ended_reason == SessionEndReasonEnum.HEARTBEAT_EXPIRED.value,
         Session.ended_at >= ISSUE_SINCE,
     ),
-    UserIssueEnum.SOUND_EMERGENCY_DETECTED: exists(
+    UserIssueEnum.DISTRESS_CALL_DETECTED: exists(
         select(SessionEvent.id)
         .join(Session, Session.id == SessionEvent.session_id)
         .where(
             Session.user_id == User.id,
-            SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
+            SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
             SessionEvent.occurred_at >= ISSUE_SINCE,
         )
     ),

@@ -250,7 +250,7 @@ async def detect_emergency(*, db: AsyncSession, session_id: UUID, captured_at: d
         .join(SessionSound, SessionSound.id == SessionEventSound.sound_id)
         .where(
             SessionEvent.session_id == session_id,
-            SessionEvent.kind == SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
+            SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
             SessionEvent.occurred_at <= ended_at,
             SessionSound.captured_at >= started_at,
         )
@@ -266,7 +266,7 @@ async def detect_emergency(*, db: AsyncSession, session_id: UUID, captured_at: d
     else:
         event = SessionEvent(
             session_id=session_id,
-            kind=SessionEventKindEnum.SOUND_EMERGENCY_DETECTED.value,
+            kind=SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
             occurred_at=started_at,
         )
 

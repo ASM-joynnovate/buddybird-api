@@ -98,7 +98,7 @@ class BackofficeEmergencyListResponse(BaseResponse):
 class BackofficeEmergencyListParams(PageParams):
     occurred_from: date | None = None
     occurred_to: date | None = None
-    kind: Literal[SessionEventKindEnum.SOUND_EMERGENCY_DETECTED, SessionEventKindEnum.PARROT_DISAPPEARED] | None = None
+    kind: Literal[SessionEventKindEnum.DISTRESS_CALL_DETECTED, SessionEventKindEnum.PARROT_DISAPPEARED] | None = None
     keyword: str | None = Field(None, min_length=1, max_length=100)
     user_id: UUID | None = None
     is_ongoing: bool | None = None
