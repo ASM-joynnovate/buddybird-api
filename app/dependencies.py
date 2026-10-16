@@ -28,6 +28,8 @@ from app.models import (
     Consent,
     Device,
     Notification,
+    NotificationSettingGroup,
+    NotificationSettingItem,
     Parrot,
     PresetWord,
     Session,
@@ -202,6 +204,14 @@ async def require_consent(db: DBSession, consent_id: UUID) -> Consent:
 
 async def require_app_update(db: DBSession, app_update_id: UUID) -> AppUpdate:
     return await get_or_404(db=db, model=AppUpdate, id=app_update_id)
+
+
+async def require_notification_setting_group(db: DBSession, group_id: UUID) -> NotificationSettingGroup:
+    return await get_or_404(db=db, model=NotificationSettingGroup, id=group_id)
+
+
+async def require_notification_setting_item(db: DBSession, item_id: UUID) -> NotificationSettingItem:
+    return await get_or_404(db=db, model=NotificationSettingItem, id=item_id)
 
 
 async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:

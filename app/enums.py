@@ -61,6 +61,14 @@ class NotificationKindEnum(StrEnum):
     EMERGENCY = "emergency"
 
 
+class NotificationSettingKindEnum(StrEnum):
+    ANNOUNCEMENT = "announcement"
+    REPORT = "report"
+    EMERGENCY = "emergency"
+    MARKETING = "marketing"
+    MARKETING_NIGHT = "marketing_night"
+
+
 class NotificationDispatchTargetEnum(StrEnum):
     ALL = "all"
     SELECTED = "selected"
