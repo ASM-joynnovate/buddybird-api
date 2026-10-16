@@ -99,7 +99,7 @@ class BackofficeSessionDTO(SessionDTO):
     word: BackofficeSessionWordDTO
     period: BackofficeSessionPeriodDTO
     disconnections: list[BackofficeSessionDisconnectionDTO]
-    sound_emergency_detections: list[datetime]
+    distress_call_detections: list[datetime]
     parrot_disappearances: list[datetime]
 
 
@@ -213,6 +213,7 @@ class SessionEventListParams(BaseRequest):
     model_config = ConfigDict(extra="ignore")
 
     petcam: bool = False
+    distress_call: bool = False
 
 
 class SessionEventListResponse(BaseResponse):

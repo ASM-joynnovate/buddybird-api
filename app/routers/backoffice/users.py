@@ -6,10 +6,11 @@ from app.dependencies import DBSession, Storage, require_backoffice_user
 from app.models import User
 from app.schemas.consents import BackofficeUserConsentListResponse
 from app.schemas.sessions import BackofficeSessionListParams, BackofficeSessionListResponse
+from app.schemas.settings import BackofficeUserNotificationSettingListResponse
 from app.schemas.users import BackofficeUserDetailResponse, BackofficeUserListParams, BackofficeUserListResponse
 from app.schemas.withdrawals import WithdrawalResponse
 from app.schemas.words import BackofficeWordListResponse
-from app.services import sessions, user_consents, users, withdrawals, words
+from app.services import sessions, settings, user_consents, users, withdrawals, words
 
 router = APIRouter(prefix="/users")
 
@@ -69,6 +70,16 @@ async def get_words(
     return BackofficeWordListResponse(
         message="사용자 단어 목록 조회 성공",
         data=await words.get_backoffice_list(db=db, user=user, storage=storage),
+    )
+
+
+@router.get("/{user_id}/settings/notifications", name="사용자 알림 설정 조회")
+async def get_notification_settings(
+    user: Annotated[User, Depends(require_backoffice_user)], db: DBSession
+) -> BackofficeUserNotificationSettingListResponse:
+    return BackofficeUserNotificationSettingListResponse(
+        message="사용자 알림 설정 조회 성공",
+        data=await settings.get_backoffice_user_notification_settings(db=db, user=user),
     )
 
 

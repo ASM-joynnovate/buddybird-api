@@ -5,7 +5,7 @@ from uuid import UUID, uuid7
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from firebase_admin import exceptions, messaging
-from sqlalchemy import Integer, and_, cast, delete, exists, false, func, not_, or_, select, true, update
+from sqlalchemy import Integer, and_, cast, delete, exists, func, not_, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -19,6 +19,7 @@ from app.enums import (
     NotificationDispatchStatusEnum,
     NotificationDispatchTargetEnum,
     NotificationKindEnum,
+    NotificationSettingKindEnum,
     SessionEventFileKindEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
@@ -75,19 +76,20 @@ from app.schemas.notifications import (
     SendNotificationRequest,
 )
 from app.services.sessions import get_judgment_statuses
+from app.services.settings import ITEM_ENABLED
 from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, PUSHABLE
 from app.utils import SEOUL, resolve_locale
 
 logger = logging.getLogger(__name__)
 
 PUSH_ENABLED = func.coalesce(UserSetting.push_notification_enabled, true())
-NIGHT_ENABLED = func.coalesce(UserSetting.marketing_night_notification_enabled, false())
+NIGHT_ENABLED = ITEM_ENABLED[NotificationSettingKindEnum.MARKETING_NIGHT]
 KIND_ENABLED = {
-    NotificationKindEnum.ANNOUNCEMENT: func.coalesce(UserSetting.announcement_notification_enabled, true()),
+    NotificationKindEnum.ANNOUNCEMENT: ITEM_ENABLED[NotificationSettingKindEnum.ANNOUNCEMENT],
     NotificationKindEnum.URGENT: true(),
-    NotificationKindEnum.MARKETING: func.coalesce(UserSetting.marketing_notification_enabled, false()),
-    NotificationKindEnum.REPORT: func.coalesce(UserSetting.report_notification_enabled, true()),
-    NotificationKindEnum.EMERGENCY: func.coalesce(UserSetting.emergency_notification_enabled, true()),
+    NotificationKindEnum.MARKETING: ITEM_ENABLED[NotificationSettingKindEnum.MARKETING],
+    NotificationKindEnum.REPORT: ITEM_ENABLED[NotificationSettingKindEnum.REPORT],
+    NotificationKindEnum.EMERGENCY: ITEM_ENABLED[NotificationSettingKindEnum.EMERGENCY],
 }
 NOTIFICATION_PUSH = (
     select(
@@ -883,15 +885,11 @@ async def cancel_dispatch(*, db: AsyncSession, dispatch_id: UUID) -> BackofficeN
 async def get_backoffice_audience(
     *, db: AsyncSession, query: BackofficeNotificationAudienceParams
 ) -> BackofficeNotificationAudienceDTO:
-    stmt = (
-        select(
-            func.count(),
-            func.count().filter(KIND_ENABLED[query.kind]),
-            func.count().filter(KIND_ENABLED[query.kind], PUSHABLE),
-        )
-        .select_from(User)
-        .outerjoin(UserSetting, UserSetting.user_id == User.id)
-    )
+    stmt = select(
+        func.count(),
+        func.count().filter(KIND_ENABLED[query.kind]),
+        func.count().filter(KIND_ENABLED[query.kind], PUSHABLE),
+    ).select_from(User)
     user_count, recipient_count, pushable_count = (await db.execute(stmt)).one()
 
     return BackofficeNotificationAudienceDTO(
