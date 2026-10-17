@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.21.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.20.0...v2.21.0) (2026-10-17)
+
+
+### Features
+
+* **announcements:** save images with image_file_ids ([#164](https://github.com/ASM-joynnovate/buddybird-api/issues/164)) ([cdab8c8](https://github.com/ASM-joynnovate/buddybird-api/commit/cdab8c814ce62fc2b2dd87cc8d53130e48210401))
+
 ## [2.20.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.19.1...v2.20.0) (2026-10-17)
 
 
