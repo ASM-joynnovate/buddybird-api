@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from app.db import get_or_404
 from app.dependencies import DBSession, Storage, require_notification_setting_group, require_notification_setting_item
 from app.models import NotificationSettingGroup, NotificationSettingItem, User
-from app.schemas.base import UploadRequest, UploadResponse
+from app.schemas.base import ReorderRequest, UploadRequest, UploadResponse
 from app.schemas.notifications import (
     BackofficeNotificationAudienceParams,
     BackofficeNotificationAudienceResponse,
@@ -30,6 +30,7 @@ from app.schemas.settings import (
     BackofficeNotificationSettingItemResponse,
     CreateNotificationSettingGroupRequest,
     CreateNotificationSettingItemRequest,
+    ReorderNotificationSettingItemsRequest,
     UpdateNotificationSettingGroupRequest,
     UpdateNotificationSettingItemRequest,
 )
@@ -159,6 +160,14 @@ async def update_setting_group(
     )
 
 
+@router.put("/settings/groups/order", name="알림 설정 묶음 순서 변경")
+async def reorder_setting_groups(body: ReorderRequest, db: DBSession) -> BackofficeNotificationSettingGroupListResponse:
+    return BackofficeNotificationSettingGroupListResponse(
+        message="알림 설정 묶음 순서 변경 성공",
+        data=await settings.reorder_notification_setting_groups(db=db, data=body),
+    )
+
+
 @router.get("/settings/items", name="알림 설정 항목 목록 조회")
 async def get_setting_items(db: DBSession) -> BackofficeNotificationSettingItemListResponse:
     return BackofficeNotificationSettingItemListResponse(
@@ -184,4 +193,14 @@ async def update_setting_item(
     return BackofficeNotificationSettingItemResponse(
         message="알림 설정 항목 수정 성공",
         data=await settings.update_notification_setting_item(db=db, item=item, data=body),
+    )
+
+
+@router.put("/settings/items/order", name="알림 설정 항목 순서 변경")
+async def reorder_setting_items(
+    body: ReorderNotificationSettingItemsRequest, db: DBSession
+) -> BackofficeNotificationSettingItemListResponse:
+    return BackofficeNotificationSettingItemListResponse(
+        message="알림 설정 항목 순서 변경 성공",
+        data=await settings.reorder_notification_setting_items(db=db, data=body),
     )

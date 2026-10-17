@@ -24,6 +24,10 @@ class AnnouncementImageDTO(CustomBaseModel):
     url: str
 
 
+class BackofficeAnnouncementImageDTO(AnnouncementImageDTO):
+    file_id: UUID
+
+
 class AnnouncementDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"body", "ends_at"}
 
@@ -55,7 +59,7 @@ class BackofficeAnnouncementDTO(CustomBaseModel):
     push_enabled: bool
     push_local_time: time | None
     push_prepared_at: datetime | None
-    images: list[AnnouncementImageDTO]
+    images: list[BackofficeAnnouncementImageDTO]
 
 
 class BackofficeAnnouncementResponse(BaseResponse):
@@ -79,6 +83,7 @@ class CreateAnnouncementRequest(BaseRequest):
     ends_at: AwareDatetime | None = None
     push_enabled: bool = False
     push_local_time: time | None = None
+    image_file_ids: list[UUID]
 
     @model_validator(mode="after")
     def validate_period(self) -> CreateAnnouncementRequest:
@@ -97,6 +102,7 @@ class UpdateAnnouncementRequest(BaseRequest):
     ends_at: AwareDatetime | MISSING | None = MISSING
     push_enabled: bool | MISSING = MISSING
     push_local_time: time | MISSING | None = MISSING
+    image_file_ids: list[UUID] | MISSING = MISSING
 
 
 class BackofficeAnnouncementListParams(PageParams):

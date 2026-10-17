@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from uuid import uuid7
 
 from pydantic.experimental.missing_sentinel import MISSING
-from sqlalchemy import and_, asc, desc, func, or_, select
+from sqlalchemy import and_, asc, desc, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,10 +10,12 @@ from app.db import transactional
 from app.enums import AnnouncementSortEnum, FileStatusEnum, LocaleEnum, SortOrderEnum
 from app.errors import (
     AnnouncementSaveUnavailableError,
+    DuplicateAnnouncementImageError,
     FileSizeExceededError,
     InvalidAnnouncementBodyError,
     InvalidAnnouncementPeriodError,
     InvalidProfilePhotoError,
+    ResourceNotFoundError,
 )
 from app.models import Announcement, AnnouncementImage, AnnouncementRead, File, I18n, User
 from app.s3 import S3StorageClient
@@ -21,6 +23,7 @@ from app.schemas.announcements import (
     AnnouncementDTO,
     AnnouncementImageDTO,
     BackofficeAnnouncementDTO,
+    BackofficeAnnouncementImageDTO,
     BackofficeAnnouncementListItemDTO,
     BackofficeAnnouncementListParams,
     CreateAnnouncementRequest,
@@ -62,7 +65,11 @@ def build_backoffice_announcement_dto(
         push_local_time=announcement.push_local_time,
         push_prepared_at=announcement.push_prepared_at,
         images=[
-            AnnouncementImageDTO(id=image.id, url=storage.generate_presigned_url(path=image.file.object_key))
+            BackofficeAnnouncementImageDTO(
+                id=image.id,
+                file_id=image.file_id,
+                url=storage.generate_presigned_url(path=image.file.object_key),
+            )
             for image in announcement.images
         ],
     )
@@ -171,6 +178,17 @@ async def mark_read(
 async def create(
     *, db: AsyncSession, storage: S3StorageClient, data: CreateAnnouncementRequest
 ) -> BackofficeAnnouncementDTO:
+    stmt = select(exists().where(AnnouncementImage.file_id.in_(data.image_file_ids)))
+
+    if len(set(data.image_file_ids)) != len(data.image_file_ids) or await db.scalar(stmt):
+        raise DuplicateAnnouncementImageError
+
+    stmt = select(File).where(File.id.in_(data.image_file_ids), File.status == FileStatusEnum.UPLOADED.value)
+    files = {file.id: file for file in (await db.scalars(stmt)).all() if file.file_path == f"announcement/{file.id}"}
+
+    if any(file_id not in files for file_id in data.image_file_ids):
+        raise ResourceNotFoundError
+
     announcement = Announcement(
         title_i18n=I18n(**data.title.model_dump()),
         body_i18n=I18n(**data.body.model_dump()) if data.body is not None else None,
@@ -179,7 +197,10 @@ async def create(
         push_enabled=data.push_enabled,
         push_local_time=data.push_local_time,
         is_deleted=False,
-        images=[],
+        images=[
+            AnnouncementImage(file=files[file_id], display_order=display_order)
+            for display_order, file_id in enumerate(data.image_file_ids)
+        ],
     )
 
     db.add(announcement)
@@ -207,11 +228,50 @@ async def update(
 
         announcement.body_i18n = I18n(**data.body.model_dump(exclude_unset=True))
 
-    for name, value in data.model_dump(exclude_unset=True, exclude={"title", "body"}).items():
+    for name, value in data.model_dump(exclude_unset=True, exclude={"title", "body", "image_file_ids"}).items():
         setattr(announcement, name, value)
 
     if announcement.ends_at is not None and announcement.ends_at <= announcement.starts_at:
         raise InvalidAnnouncementPeriodError
+
+    if data.image_file_ids is not MISSING:
+        stmt = select(
+            exists().where(
+                AnnouncementImage.file_id.in_(data.image_file_ids),
+                AnnouncementImage.announcement_id != announcement.id,
+            )
+        )
+
+        if len(set(data.image_file_ids)) != len(data.image_file_ids) or await db.scalar(stmt):
+            raise DuplicateAnnouncementImageError
+
+        images = {image.file_id: image for image in announcement.images}
+
+        stmt = select(File).where(File.id.in_(data.image_file_ids), File.status == FileStatusEnum.UPLOADED.value)
+        files = {
+            file.id: file for file in (await db.scalars(stmt)).all() if file.file_path == f"announcement/{file.id}"
+        }
+
+        if any(file_id not in images and file_id not in files for file_id in data.image_file_ids):
+            raise ResourceNotFoundError
+
+        for display_order, image in enumerate(images.values()):
+            image.display_order = -1 - display_order
+
+            if image.file_id not in data.image_file_ids:
+                image.file.is_deleted = True
+                announcement.images.remove(image)
+
+                await db.delete(image)
+
+        await db.flush()
+
+        announcement.images = [
+            images.get(file_id) or AnnouncementImage(file=files[file_id]) for file_id in data.image_file_ids
+        ]
+
+        for display_order, image in enumerate(announcement.images):
+            image.display_order = display_order
 
     await db.flush()
 
@@ -229,13 +289,7 @@ async def delete(*, db: AsyncSession, announcement: Announcement) -> None:
 
 
 @transactional(unavailable_error=AnnouncementSaveUnavailableError)
-async def add_image(
-    *,
-    db: AsyncSession,
-    storage: S3StorageClient,
-    announcement: Announcement,
-    data: UploadRequest,
-) -> UploadDTO:
+async def add_image(*, db: AsyncSession, storage: S3StorageClient, data: UploadRequest) -> UploadDTO:
     if data.content_type not in PHOTO_TYPES:
         raise InvalidProfilePhotoError
 
@@ -247,7 +301,7 @@ async def add_image(
     image_file = File(
         id=file_id,
         file_name="image.jpg",
-        file_path=f"announcement/{announcement.id}/{file_id}",
+        file_path=f"announcement/{file_id}",
         file_size=data.file_size,
         file_type="image/jpeg",
         is_deleted=False,
@@ -264,16 +318,3 @@ async def add_image(
         content_type=data.content_type,
         file_size=data.file_size,
     )
-
-
-@transactional(unavailable_error=AnnouncementSaveUnavailableError)
-async def delete_image(
-    *, db: AsyncSession, storage: S3StorageClient, announcement: Announcement, image: AnnouncementImage
-) -> BackofficeAnnouncementDTO:
-    announcement.images.remove(image)
-    image.file.is_deleted = True
-
-    await db.delete(image)
-    await db.flush()
-
-    return build_backoffice_announcement_dto(announcement, storage)

@@ -2,8 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import DBSession, Storage, require_announcement, require_announcement_image
-from app.models import Announcement, AnnouncementImage
+from app.dependencies import DBSession, Storage, require_announcement
+from app.models import Announcement
 from app.schemas.announcements import (
     BackofficeAnnouncementListParams,
     BackofficeAnnouncementListResponse,
@@ -57,27 +57,9 @@ async def delete(announcement: Annotated[Announcement, Depends(require_announcem
     return BaseResponse(message="공지 삭제 성공")
 
 
-@router.post("/{announcement_id}/images", name="공지 사진 업로드 URL 발급")
-async def add_image(
-    announcement: Annotated[Announcement, Depends(require_announcement)],
-    body: UploadRequest,
-    db: DBSession,
-    storage: Storage,
-) -> UploadResponse:
+@router.post("/images", name="공지 사진 업로드 URL 발급")
+async def add_image(body: UploadRequest, db: DBSession, storage: Storage) -> UploadResponse:
     return UploadResponse(
         message="공지 사진 업로드 URL 발급 성공",
-        data=await announcements.add_image(db=db, storage=storage, announcement=announcement, data=body),
-    )
-
-
-@router.delete("/{announcement_id}/images/{image_id}", name="공지 사진 삭제")
-async def delete_image(
-    announcement: Annotated[Announcement, Depends(require_announcement)],
-    image: Annotated[AnnouncementImage, Depends(require_announcement_image)],
-    db: DBSession,
-    storage: Storage,
-) -> BackofficeAnnouncementResponse:
-    return BackofficeAnnouncementResponse(
-        message="공지 사진 삭제 성공",
-        data=await announcements.delete_image(db=db, storage=storage, announcement=announcement, image=image),
+        data=await announcements.add_image(db=db, storage=storage, data=body),
     )

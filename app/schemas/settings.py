@@ -2,7 +2,6 @@ from datetime import datetime, time
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import Field
 from pydantic.experimental.missing_sentinel import MISSING
 
 from app.enums import NotificationSettingKindEnum
@@ -163,7 +162,6 @@ class CreateNotificationSettingGroupRequest(BaseRequest):
 
     title: I18nTitleRequest
     description: I18nBodyRequest | None = None
-    sort_order: int = Field(ge=0, le=32767)
 
 
 class UpdateNotificationSettingGroupRequest(BaseRequest):
@@ -171,7 +169,6 @@ class UpdateNotificationSettingGroupRequest(BaseRequest):
 
     title: UpdateI18nTitleRequest | MISSING = MISSING
     description: I18nBodyRequest | MISSING | None = MISSING
-    sort_order: int | MISSING = Field(MISSING, ge=0, le=32767)
 
 
 class CreateNotificationSettingItemRequest(BaseRequest):
@@ -182,13 +179,21 @@ class CreateNotificationSettingItemRequest(BaseRequest):
     title: I18nTitleRequest
     description: I18nBodyRequest | None = None
     default_enabled: bool
-    sort_order: int = Field(ge=0, le=32767)
 
 
 class UpdateNotificationSettingItemRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"group_id", "description"}
+    null_fields: ClassVar[set] = {"description"}
 
-    group_id: UUID | MISSING | None = MISSING
     title: UpdateI18nTitleRequest | MISSING = MISSING
     description: I18nBodyRequest | MISSING | None = MISSING
-    sort_order: int | MISSING = Field(MISSING, ge=0, le=32767)
+
+
+class NotificationSettingItemOrderRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"group_id"}
+
+    id: UUID
+    group_id: UUID | None
+
+
+class ReorderNotificationSettingItemsRequest(BaseRequest):
+    items: list[NotificationSettingItemOrderRequest]
