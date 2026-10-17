@@ -191,9 +191,9 @@ class InvalidAnnouncementBodyError(CustomError):
     message = "본문을 새로 추가할 때는 en_us가 필요합니다."
 
 
-class AnnouncementImageOrderMismatchError(CustomError):
-    error_code = "ANNOUNCEMENT__IMAGE_ORDER_MISMATCH"
-    message = "순서 목록이 현재 공지 사진 목록과 일치하지 않습니다."
+class DuplicateAnnouncementImageError(CustomError):
+    error_code = "ANNOUNCEMENT__DUPLICATE_IMAGE"
+    message = "사진 목록에 중복된 사진이 있거나 다른 공지에 이미 등록된 사진이 있습니다."
 
 
 class NotificationReadFailedError(CustomError):
