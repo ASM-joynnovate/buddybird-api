@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.19.1...v2.20.0) (2026-10-17)
+
+
+### Features
+
+* add reorder endpoints ([#162](https://github.com/ASM-joynnovate/buddybird-api/issues/162)) ([021f6c1](https://github.com/ASM-joynnovate/buddybird-api/commit/021f6c1e63610fdc2a651ec53241cac76d11304b))
+
 ## [2.19.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.19.0...v2.19.1) (2026-10-16)
 
 
