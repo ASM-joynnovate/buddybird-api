@@ -10,7 +10,9 @@ from app.db import get_or_404, transactional
 from app.enums import LocaleEnum, NotificationSettingKindEnum
 from app.errors import (
     DuplicateNotificationSettingKindError,
+    NotificationSettingOrderMismatchError,
     NotificationSettingSaveUnavailableError,
+    ResourceNotFoundError,
     UserSaveUnavailableError,
 )
 from app.models import (
@@ -21,7 +23,7 @@ from app.models import (
     UserNotificationSetting,
     UserSetting,
 )
-from app.schemas.base import I18nDTO
+from app.schemas.base import I18nDTO, ReorderRequest
 from app.schemas.settings import (
     BackofficeNotificationSettingGroupDTO,
     BackofficeNotificationSettingItemDTO,
@@ -34,6 +36,7 @@ from app.schemas.settings import (
     NotificationSettingItemDTO,
     NotificationSettingListDTO,
     NotificationSettingsDTO,
+    ReorderNotificationSettingItemsRequest,
     SaveUserNotificationSettingRequest,
     SettingsDTO,
     SleepSettingsDTO,
@@ -368,10 +371,13 @@ async def get_backoffice_user_notification_settings(
 async def create_notification_setting_group(
     *, db: AsyncSession, data: CreateNotificationSettingGroupRequest
 ) -> BackofficeNotificationSettingGroupDTO:
+    stmt = select(func.coalesce(func.max(NotificationSettingGroup.sort_order) + 1, 0))
+    sort_order = await db.scalar(stmt)
+
     group = NotificationSettingGroup(
         title_i18n=I18n(**data.title.model_dump()),
         description_i18n=I18n(**data.description.model_dump()) if data.description is not None else None,
-        sort_order=data.sort_order,
+        sort_order=sort_order,
     )
 
     db.add(group)
@@ -391,12 +397,27 @@ async def update_notification_setting_group(
     if data.description is not MISSING:
         group.description_i18n = I18n(**data.description.model_dump()) if data.description is not None else None
 
-    for name, value in data.model_dump(exclude_unset=True, exclude={"title", "description"}).items():
-        setattr(group, name, value)
-
     await db.flush()
 
     return build_backoffice_notification_setting_group_dto(group)
+
+
+@transactional(unavailable_error=NotificationSettingSaveUnavailableError)
+async def reorder_notification_setting_groups(
+    *, db: AsyncSession, data: ReorderRequest
+) -> list[BackofficeNotificationSettingGroupDTO]:
+    stmt = select(NotificationSettingGroup)
+    groups = {group.id: group for group in (await db.scalars(stmt)).all()}
+
+    if sorted(data.ids) != sorted(groups):
+        raise NotificationSettingOrderMismatchError
+
+    for sort_order, group_id in enumerate(data.ids):
+        groups[group_id].sort_order = sort_order
+
+    await db.flush()
+
+    return [build_backoffice_notification_setting_group_dto(groups[group_id]) for group_id in data.ids]
 
 
 @transactional(unavailable_error=NotificationSettingSaveUnavailableError)
@@ -406,13 +427,16 @@ async def create_notification_setting_item(
     if data.group_id is not None:
         await get_or_404(db=db, model=NotificationSettingGroup, id=data.group_id)
 
+    stmt = select(func.coalesce(func.max(NotificationSettingItem.sort_order) + 1, 0))
+    sort_order = await db.scalar(stmt)
+
     item = NotificationSettingItem(
         group_id=data.group_id,
         kind=data.kind.value,
         title_i18n=I18n(**data.title.model_dump()),
         description_i18n=I18n(**data.description.model_dump()) if data.description is not None else None,
         default_enabled=data.default_enabled,
-        sort_order=data.sort_order,
+        sort_order=sort_order,
     )
 
     db.add(item)
@@ -429,9 +453,6 @@ async def create_notification_setting_item(
 async def update_notification_setting_item(
     *, db: AsyncSession, item: NotificationSettingItem, data: UpdateNotificationSettingItemRequest
 ) -> BackofficeNotificationSettingItemDTO:
-    if data.group_id is not MISSING and data.group_id is not None:
-        await get_or_404(db=db, model=NotificationSettingGroup, id=data.group_id)
-
     if data.title is not MISSING:
         for name, value in data.title.model_dump(exclude_unset=True).items():
             setattr(item.title_i18n, name, value)
@@ -439,9 +460,33 @@ async def update_notification_setting_item(
     if data.description is not MISSING:
         item.description_i18n = I18n(**data.description.model_dump()) if data.description is not None else None
 
-    for name, value in data.model_dump(exclude_unset=True, exclude={"title", "description"}).items():
-        setattr(item, name, value)
-
     await db.flush()
 
     return build_backoffice_notification_setting_item_dto(item)
+
+
+@transactional(unavailable_error=NotificationSettingSaveUnavailableError)
+async def reorder_notification_setting_items(
+    *, db: AsyncSession, data: ReorderNotificationSettingItemsRequest
+) -> list[BackofficeNotificationSettingItemDTO]:
+    stmt = select(NotificationSettingItem)
+    items = {item.id: item for item in (await db.scalars(stmt)).all()}
+
+    if sorted(order.id for order in data.items) != sorted(items):
+        raise NotificationSettingOrderMismatchError
+
+    group_ids = {order.group_id for order in data.items if order.group_id is not None}
+    stmt = select(func.count()).where(NotificationSettingGroup.id.in_(group_ids))
+
+    if await db.scalar(stmt) != len(group_ids):
+        raise ResourceNotFoundError
+
+    for sort_order, order in enumerate(data.items):
+        item = items[order.id]
+
+        item.group_id = order.group_id
+        item.sort_order = sort_order
+
+    await db.flush()
+
+    return [build_backoffice_notification_setting_item_dto(items[order.id]) for order in data.items]

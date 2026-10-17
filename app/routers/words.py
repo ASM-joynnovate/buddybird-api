@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import ActiveUser, DBSession, Storage, require_word
 from app.models import Word
-from app.schemas.base import BaseResponse
+from app.schemas.base import BaseResponse, ReorderRequest
 from app.schemas.words import (
     SaveWordRequest,
     WordListResponse,
@@ -57,6 +57,16 @@ async def add_recording(
     return WordRecordingUploadResponse(
         message="녹음 샘플 업로드 URL 발급 성공",
         data=await words.add_recording(db=db, storage=storage, word=word, data=body),
+    )
+
+
+@router.put("/{word_id}/recordings/order", name="녹음 샘플 순서 변경")
+async def reorder_recordings(
+    word: Annotated[Word, Depends(require_word)], body: ReorderRequest, db: DBSession, storage: Storage
+) -> WordResponse:
+    return WordResponse(
+        message="녹음 샘플 순서 변경 성공",
+        data=await words.reorder_recordings(db=db, storage=storage, word=word, data=body),
     )
 
 

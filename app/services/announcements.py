@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import transactional
 from app.enums import AnnouncementSortEnum, FileStatusEnum, LocaleEnum, SortOrderEnum
 from app.errors import (
+    AnnouncementImageOrderMismatchError,
     AnnouncementSaveUnavailableError,
     FileSizeExceededError,
     InvalidAnnouncementBodyError,
@@ -26,7 +27,7 @@ from app.schemas.announcements import (
     CreateAnnouncementRequest,
     UpdateAnnouncementRequest,
 )
-from app.schemas.base import I18nDTO, PageParams, UploadDTO, UploadRequest
+from app.schemas.base import I18nDTO, PageParams, ReorderRequest, UploadDTO, UploadRequest
 from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
 
 
@@ -274,6 +275,30 @@ async def delete_image(
     image.file.is_deleted = True
 
     await db.delete(image)
+    await db.flush()
+
+    return build_backoffice_announcement_dto(announcement, storage)
+
+
+@transactional(unavailable_error=AnnouncementSaveUnavailableError)
+async def reorder_images(
+    *, db: AsyncSession, storage: S3StorageClient, announcement: Announcement, data: ReorderRequest
+) -> BackofficeAnnouncementDTO:
+    images = {image.id: image for image in announcement.images}
+
+    if sorted(data.ids) != sorted(images):
+        raise AnnouncementImageOrderMismatchError
+
+    for display_order, image in enumerate(announcement.images):
+        image.display_order = -1 - display_order
+
+    await db.flush()
+
+    announcement.images = [images[image_id] for image_id in data.ids]
+
+    for display_order, image in enumerate(announcement.images):
+        image.display_order = display_order
+
     await db.flush()
 
     return build_backoffice_announcement_dto(announcement, storage)
