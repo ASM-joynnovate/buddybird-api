@@ -12,12 +12,13 @@ from app.errors import (
     FileSizeExceededError,
     InvalidWordRecordingError,
     ResourceNotFoundError,
+    WordRecordingOrderMismatchError,
     WordRecordingRequiredError,
     WordSaveUnavailableError,
 )
 from app.models import File, User, Word, WordRecording
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
-from app.schemas.base import FileDTO
+from app.schemas.base import FileDTO, ReorderRequest
 from app.schemas.words import (
     BackofficeWordDTO,
     BackofficeWordRecordingDTO,
@@ -238,6 +239,26 @@ async def delete_recording(*, db: AsyncSession, word: Word, recording_id: UUID) 
         recording.file.is_deleted = True
 
     await db.flush()
+
+
+@transactional(unavailable_error=WordSaveUnavailableError)
+async def reorder_recordings(
+    *, db: AsyncSession, storage: S3StorageClient, word: Word, data: ReorderRequest
+) -> WordDTO:
+    recordings = {
+        recording.id: recording
+        for recording in (await get_recordings_by_word(db=db, word_ids=[word.id])).get(word.id, [])
+    }
+
+    if sorted(data.ids) != sorted(recordings):
+        raise WordRecordingOrderMismatchError
+
+    for display_order, recording_id in enumerate(data.ids):
+        recordings[recording_id].display_order = display_order
+
+    await db.flush()
+
+    return build_word_dto(word, [recordings[recording_id] for recording_id in data.ids], storage)
 
 
 async def get_detail(*, db: AsyncSession, storage: S3StorageClient, word: Word) -> WordDTO:

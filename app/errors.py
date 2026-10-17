@@ -129,6 +129,11 @@ class InvalidWordRecordingError(CustomError):
     message = "m4a, wav, mp3 오디오만 업로드할 수 있습니다."
 
 
+class WordRecordingOrderMismatchError(CustomError):
+    error_code = "WORD__RECORDING_ORDER_MISMATCH"
+    message = "순서 목록이 현재 녹음 샘플 목록과 일치하지 않습니다."
+
+
 class SessionSaveUnavailableError(CustomError):
     status_code = 503
     error_code = "SESSION__SAVE_UNAVAILABLE"
@@ -186,6 +191,11 @@ class InvalidAnnouncementBodyError(CustomError):
     message = "본문을 새로 추가할 때는 en_us가 필요합니다."
 
 
+class AnnouncementImageOrderMismatchError(CustomError):
+    error_code = "ANNOUNCEMENT__IMAGE_ORDER_MISMATCH"
+    message = "순서 목록이 현재 공지 사진 목록과 일치하지 않습니다."
+
+
 class NotificationReadFailedError(CustomError):
     status_code = 503
     error_code = "NOTIFICATION__READ_FAILED"
@@ -218,6 +228,11 @@ class DuplicateNotificationSettingKindError(CustomError):
     status_code = 409
     error_code = "NOTIFICATION_SETTING__DUPLICATE_KIND"
     message = "같은 종류의 알림 설정 항목이 이미 있습니다."
+
+
+class NotificationSettingOrderMismatchError(CustomError):
+    error_code = "NOTIFICATION_SETTING__ORDER_MISMATCH"
+    message = "순서 목록이 현재 알림 설정 목록과 일치하지 않습니다."
 
 
 class ConsentSaveUnavailableError(CustomError):

@@ -11,7 +11,7 @@ from app.schemas.announcements import (
     CreateAnnouncementRequest,
     UpdateAnnouncementRequest,
 )
-from app.schemas.base import BaseResponse, UploadRequest, UploadResponse
+from app.schemas.base import BaseResponse, ReorderRequest, UploadRequest, UploadResponse
 from app.services import announcements
 
 router = APIRouter(prefix="/announcements")
@@ -67,6 +67,19 @@ async def add_image(
     return UploadResponse(
         message="공지 사진 업로드 URL 발급 성공",
         data=await announcements.add_image(db=db, storage=storage, announcement=announcement, data=body),
+    )
+
+
+@router.put("/{announcement_id}/images/order", name="공지 사진 순서 변경")
+async def reorder_images(
+    announcement: Annotated[Announcement, Depends(require_announcement)],
+    body: ReorderRequest,
+    db: DBSession,
+    storage: Storage,
+) -> BackofficeAnnouncementResponse:
+    return BackofficeAnnouncementResponse(
+        message="공지 사진 순서 변경 성공",
+        data=await announcements.reorder_images(db=db, storage=storage, announcement=announcement, data=body),
     )
 
 

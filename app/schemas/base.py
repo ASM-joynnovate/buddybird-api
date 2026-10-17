@@ -58,6 +58,10 @@ class UploadRequest(BaseRequest):
     file_size: int = Field(gt=0)
 
 
+class ReorderRequest(BaseRequest):
+    ids: list[UUID]
+
+
 class I18nTitleRequest(BaseRequest):
     null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
 
