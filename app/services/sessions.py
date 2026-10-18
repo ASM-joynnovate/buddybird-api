@@ -12,12 +12,13 @@ from app.db import transactional
 from app.enums import (
     FileStatusEnum,
     JudgmentStatusEnum,
+    MimicJudgmentStatusEnum,
+    ParrotDetectionStatusEnum,
     SessionActorEnum,
     SessionEndReasonEnum,
     SessionEventFileKindEnum,
     SessionEventKindEnum,
     SessionStatusEnum,
-    SoundJudgmentStatusEnum,
 )
 from app.errors import (
     DeviceNotStationError,
@@ -31,12 +32,12 @@ from app.models import (
     Device,
     File,
     LearningSegment,
+    MimicJudgment,
     Session,
     SessionEvent,
     SessionEventFile,
     SessionEventSound,
     SessionSound,
-    SoundJudgment,
     User,
     Word,
 )
@@ -82,9 +83,9 @@ PETCAM_PHOTO_TYPE = "image/jpeg"
 MAX_PETCAM_VIDEO_BYTES = 100 * 1024 * 1024
 PETCAM_VIDEO_TYPE = "video/mp4"
 LATEST_JUDGED_WORD_ID = (
-    select(SoundJudgment.word_id)
-    .where(SoundJudgment.sound_id == SessionSound.id)
-    .order_by(SoundJudgment.judged_at.desc())
+    select(MimicJudgment.word_id)
+    .where(MimicJudgment.sound_id == SessionSound.id)
+    .order_by(MimicJudgment.judged_at.desc())
     .limit(1)
     .scalar_subquery()
 )
@@ -128,7 +129,10 @@ async def get_judgment_statuses(*, db: AsyncSession, sessions: Sequence[Session]
                 [session.id for session in sessions if session.status == SessionStatusEnum.FINISHED.value]
             ),
             File.status == FileStatusEnum.UPLOADED.value,
-            SessionSound.judgment_status == SoundJudgmentStatusEnum.PENDING.value,
+            or_(
+                SessionSound.parrot_detection_status == ParrotDetectionStatusEnum.PENDING.value,
+                SessionSound.mimic_judgment_status == MimicJudgmentStatusEnum.PENDING.value,
+            ),
         )
         .distinct()
     )
