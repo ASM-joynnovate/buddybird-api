@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from app.enums import FileStatusEnum, LocaleEnum, SoundJudgmentStatusEnum
+from app.enums import FileStatusEnum, LocaleEnum, ParrotDetectionStatusEnum
 
 
 class Base(DeclarativeBase):
@@ -438,7 +438,7 @@ class SessionSound(Base):
         Index(
             "ix_session_sounds_updated_at_failed",
             "updated_at",
-            postgresql_where=text("judgment_status = 'failed'"),
+            postgresql_where=text("parrot_detection_status = 'failed'"),
         ),
     )
 
@@ -449,18 +449,19 @@ class SessionSound(Base):
     audio_file: Mapped[File] = relationship(lazy="selectin")
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_parrot_sound: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    judgment_status: Mapped[str] = mapped_column(
+    parrot_detection_status: Mapped[str] = mapped_column(
         Text,
         nullable=False,
-        default=SoundJudgmentStatusEnum.PENDING.value,
-        server_default=SoundJudgmentStatusEnum.PENDING.value,
+        default=ParrotDetectionStatusEnum.PENDING.value,
+        server_default=ParrotDetectionStatusEnum.PENDING.value,
     )
+    mimic_judgment_status: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
 
-class SoundJudgment(Base):
-    __tablename__ = "sound_judgments"
-    __table_args__ = (Index("ix_sound_judgments_sound_id_judged_at", "sound_id", "judged_at"),)
+class MimicJudgment(Base):
+    __tablename__ = "mimic_judgments"
+    __table_args__ = (Index("ix_mimic_judgments_sound_id_judged_at", "sound_id", "judged_at"),)
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=False)
@@ -470,10 +471,10 @@ class SoundJudgment(Base):
     judged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-class SoundAnalysis(Base):
-    __tablename__ = "sound_analyses"
+class ParrotDetection(Base):
+    __tablename__ = "parrot_detections"
     __table_args__ = (
-        UniqueConstraint("sound_id", "analyzer_version", name="uq_sound_analyses_sound_id_analyzer_version"),
+        UniqueConstraint("sound_id", "analyzer_version", name="uq_parrot_detections_sound_id_analyzer_version"),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)

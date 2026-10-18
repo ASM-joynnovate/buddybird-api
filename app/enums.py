@@ -110,7 +110,13 @@ class JudgmentStatusEnum(StrEnum):
     DONE = "done"
 
 
-class SoundJudgmentStatusEnum(StrEnum):
+class ParrotDetectionStatusEnum(StrEnum):
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class MimicJudgmentStatusEnum(StrEnum):
     PENDING = "pending"
     DONE = "done"
     FAILED = "failed"
