@@ -16,12 +16,12 @@ from app.models import (
     Device,
     Notification,
     Parrot,
+    ParrotDetection,
     Session,
     SessionEvent,
     SessionEventFile,
     SessionEventSound,
     SessionSound,
-    SoundAnalysis,
     User,
 )
 from app.s3 import S3StorageClient
@@ -176,11 +176,11 @@ async def get_backoffice_list(
         sounds.setdefault(event_id, []).append(sound)
 
     stmt = (
-        select(SoundAnalysis.sound_id, SoundAnalysis.score, SoundAnalysis.chirp_count)
-        .distinct(SoundAnalysis.sound_id)
-        .join(SessionEventSound, SessionEventSound.sound_id == SoundAnalysis.sound_id)
+        select(ParrotDetection.sound_id, ParrotDetection.score, ParrotDetection.chirp_count)
+        .distinct(ParrotDetection.sound_id)
+        .join(SessionEventSound, SessionEventSound.sound_id == ParrotDetection.sound_id)
         .where(SessionEventSound.event_id.in_(event_ids))
-        .order_by(SoundAnalysis.sound_id, SoundAnalysis.analyzed_at.desc())
+        .order_by(ParrotDetection.sound_id, ParrotDetection.analyzed_at.desc())
     )
     analyses = {analysis.sound_id: analysis for analysis in (await db.execute(stmt)).all()}
 

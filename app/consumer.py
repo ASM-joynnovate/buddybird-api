@@ -15,7 +15,12 @@ from app.config import config
 from app.db import session_factory
 from app.services import uploads
 from app.services.notifications import deliver, dispatch_due_pushes, send_report
-from app.services.session_sounds import mark_parrot_detection_failed, save_parrot_detection
+from app.services.session_sounds import (
+    mark_mimic_judgment_failed,
+    mark_parrot_detection_failed,
+    save_mimic_judgment,
+    save_parrot_detection,
+)
 from app.services.sessions import finish_expired_sessions
 from app.services.withdrawals import dispatch_due_withdrawals, process_user_withdrawal
 from app.sqs import get_sqs
@@ -50,14 +55,26 @@ async def run_periodic_command(body: dict) -> None:
         await dispatch_due_pushes()
 
 
-async def save_parrot_sound_detection(body: dict) -> None:
+async def save_judgment_result(body: dict) -> None:
     async with session_factory() as db:
-        session_ids = await save_parrot_detection(
-            db=db,
-            analyzer_version=body["analyzer_version"],
-            analyzed_at=datetime.fromisoformat(body["analyzed_at"]),
-            data=body["data"],
-        )
+        if body["type"] == "audio.parrot_detected":
+            session_ids = await save_parrot_detection(
+                db=db,
+                model_version=body["model_version"],
+                analyzed_at=datetime.fromisoformat(body["analyzed_at"]),
+                data=body["data"],
+            )
+        else:
+            await save_mimic_judgment(
+                db=db,
+                sound_id=UUID(body["target"]["audio_id"]),
+                word_id=UUID(body["reference"]["word_id"]),
+                model_version=body["model_version"],
+                judged_at=datetime.fromisoformat(body["analyzed_at"]),
+                judgment=body["judgment"],
+            )
+
+            session_ids = [UUID(body["session_id"])]
 
         await send_report(db=db, session_ids=session_ids)
 
@@ -67,6 +84,15 @@ async def mark_parrot_sound_detection_failed(body: dict) -> None:
         await mark_parrot_detection_failed(db=db, data=body["data"])
 
         logger.error("앵무새 소리 판별 실패; session_id=%s data=%s", body["session_id"], body["data"])
+
+        await send_report(db=db, session_ids=[UUID(body["session_id"])])
+
+
+async def mark_mimicry_judgment_failed(body: dict) -> None:
+    async with session_factory() as db:
+        await mark_mimic_judgment_failed(db=db, sound_id=UUID(body["target"]["audio_id"]))
+
+        logger.error("단어 모사 판정 실패; session_id=%s target=%s", body["session_id"], body["target"])
 
         await send_report(db=db, session_ids=[UUID(body["session_id"])])
 
@@ -156,8 +182,9 @@ async def main() -> None:
             consume(queue_url=config.SQS_NOTIFICATION_QUEUE_URL, handle=send_notification),
             consume(queue_url=config.SQS_WITHDRAWAL_QUEUE_URL, handle=process_withdrawal),
             consume(queue_url=config.SQS_PERIODIC_COMMAND_QUEUE_URL, handle=run_periodic_command),
-            consume(queue_url=config.SQS_JUDGMENT_RESULT_QUEUE_URL, handle=save_parrot_sound_detection),
+            consume(queue_url=config.SQS_JUDGMENT_RESULT_QUEUE_URL, handle=save_judgment_result),
             consume(queue_url=config.SQS_PARROT_SOUND_DETECTION_DLQ_URL, handle=mark_parrot_sound_detection_failed),
+            consume(queue_url=config.SQS_MIMICRY_JUDGMENT_DLQ_URL, handle=mark_mimicry_judgment_failed),
         )
     except asyncio.CancelledError:
         logger.info("종료 신호를 받아 consumer를 종료함")

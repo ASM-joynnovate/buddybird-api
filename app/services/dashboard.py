@@ -9,11 +9,11 @@ from app.enums import (
     EmergencyNotificationEnum,
     NotificationKindEnum,
     OAuthProviderEnum,
+    ParrotDetectionStatusEnum,
     SessionEndReasonEnum,
     SessionEventKindEnum,
     SessionPhaseEnum,
     SessionStatusEnum,
-    SoundJudgmentStatusEnum,
     UserIssueEnum,
     UserLastSessionEnum,
     WithdrawalSessionRangeEnum,
@@ -30,10 +30,10 @@ from app.models import (
     I18n,
     Notification,
     Parrot,
+    ParrotDetection,
     Session,
     SessionEvent,
     SessionSound,
-    SoundAnalysis,
     User,
     UserConsent,
     UserIdentity,
@@ -421,11 +421,11 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         select(func.count())
         .select_from(SessionSound)
         .where(
-            SessionSound.judgment_status == SoundJudgmentStatusEnum.FAILED.value,
+            SessionSound.parrot_detection_status == ParrotDetectionStatusEnum.FAILED.value,
             SessionSound.updated_at >= since,
         )
     )
-    judgment_failed_count = await db.scalar(stmt)
+    parrot_detection_failed_count = await db.scalar(stmt)
 
     stmt = (
         select(func.count())
@@ -456,7 +456,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
                 heartbeat_expired_count=session_counts.heartbeat_expired_count,
                 distress_call_detected_count=distress_call_detected_count,
                 parrot_disappeared_count=parrot_disappeared_count,
-                judgment_failed_count=judgment_failed_count,
+                parrot_detection_failed_count=parrot_detection_failed_count,
             ),
         ),
         withdrawals=DashboardLiveWithdrawalsDTO(failed_count=failed_withdrawal_count),
@@ -906,7 +906,7 @@ async def get_emergency_dashboard(
         .where(
             SessionSound.captured_at >= period_start,
             SessionSound.captured_at < period_end,
-            exists().where(SoundAnalysis.sound_id == SessionSound.id),
+            exists().where(ParrotDetection.sound_id == SessionSound.id),
         )
         .execution_options(include_deleted=True)
     )

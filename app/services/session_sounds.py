@@ -7,19 +7,23 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager
 
+from app import sqs
+from app.config import config
 from app.db import transactional
-from app.enums import FileStatusEnum, SessionEventKindEnum, SoundJudgmentStatusEnum
+from app.enums import FileStatusEnum, MimicJudgmentStatusEnum, ParrotDetectionStatusEnum, SessionEventKindEnum
 from app.errors import FileSizeExceededError, InvalidSessionSoundError, SessionSaveUnavailableError
 from app.models import (
     Device,
     File,
+    MimicJudgment,
+    ParrotDetection,
     Session,
     SessionEvent,
     SessionEventSound,
     SessionSound,
-    SoundAnalysis,
-    SoundJudgment,
     User,
+    Word,
+    WordRecording,
 )
 from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
 from app.schemas.base import FileDTO, PageParams, UploadDTO
@@ -43,18 +47,18 @@ async def build_sound_dtos(
     sound_ids = [sound.id for sound in sounds]
 
     stmt = (
-        select(SoundJudgment.sound_id, SoundJudgment.word_id, SoundJudgment.score)
-        .distinct(SoundJudgment.sound_id)
-        .where(SoundJudgment.sound_id.in_(sound_ids))
-        .order_by(SoundJudgment.sound_id, SoundJudgment.judged_at.desc())
+        select(MimicJudgment.sound_id, MimicJudgment.word_id, MimicJudgment.score)
+        .distinct(MimicJudgment.sound_id)
+        .where(MimicJudgment.sound_id.in_(sound_ids))
+        .order_by(MimicJudgment.sound_id, MimicJudgment.judged_at.desc())
     )
     judgments = {judgment.sound_id: judgment for judgment in (await db.execute(stmt)).all()}
 
     stmt = (
-        select(SoundAnalysis.sound_id, SoundAnalysis.score)
-        .distinct(SoundAnalysis.sound_id)
-        .where(SoundAnalysis.sound_id.in_(sound_ids))
-        .order_by(SoundAnalysis.sound_id, SoundAnalysis.analyzed_at.desc())
+        select(ParrotDetection.sound_id, ParrotDetection.score)
+        .distinct(ParrotDetection.sound_id)
+        .where(ParrotDetection.sound_id.in_(sound_ids))
+        .order_by(ParrotDetection.sound_id, ParrotDetection.analyzed_at.desc())
     )
     analysis_scores = {analysis.sound_id: analysis.score for analysis in (await db.execute(stmt)).all()}
 
@@ -86,7 +90,7 @@ async def get_list(
         .where(
             SessionSound.session_id == session.id,
             SessionSound.is_parrot_sound.is_not(False),
-            SessionSound.judgment_status != SoundJudgmentStatusEnum.FAILED.value,
+            SessionSound.parrot_detection_status != ParrotDetectionStatusEnum.FAILED.value,
             or_(
                 File.status == FileStatusEnum.UPLOADED.value,
                 and_(
@@ -123,7 +127,7 @@ async def get_user_list(
         .where(
             Session.user_id == user.id,
             SessionSound.is_parrot_sound.is_not(False),
-            SessionSound.judgment_status != SoundJudgmentStatusEnum.FAILED.value,
+            SessionSound.parrot_detection_status != ParrotDetectionStatusEnum.FAILED.value,
             File.status == FileStatusEnum.UPLOADED.value,
         )
     )
@@ -212,9 +216,9 @@ async def upload(
 async def detect_emergency(*, db: AsyncSession, session_id: UUID, captured_at: datetime) -> None:
     window_size = timedelta(seconds=30)
     latest_chirp_count = (
-        select(SoundAnalysis.chirp_count)
-        .where(SoundAnalysis.sound_id == SessionSound.id)
-        .order_by(SoundAnalysis.analyzed_at.desc())
+        select(ParrotDetection.chirp_count)
+        .where(ParrotDetection.sound_id == SessionSound.id)
+        .order_by(ParrotDetection.analyzed_at.desc())
         .limit(1)
         .scalar_subquery()
     )
@@ -291,7 +295,7 @@ async def detect_emergency(*, db: AsyncSession, session_id: UUID, captured_at: d
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
 async def save_parrot_detection(
-    *, db: AsyncSession, analyzer_version: str, analyzed_at: datetime, data: list[dict]
+    *, db: AsyncSession, model_version: str, analyzed_at: datetime, data: list[dict]
 ) -> list[UUID]:
     session_ids = set()
 
@@ -307,23 +311,23 @@ async def save_parrot_detection(
         await db.execute(stmt)
 
         await db.execute(
-            insert(SoundAnalysis)
+            insert(ParrotDetection)
             .values(
                 sound_id=sound_id,
-                analyzer_version=analyzer_version,
+                model_version=model_version,
                 is_parrot=item["is_parrot"],
                 score=item["score"],
                 call_count=item["call_count"],
                 chirp_count=item["chirp_count"],
                 analyzed_at=analyzed_at,
             )
-            .on_conflict_do_nothing(index_elements=[SoundAnalysis.sound_id, SoundAnalysis.analyzer_version])
+            .on_conflict_do_nothing(index_elements=[ParrotDetection.sound_id, ParrotDetection.model_version])
         )
 
         latest_is_parrot = (
-            select(SoundAnalysis.is_parrot)
-            .where(SoundAnalysis.sound_id == sound_id)
-            .order_by(SoundAnalysis.analyzed_at.desc())
+            select(ParrotDetection.is_parrot)
+            .where(ParrotDetection.sound_id == sound_id)
+            .order_by(ParrotDetection.analyzed_at.desc())
             .limit(1)
             .scalar_subquery()
         )
@@ -331,14 +335,64 @@ async def save_parrot_detection(
             await db.execute(
                 update(SessionSound)
                 .where(SessionSound.id == sound_id)
-                .values(is_parrot_sound=latest_is_parrot, judgment_status=SoundJudgmentStatusEnum.DONE.value)
-                .returning(SessionSound.session_id, SessionSound.captured_at)
+                .values(
+                    is_parrot_sound=latest_is_parrot,
+                    parrot_detection_status=ParrotDetectionStatusEnum.DONE.value,
+                )
+                .returning(
+                    SessionSound.session_id,
+                    SessionSound.captured_at,
+                    SessionSound.audio_file_id,
+                    SessionSound.is_parrot_sound,
+                )
             )
         ).one()
 
         await detect_emergency(db=db, session_id=sound.session_id, captured_at=sound.captured_at)
 
         session_ids.add(sound.session_id)
+
+        if not sound.is_parrot_sound:
+            continue
+
+        await db.execute(
+            update(SessionSound)
+            .where(SessionSound.id == sound_id)
+            .values(mimic_judgment_status=MimicJudgmentStatusEnum.PENDING.value)
+        )
+
+        stmt = select(File).where(File.id == sound.audio_file_id).execution_options(include_deleted=True)
+        audio_file = await db.scalar(stmt)
+
+        stmt = (
+            select(Word)
+            .join(Session, Session.word_id == Word.id)
+            .where(Session.id == sound.session_id)
+            .execution_options(include_deleted=True)
+        )
+        word = await db.scalar(stmt)
+
+        stmt = (
+            select(File)
+            .join(WordRecording, WordRecording.file_id == File.id)
+            .where(WordRecording.word_id == word.id, File.status == FileStatusEnum.UPLOADED.value)
+            .order_by(WordRecording.display_order, WordRecording.created_at)
+        )
+        recording_files = (await db.scalars(stmt)).all()
+
+        await sqs.send(
+            queue_url=config.SQS_MIMICRY_JUDGMENT_QUEUE_URL,
+            body={
+                "type": "audio.judge_mimic",
+                "session_id": str(sound.session_id),
+                "target": {"audio_id": str(sound_id), "object_key": audio_file.object_key},
+                "reference": {
+                    "word_id": str(word.id),
+                    "word_name": word.name,
+                    "object_keys": [file.object_key for file in recording_files],
+                },
+            },
+        )
 
     return list(session_ids)
 
@@ -349,7 +403,43 @@ async def mark_parrot_detection_failed(*, db: AsyncSession, data: list[dict]) ->
         update(SessionSound)
         .where(
             SessionSound.id.in_([UUID(item["audio_id"]) for item in data]),
-            SessionSound.judgment_status == SoundJudgmentStatusEnum.PENDING.value,
+            SessionSound.parrot_detection_status == ParrotDetectionStatusEnum.PENDING.value,
         )
-        .values(judgment_status=SoundJudgmentStatusEnum.FAILED.value)
+        .values(parrot_detection_status=ParrotDetectionStatusEnum.FAILED.value)
+    )
+
+
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def save_mimic_judgment(
+    *, db: AsyncSession, sound_id: UUID, word_id: UUID, model_version: str, judged_at: datetime, judgment: dict
+) -> None:
+    await db.execute(
+        update(SessionSound)
+        .where(SessionSound.id == sound_id)
+        .values(mimic_judgment_status=MimicJudgmentStatusEnum.DONE.value)
+    )
+
+    if judgment["status"] == "no_reference":
+        return
+
+    db.add(
+        MimicJudgment(
+            sound_id=sound_id,
+            word_id=word_id if judgment["is_success"] else None,
+            score=judgment["score"],
+            model_version=model_version,
+            judged_at=judged_at,
+        )
+    )
+
+
+@transactional(unavailable_error=SessionSaveUnavailableError)
+async def mark_mimic_judgment_failed(*, db: AsyncSession, sound_id: UUID) -> None:
+    await db.execute(
+        update(SessionSound)
+        .where(
+            SessionSound.id == sound_id,
+            SessionSound.mimic_judgment_status == MimicJudgmentStatusEnum.PENDING.value,
+        )
+        .values(mimic_judgment_status=MimicJudgmentStatusEnum.FAILED.value)
     )
