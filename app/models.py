@@ -474,12 +474,12 @@ class MimicJudgment(Base):
 class ParrotDetection(Base):
     __tablename__ = "parrot_detections"
     __table_args__ = (
-        UniqueConstraint("sound_id", "analyzer_version", name="uq_parrot_detections_sound_id_analyzer_version"),
+        UniqueConstraint("sound_id", "model_version", name="uq_parrot_detections_sound_id_model_version"),
     )
 
     id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
     sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=False)
-    analyzer_version: Mapped[str] = mapped_column(Text, nullable=False)
+    model_version: Mapped[str] = mapped_column(Text, nullable=False)
     is_parrot: Mapped[bool] = mapped_column(Boolean, nullable=False)
     score: Mapped[float] = mapped_column(Double, nullable=False)
     call_count: Mapped[int] = mapped_column(Integer, nullable=False)

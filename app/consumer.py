@@ -60,7 +60,7 @@ async def save_judgment_result(body: dict) -> None:
         if body["type"] == "audio.parrot_detected":
             session_ids = await save_parrot_detection(
                 db=db,
-                analyzer_version=body["analyzer_version"],
+                model_version=body["model_version"],
                 analyzed_at=datetime.fromisoformat(body["analyzed_at"]),
                 data=body["data"],
             )
