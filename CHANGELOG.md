@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.22.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.21.0...v2.22.0) (2026-10-18)
+
+
+### Features
+
+* **session-sounds:** request mimic judgment ([#167](https://github.com/ASM-joynnovate/buddybird-api/issues/167)) ([cc05ec1](https://github.com/ASM-joynnovate/buddybird-api/commit/cc05ec1718db1b527576afab187ce18c48314038))
+
 ## [2.21.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.20.0...v2.21.0) (2026-10-17)
 
 
