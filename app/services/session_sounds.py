@@ -295,7 +295,7 @@ async def detect_emergency(*, db: AsyncSession, session_id: UUID, captured_at: d
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
 async def save_parrot_detection(
-    *, db: AsyncSession, analyzer_version: str, analyzed_at: datetime, data: list[dict]
+    *, db: AsyncSession, model_version: str, analyzed_at: datetime, data: list[dict]
 ) -> list[UUID]:
     session_ids = set()
 
@@ -314,14 +314,14 @@ async def save_parrot_detection(
             insert(ParrotDetection)
             .values(
                 sound_id=sound_id,
-                analyzer_version=analyzer_version,
+                model_version=model_version,
                 is_parrot=item["is_parrot"],
                 score=item["score"],
                 call_count=item["call_count"],
                 chirp_count=item["chirp_count"],
                 analyzed_at=analyzed_at,
             )
-            .on_conflict_do_nothing(index_elements=[ParrotDetection.sound_id, ParrotDetection.analyzer_version])
+            .on_conflict_do_nothing(index_elements=[ParrotDetection.sound_id, ParrotDetection.model_version])
         )
 
         latest_is_parrot = (
