@@ -21,7 +21,8 @@ from app.schemas.reports import (
     ReportWordDTO,
 )
 from app.schemas.sessions import ActiveDurationDTO, SessionJudgmentDTO
-from app.services.sessions import LATEST_JUDGED_WORD_ID, get_active_periods, get_judgment_statuses
+from app.services.session_periods import get_active_periods
+from app.services.sessions import LATEST_JUDGED_WORD_ID, get_judgment_statuses
 
 
 async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timezone: str) -> ReportDTO:

@@ -20,6 +20,7 @@ from app.enums import (
     WithdrawalStatusEnum,
     WithdrawalUsagePeriodEnum,
 )
+from app.file import build_file_dto
 from app.models import (
     Announcement,
     AnnouncementRead,
@@ -932,7 +933,7 @@ async def get_emergency_dashboard(
             EmergencyDashboardUserDTO(
                 id=row.User.id,
                 nickname=row.User.nickname,
-                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
                 sound_count=row.sound_count,
                 vision_count=row.vision_count,
             )

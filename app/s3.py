@@ -7,9 +7,7 @@ import boto3
 from botocore.config import Config
 
 from app.config import config
-from app.enums import FileStatusEnum
-from app.models import File
-from app.schemas.base import FileDTO, UploadDTO
+from app.schemas.base import UploadDTO
 
 if TYPE_CHECKING:
     # 개발 의존성으로 선언한 S3 타입 정보
@@ -78,12 +76,6 @@ class S3StorageClient:
             Params={"Bucket": config.S3_BUCKET_NAME, "Key": path},
             ExpiresIn=expires_in,
         )
-
-    def generate_file_dto(self, *, file: File | None) -> FileDTO | None:
-        if file is None:
-            return None
-
-        return FileDTO(url=self.generate_presigned_url(path=file.object_key), status=FileStatusEnum(file.status))
 
     def generate_presigned_upload(self, *, file_id: UUID, path: str, content_type: str, file_size: int) -> UploadDTO:
         url = self._client.generate_presigned_url(

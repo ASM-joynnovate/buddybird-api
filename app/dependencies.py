@@ -22,10 +22,13 @@ from app.errors import (
 )
 from app.middlewares import AuthContext
 from app.models import (
+    AbuseReport,
     Announcement,
     AppUpdate,
     Consent,
     Device,
+    FeedItem,
+    FeedReactionType,
     Notification,
     NotificationSettingGroup,
     NotificationSettingItem,
@@ -182,6 +185,17 @@ async def require_backoffice_user(db: DBSession, user_id: UUID) -> User:
     return user
 
 
+async def require_backoffice_parrot(
+    user: Annotated[User, Depends(require_backoffice_user)], db: DBSession, parrot_id: UUID
+) -> Parrot:
+    parrot = await get_or_404(db=db, model=Parrot, id=parrot_id)
+
+    if parrot.user_id != user.id:
+        raise ResourceNotFoundError
+
+    return parrot
+
+
 async def require_backoffice_session(db: DBSession, session_id: UUID) -> Session:
     return await get_or_404(db=db, model=Session, id=session_id)
 
@@ -200,6 +214,18 @@ async def require_notification_setting_group(db: DBSession, group_id: UUID) -> N
 
 async def require_notification_setting_item(db: DBSession, item_id: UUID) -> NotificationSettingItem:
     return await get_or_404(db=db, model=NotificationSettingItem, id=item_id)
+
+
+async def require_feed_item(db: DBSession, feed_item_id: UUID) -> FeedItem:
+    return await get_or_404(db=db, model=FeedItem, id=feed_item_id)
+
+
+async def require_feed_reaction_type(db: DBSession, reaction_type_id: UUID) -> FeedReactionType:
+    return await get_or_404(db=db, model=FeedReactionType, id=reaction_type_id)
+
+
+async def require_abuse_report(db: DBSession, abuse_report_id: UUID) -> AbuseReport:
+    return await get_or_404(db=db, model=AbuseReport, id=abuse_report_id)
 
 
 async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
 from app.errors import FeedbackSaveUnavailableError
+from app.file import build_file_dto
 from app.models import Device, Feedback, User
 from app.s3 import S3StorageClient
 from app.schemas.feedback import (
@@ -108,7 +109,7 @@ async def get_backoffice_list(
                 email=row.User.email,
                 is_anonymous=row.User.is_anonymous,
                 is_deleted=row.User.is_deleted,
-                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
             ),
             device=BackofficeFeedbackDeviceDTO(
                 platform=row.Device.platform,

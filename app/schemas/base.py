@@ -129,6 +129,10 @@ class FileDTO(CustomBaseModel):
     status: FileStatusEnum
 
 
+class PublicFileDTO(CustomBaseModel):
+    url: str
+
+
 class I18nDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
 

@@ -30,9 +30,18 @@ class NotificationSettingsDTO(CustomBaseModel):
     marketing_night_enabled: bool
 
 
+class CommunitySettingsDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"feed_recording_sharing_enabled"}
+
+    leaderboard_enabled: bool
+    feed_enabled: bool
+    feed_recording_sharing_enabled: bool | None
+
+
 class SettingsDTO(CustomBaseModel):
     sleep: SleepSettingsDTO
     notifications: NotificationSettingsDTO
+    community: CommunitySettingsDTO
 
 
 class SettingsResponse(BaseResponse):
@@ -42,6 +51,12 @@ class SettingsResponse(BaseResponse):
 class UpdateSleepSettingsRequest(BaseRequest):
     sleep_at: time
     wake_at: time
+
+
+class UpdateCommunitySettingsRequest(BaseRequest):
+    leaderboard_enabled: bool | MISSING = MISSING
+    feed_enabled: bool | MISSING = MISSING
+    feed_recording_sharing_enabled: bool | MISSING = MISSING
 
 
 class UpdateNotificationSettingsRequest(BaseRequest):

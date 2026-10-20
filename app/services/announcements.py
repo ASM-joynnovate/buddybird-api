@@ -30,7 +30,7 @@ from app.schemas.announcements import (
     UpdateAnnouncementRequest,
 )
 from app.schemas.base import I18nDTO, PageParams, UploadDTO, UploadRequest
-from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES
+from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES
 
 
 def build_announcement_dto(
