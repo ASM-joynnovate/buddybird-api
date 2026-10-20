@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.23.0...v2.24.0) (2026-10-20)
+
+
+### Features
+
+* **feed:** add feed, leaderboard, abuse reports and user blocks ([#172](https://github.com/ASM-joynnovate/buddybird-api/issues/172)) ([2d40412](https://github.com/ASM-joynnovate/buddybird-api/commit/2d40412b2035331ab3f9ca8e29762c808671600e))
+
 ## [2.23.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.22.0...v2.23.0) (2026-10-18)
 
 
