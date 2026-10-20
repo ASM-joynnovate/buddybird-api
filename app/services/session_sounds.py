@@ -10,7 +10,13 @@ from sqlalchemy.orm import contains_eager
 from app import sqs
 from app.config import config
 from app.db import transactional
-from app.enums import FileStatusEnum, MimicJudgmentStatusEnum, ParrotDetectionStatusEnum, SessionEventKindEnum
+from app.enums import (
+    FeedItemKindEnum,
+    FileStatusEnum,
+    MimicJudgmentStatusEnum,
+    ParrotDetectionStatusEnum,
+    SessionEventKindEnum,
+)
 from app.errors import FileSizeExceededError, InvalidSessionSoundError, SessionSaveUnavailableError
 from app.models import (
     Device,
@@ -35,6 +41,7 @@ from app.schemas.sessions import (
     SessionSoundListParams,
     SessionSoundUploadRequest,
 )
+from app.services.feed import add_items
 from app.services.sessions import LATEST_JUDGED_WORD_ID, verify_station
 
 MAX_SOUND_BYTES = 5 * 1024 * 1024
@@ -430,6 +437,29 @@ async def save_mimic_judgment(
             model_version=model_version,
             judged_at=judged_at,
         )
+    )
+
+    if not judgment["is_success"]:
+        return
+
+    stmt = (
+        select(Session.user_id, SessionSound.audio_file_id)
+        .join(Session, Session.id == SessionSound.session_id)
+        .where(SessionSound.id == sound_id)
+    )
+    sound = (await db.execute(stmt)).first()
+
+    if sound is None:
+        return
+
+    stmt = select(Word.name).where(Word.id == word_id).execution_options(include_deleted=True)
+    word_name = await db.scalar(stmt)
+
+    await add_items(
+        db=db,
+        user_id=sound.user_id,
+        now=datetime.now(UTC),
+        items=[{"kind": FeedItemKindEnum.MIMIC_SUCCEEDED, "file_id": sound.audio_file_id, "word_name": word_name}],
     )
 
 

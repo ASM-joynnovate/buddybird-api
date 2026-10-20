@@ -283,6 +283,39 @@ class PetcamTurnUnavailableError(CustomError):
     message = "영상 중계 접속 정보를 일시적으로 발급할 수 없습니다."
 
 
+class ScoreSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "SCORE__SAVE_UNAVAILABLE"
+    message = "점수를 일시적으로 저장할 수 없습니다."
+
+
+class SelfTargetError(CustomError):
+    error_code = "USER__SELF_TARGET"
+    message = "자기 자신은 차단하거나 신고할 수 없습니다."
+
+
+class FeedSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "FEED__SAVE_UNAVAILABLE"
+    message = "피드 정보를 일시적으로 저장할 수 없습니다."
+
+
+class InvalidFeedReactionTypeImageError(CustomError):
+    error_code = "FEED__INVALID_REACTION_TYPE_IMAGE"
+    message = "PNG, JPEG, SVG 이미지만 업로드할 수 있습니다."
+
+
+class FeedReactionTypeOrderMismatchError(CustomError):
+    error_code = "FEED__REACTION_TYPE_ORDER_MISMATCH"
+    message = "순서 목록이 현재 반응 종류 목록과 일치하지 않습니다."
+
+
+class AbuseReportSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "ABUSE_REPORT__SAVE_UNAVAILABLE"
+    message = "신고를 일시적으로 저장할 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomError)
     async def custom_exception_handler(_: Request, exc: CustomError) -> JSONResponse:

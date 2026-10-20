@@ -44,16 +44,18 @@ from app.errors import (
     DuplicateNicknameError,
     FileSizeExceededError,
     InvalidProfilePhotoError,
+    ResourceNotFoundError,
     UserSaveUnavailableError,
 )
+from app.file import build_file_dto
 from app.models import (
     Device,
-    DeviceActivity,
     File,
     Parrot,
     Session,
     SessionEvent,
     User,
+    UserBlock,
     UserIdentity,
     UserSetting,
     UserWithdrawal,
@@ -71,20 +73,20 @@ from app.schemas.users import (
     BackofficeUserListParams,
     BackofficeUserParrotDTO,
     BackofficeUserSessionDTO,
+    CommunityUserDetailDTO,
     UpdateUserRequest,
     UserDTO,
 )
 from app.services import devices
+from app.services.feed import PUBLIC_USER, build_community_users
 from app.services.sessions import SESSION_COUNT
 from app.services.settings import ITEM_ENABLED, build_settings_dto
 from app.services.withdrawals import build_backoffice_withdrawal_dto
-from app.utils import SEOUL
+from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL
 
 logger = logging.getLogger(__name__)
 
-MAX_PHOTO_BYTES = 5 * 1024 * 1024
 MAX_PHOTO_PIXELS = 20_000_000
-PHOTO_TYPES = {"image/jpeg", "image/png"}
 SOCIAL_PHOTO_TYPES = {"image/jpeg": "profile.jpg", "image/png": "profile.png", "image/webp": "profile.webp"}
 SOCIAL_PHOTO_HOSTS = {
     "google": {"googleusercontent.com", "lh3.googleusercontent.com"},
@@ -259,9 +261,31 @@ async def get_profile(*, db: AsyncSession, user: User, storage: S3StorageClient)
         id=user.id,
         email=user.email,
         nickname=user.nickname,
-        photo_file=storage.generate_file_dto(file=user.photo_file),
-        uploading_photo_file=storage.generate_file_dto(file=uploading_photo_file),
+        photo_file=build_file_dto(storage=storage, file=user.photo_file),
+        uploading_photo_file=build_file_dto(storage=storage, file=uploading_photo_file),
+        country=user.country,
     )
+
+
+async def get_community_profile(
+    *, db: AsyncSession, storage: S3StorageClient, user: User, target_user_id: UUID
+) -> CommunityUserDetailDTO:
+    stmt = select(User).where(User.id == target_user_id)
+
+    if target_user_id != user.id:
+        stmt = stmt.where(PUBLIC_USER)
+
+    target_user = await db.scalar(stmt)
+
+    if target_user is None:
+        raise ResourceNotFoundError
+
+    users = await build_community_users(db=db, storage=storage, users=[target_user])
+
+    stmt = select(exists().where(UserBlock.user_id == user.id, UserBlock.blocked_user_id == target_user.id))
+    is_blocked = await db.scalar(stmt)
+
+    return CommunityUserDetailDTO(**users[target_user.id].model_dump(), is_blocked=is_blocked)
 
 
 def build_backoffice_user_dto(user: User) -> BackofficeUserDTO:
@@ -269,6 +293,7 @@ def build_backoffice_user_dto(user: User) -> BackofficeUserDTO:
         id=user.id,
         email=user.email,
         nickname=user.nickname,
+        country=user.country,
         is_anonymous=user.is_anonymous,
         is_deleted=user.is_deleted,
         created_at=user.created_at,
@@ -327,21 +352,7 @@ async def get_backoffice_list(
         )
 
     if query.country is not None:
-        last_countries = (
-            select(DeviceActivity.user_id, DeviceActivity.country)
-            .join(Device, Device.id == DeviceActivity.device_id)
-            .distinct(DeviceActivity.user_id)
-            .order_by(
-                DeviceActivity.user_id,
-                DeviceActivity.activity_date.desc(),
-                Device.last_seen_at.desc().nulls_last(),
-            )
-            .subquery()
-        )
-
-        conditions.append(
-            User.id.in_(select(last_countries.c.user_id).where(last_countries.c.country == query.country))
-        )
+        conditions.append(User.country == query.country)
 
     if query.locale is not None:
         last_locale = (
@@ -504,11 +515,11 @@ async def get_backoffice_list(
     items = [
         BackofficeUserListItemDTO(
             **build_backoffice_user_dto(row.User).model_dump(),
-            photo_file=storage.generate_file_dto(file=row.User.photo_file),
+            photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
             first_parrot=BackofficeUserParrotDTO(
                 name=row.parrot_name,
                 species=row.parrot_species,
-                photo_file=storage.generate_file_dto(file=row.parrot_photo_file),
+                photo_file=build_file_dto(storage=storage, file=row.parrot_photo_file),
             )
             if row.parrot_name is not None
             else None,
@@ -557,7 +568,7 @@ async def get_backoffice_detail(*, db: AsyncSession, storage: S3StorageClient, u
 
     return BackofficeUserDetailDTO(
         **build_backoffice_user_dto(user).model_dump(),
-        photo_file=storage.generate_file_dto(file=user.photo_file),
+        photo_file=build_file_dto(storage=storage, file=user.photo_file),
         providers=providers,
         settings=await build_settings_dto(db=db, setting=setting) if setting is not None else None,
         parrots=[
@@ -566,7 +577,7 @@ async def get_backoffice_detail(*, db: AsyncSession, storage: S3StorageClient, u
                 name=parrot.name,
                 species=parrot.species,
                 birthdate=parrot.birthdate,
-                photo_file=storage.generate_file_dto(file=parrot.photo_file),
+                photo_file=build_file_dto(storage=storage, file=parrot.photo_file),
                 created_at=parrot.created_at,
             )
             for parrot in parrots
@@ -589,12 +600,8 @@ async def save_identities(*, db: AsyncSession, user_id: UUID, providers: list[st
 
 @transactional(unavailable_error=UserSaveUnavailableError)
 async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserRequest) -> None:
-    changes = data.model_dump(exclude_unset=True)
-
-    if "nickname" not in changes:
-        return
-
-    user.nickname = changes["nickname"]
+    for name, value in data.model_dump(exclude_unset=True).items():
+        setattr(user, name, value)
 
     try:
         await db.flush()

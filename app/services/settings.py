@@ -30,6 +30,7 @@ from app.schemas.settings import (
     BackofficeUserNotificationSettingGroupDTO,
     BackofficeUserNotificationSettingItemDTO,
     BackofficeUserNotificationSettingListDTO,
+    CommunitySettingsDTO,
     CreateNotificationSettingGroupRequest,
     CreateNotificationSettingItemRequest,
     NotificationSettingGroupDTO,
@@ -40,6 +41,7 @@ from app.schemas.settings import (
     SaveUserNotificationSettingRequest,
     SettingsDTO,
     SleepSettingsDTO,
+    UpdateCommunitySettingsRequest,
     UpdateNotificationSettingGroupRequest,
     UpdateNotificationSettingItemRequest,
     UpdateNotificationSettingsRequest,
@@ -84,6 +86,11 @@ async def build_settings_dto(*, db: AsyncSession, setting: UserSetting) -> Setti
             emergency_enabled=enabled[NotificationSettingKindEnum.EMERGENCY],
             marketing_enabled=enabled[NotificationSettingKindEnum.MARKETING],
             marketing_night_enabled=enabled[NotificationSettingKindEnum.MARKETING_NIGHT],
+        ),
+        community=CommunitySettingsDTO(
+            leaderboard_enabled=setting.leaderboard_enabled,
+            feed_enabled=setting.feed_enabled,
+            feed_recording_sharing_enabled=setting.feed_recording_sharing_enabled,
         ),
     )
 
@@ -193,6 +200,18 @@ async def update_sleep(*, db: AsyncSession, user: User, data: UpdateSleepSetting
 
     setting.sleep_at = data.sleep_at
     setting.wake_at = data.wake_at
+
+    await db.flush()
+
+    return await build_settings_dto(db=db, setting=setting)
+
+
+@transactional(unavailable_error=UserSaveUnavailableError)
+async def update_community(*, db: AsyncSession, user: User, data: UpdateCommunitySettingsRequest) -> SettingsDTO:
+    setting = await get_or_create_settings(db=db, user=user)
+
+    for name, value in data.model_dump(exclude_unset=True).items():
+        setattr(setting, name, value)
 
     await db.flush()
 

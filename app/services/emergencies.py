@@ -12,6 +12,7 @@ from app.enums import (
     SessionEventKindEnum,
     SessionStatusEnum,
 )
+from app.file import build_file_dto
 from app.models import (
     Device,
     Notification,
@@ -210,7 +211,7 @@ async def get_backoffice_list(
                     BackofficeEmergencySessionSoundDTO(
                         id=sound.id,
                         captured_at=sound.captured_at,
-                        audio_file=storage.generate_file_dto(file=sound.audio_file),
+                        audio_file=build_file_dto(storage=storage, file=sound.audio_file),
                         duration_ms=sound.duration_ms,
                         analysis=SessionSoundAnalysisDTO(score=analyses[sound.id].score)
                         if sound.id in analyses
@@ -228,15 +229,16 @@ async def get_backoffice_list(
 
                 appeared_dto = BackofficeEmergencyAppearedDTO(
                     occurred_at=row.appeared.occurred_at,
-                    image=storage.generate_file_dto(
-                        file=files.get((row.appeared.id, SessionEventFileKindEnum.IMAGE.value))
+                    image=build_file_dto(
+                        storage=storage,
+                        file=files.get((row.appeared.id, SessionEventFileKindEnum.IMAGE.value)),
                     ),
                     notification=notifications.get(row.appeared.id),
                 )
 
             vision_dto = BackofficeEmergencyVisionDTO(
-                image=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
-                video=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
+                image=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+                video=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
                 notification=notifications.get(event.id),
                 appeared=appeared_dto,
             )
@@ -259,12 +261,12 @@ async def get_backoffice_list(
                     email=row.User.email,
                     is_anonymous=row.User.is_anonymous,
                     is_deleted=row.User.is_deleted,
-                    photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                    photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
                 ),
                 parrot=BackofficeUserParrotDTO(
                     name=user_parrots[0].name,
                     species=user_parrots[0].species,
-                    photo_file=storage.generate_file_dto(file=user_parrots[0].photo_file),
+                    photo_file=build_file_dto(storage=storage, file=user_parrots[0].photo_file),
                 )
                 if user_parrots
                 else None,

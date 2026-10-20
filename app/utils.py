@@ -3,6 +3,8 @@ from zoneinfo import ZoneInfo
 from app.enums import LocaleEnum
 
 SEOUL = ZoneInfo("Asia/Seoul")
+MAX_PHOTO_BYTES = 5 * 1024 * 1024
+PHOTO_TYPES = {"image/jpeg", "image/png"}
 
 
 def resolve_locale(value: str | None) -> LocaleEnum:
