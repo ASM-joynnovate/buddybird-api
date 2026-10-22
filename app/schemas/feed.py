@@ -33,6 +33,10 @@ class FeedItemReactionDTO(CustomBaseModel):
     is_mine: bool
 
 
+class FeedItemReactionListResponse(BaseResponse):
+    data: list[FeedItemReactionDTO]
+
+
 class FeedItemDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"word_name", "file", "threshold"}
 

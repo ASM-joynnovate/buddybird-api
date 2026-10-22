@@ -139,6 +139,32 @@ async def add_items(*, db: AsyncSession, user_id: UUID, now: datetime, items: li
     await db.execute(insert(FeedItem).values(values).on_conflict_do_nothing())
 
 
+async def get_reactions(
+    *, db: AsyncSession, user: User, feed_item_ids: list[UUID]
+) -> dict[UUID, list[FeedItemReactionDTO]]:
+    stmt = (
+        select(
+            FeedItemReaction.feed_item_id,
+            FeedItemReaction.reaction_type_id,
+            func.count(),
+            func.bool_or(FeedItemReaction.user_id == user.id),
+        )
+        .join(User, User.id == FeedItemReaction.user_id)
+        .join(FeedReactionType, FeedReactionType.id == FeedItemReaction.reaction_type_id)
+        .where(FeedItemReaction.feed_item_id.in_(feed_item_ids))
+        .group_by(FeedItemReaction.feed_item_id, FeedItemReaction.reaction_type_id, FeedReactionType.sort_order)
+        .order_by(FeedReactionType.sort_order)
+    )
+    reactions: dict[UUID, list[FeedItemReactionDTO]] = {}
+
+    for feed_item_id, reaction_type_id, count, is_mine in (await db.execute(stmt)).all():
+        reactions.setdefault(feed_item_id, []).append(
+            FeedItemReactionDTO(reaction_type_id=reaction_type_id, count=count, is_mine=is_mine)
+        )
+
+    return reactions
+
+
 async def get_list(
     *, db: AsyncSession, storage: S3StorageClient, user: User, query: FeedParams
 ) -> tuple[list[FeedItemDTO], UUID | None]:
@@ -169,25 +195,7 @@ async def get_list(
         users=list({author.id: author for _, author, _ in rows}.values()),
     )
 
-    stmt = (
-        select(
-            FeedItemReaction.feed_item_id,
-            FeedItemReaction.reaction_type_id,
-            func.count(),
-            func.bool_or(FeedItemReaction.user_id == user.id),
-        )
-        .join(User, User.id == FeedItemReaction.user_id)
-        .join(FeedReactionType, FeedReactionType.id == FeedItemReaction.reaction_type_id)
-        .where(FeedItemReaction.feed_item_id.in_([item.id for item, _, _ in rows]))
-        .group_by(FeedItemReaction.feed_item_id, FeedItemReaction.reaction_type_id, FeedReactionType.sort_order)
-        .order_by(FeedReactionType.sort_order)
-    )
-    reactions: dict[UUID, list[FeedItemReactionDTO]] = {}
-
-    for feed_item_id, reaction_type_id, count, is_mine in (await db.execute(stmt)).all():
-        reactions.setdefault(feed_item_id, []).append(
-            FeedItemReactionDTO(reaction_type_id=reaction_type_id, count=count, is_mine=is_mine)
-        )
+    reactions = await get_reactions(db=db, user=user, feed_item_ids=[item.id for item, _, _ in rows])
 
     items = [
         FeedItemDTO(
@@ -207,7 +215,9 @@ async def get_list(
 
 
 @transactional(unavailable_error=FeedSaveUnavailableError)
-async def add_reaction(*, db: AsyncSession, user: User, feed_item_id: UUID, reaction_type: FeedReactionType) -> None:
+async def add_reaction(
+    *, db: AsyncSession, user: User, feed_item_id: UUID, reaction_type: FeedReactionType
+) -> list[FeedItemReactionDTO]:
     stmt = select_visible_items(user).where(FeedItem.id == feed_item_id)
 
     if await db.scalar(stmt) is None:
@@ -221,9 +231,15 @@ async def add_reaction(*, db: AsyncSession, user: User, feed_item_id: UUID, reac
 
     await db.execute(stmt.on_conflict_do_nothing())
 
+    reactions = await get_reactions(db=db, user=user, feed_item_ids=[feed_item_id])
+
+    return reactions.get(feed_item_id, [])
+
 
 @transactional(unavailable_error=FeedSaveUnavailableError)
-async def delete_reaction(*, db: AsyncSession, user: User, feed_item_id: UUID, reaction_type_id: UUID) -> None:
+async def delete_reaction(
+    *, db: AsyncSession, user: User, feed_item_id: UUID, reaction_type_id: UUID
+) -> list[FeedItemReactionDTO]:
     await db.execute(
         delete(FeedItemReaction).where(
             FeedItemReaction.feed_item_id == feed_item_id,
@@ -231,6 +247,10 @@ async def delete_reaction(*, db: AsyncSession, user: User, feed_item_id: UUID, r
             FeedItemReaction.reaction_type_id == reaction_type_id,
         )
     )
+
+    reactions = await get_reactions(db=db, user=user, feed_item_ids=[feed_item_id])
+
+    return reactions.get(feed_item_id, [])
 
 
 @transactional(unavailable_error=FeedSaveUnavailableError)

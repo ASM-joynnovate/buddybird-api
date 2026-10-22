@@ -273,7 +273,9 @@ async def get_community_profile(
     stmt = select(User).where(User.id == target_user_id)
 
     if target_user_id != user.id:
-        stmt = stmt.where(PUBLIC_USER)
+        blocked_by_target = exists().where(UserBlock.user_id == target_user_id, UserBlock.blocked_user_id == user.id)
+
+        stmt = stmt.where(PUBLIC_USER, ~blocked_by_target)
 
     target_user = await db.scalar(stmt)
 
