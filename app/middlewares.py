@@ -68,35 +68,21 @@ class IdempotencyMiddleware:
             return
 
         headers = Headers(scope=scope)
-        backoffice_authorized = scope["path"].startswith(
+        exempt = scope["path"] == "/api/v1/users/me" or scope["path"].startswith(
             (
-                "/api/v1/backoffice/announcements",
-                "/api/v1/backoffice/app-updates",
-                "/api/v1/backoffice/consents",
-                "/api/v1/backoffice/notifications",
-                "/api/v1/backoffice/preset-words",
-                "/api/v1/backoffice/users",
+                "/api/v1/auth/",
+                "/api/v1/petcam/",
+                "/api/v1/backoffice/labels",
+                "/api/v1/backoffice/captures",
+                "/api/v1/backoffice/segments",
+                "/api/v1/backoffice/migrations",
             )
-        ) and secrets.compare_digest(
+        )
+        backoffice_authorized = scope["path"].startswith("/api/v1/backoffice/") and secrets.compare_digest(
             headers.get("x-backoffice-password", "").encode(), config.BACKOFFICE_PASSWORD.encode()
         )
 
-        if not backoffice_authorized and (
-            not scope["path"].startswith(
-                (
-                    "/api/v1/users/me/settings",
-                    "/api/v1/users/me/consents",
-                    "/api/v1/devices",
-                    "/api/v1/parrots",
-                    "/api/v1/words",
-                    "/api/v1/sessions",
-                    "/api/v1/feedback",
-                    "/api/v1/announcements",
-                    "/api/v1/notifications",
-                )
-            )
-            or not isinstance(scope.get("user"), AuthContext)
-        ):
+        if exempt or (not backoffice_authorized and not isinstance(scope.get("user"), AuthContext)):
             await self.app(scope, receive, send)
             return
 
