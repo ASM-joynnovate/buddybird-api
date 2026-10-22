@@ -63,7 +63,7 @@ class ReorderRequest(BaseRequest):
 
 
 class I18nTitleRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw", "th_th"}
 
     ko_kr: Title | None = None
     en_us: Title
@@ -72,10 +72,11 @@ class I18nTitleRequest(BaseRequest):
     es_es: Title | None = None
     zh_cn: Title | None = None
     zh_tw: Title | None = None
+    th_th: Title | None = None
 
 
 class I18nBodyRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw", "th_th"}
 
     ko_kr: Body | None = None
     en_us: Body
@@ -84,10 +85,11 @@ class I18nBodyRequest(BaseRequest):
     es_es: Body | None = None
     zh_cn: Body | None = None
     zh_tw: Body | None = None
+    th_th: Body | None = None
 
 
 class UpdateI18nTitleRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw", "th_th"}
 
     ko_kr: Title | MISSING | None = MISSING
     en_us: Title | MISSING = MISSING
@@ -96,10 +98,11 @@ class UpdateI18nTitleRequest(BaseRequest):
     es_es: Title | MISSING | None = MISSING
     zh_cn: Title | MISSING | None = MISSING
     zh_tw: Title | MISSING | None = MISSING
+    th_th: Title | MISSING | None = MISSING
 
 
 class UpdateI18nBodyRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw", "th_th"}
 
     ko_kr: Body | MISSING | None = MISSING
     en_us: Body | MISSING = MISSING
@@ -108,6 +111,7 @@ class UpdateI18nBodyRequest(BaseRequest):
     es_es: Body | MISSING | None = MISSING
     zh_cn: Body | MISSING | None = MISSING
     zh_tw: Body | MISSING | None = MISSING
+    th_th: Body | MISSING | None = MISSING
 
 
 class CustomBaseModel(BaseModel):
@@ -142,7 +146,7 @@ class PublicFileDTO(CustomBaseModel):
 
 
 class I18nDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw"}
+    allow_null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_cn", "zh_tw", "th_th"}
 
     ko_kr: str | None
     en_us: str
@@ -151,6 +155,7 @@ class I18nDTO(CustomBaseModel):
     es_es: str | None
     zh_cn: str | None
     zh_tw: str | None
+    th_th: str | None
 
 
 class BaseResponse(BaseModel):

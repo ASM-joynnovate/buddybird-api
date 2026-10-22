@@ -27,6 +27,7 @@ class PresetLanguageEnum(StrEnum):
     ES = "es"
     ZH_CN = "zh-CN"
     ZH_TW = "zh-TW"
+    TH = "th"
 
 
 class SessionStatusEnum(StrEnum):
@@ -132,6 +133,7 @@ class LocaleEnum(StrEnum):
     ES_ES = "es-ES"
     ZH_CN = "zh-CN"
     ZH_TW = "zh-TW"
+    TH_TH = "th-TH"
 
 
 class PlatformEnum(StrEnum):

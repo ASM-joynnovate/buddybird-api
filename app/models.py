@@ -183,6 +183,7 @@ class I18n(Base):
     es_es: Mapped[str | None] = mapped_column(Text, nullable=True)
     zh_cn: Mapped[str | None] = mapped_column(Text, nullable=True)
     zh_tw: Mapped[str | None] = mapped_column(Text, nullable=True)
+    th_th: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def get_text(self, locale: LocaleEnum) -> str:
         return getattr(self, locale.name.lower()) or self.en_us
