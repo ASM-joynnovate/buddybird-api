@@ -246,7 +246,7 @@ async def detect_emergency(*, db: AsyncSession, session_id: UUID, captured_at: d
         for end in sounds
         if end.captured_at >= captured_at
     ]
-    emergencies = [window for window in windows if sum(sound.chirp_count for sound in window) >= 7]
+    emergencies = [window for window in windows if sum(sound.chirp_count for sound in window) >= 15]
 
     if not emergencies:
         return
