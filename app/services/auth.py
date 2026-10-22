@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import config
 from app.db import transactional
-from app.enums import LocaleEnum, OAuthProviderEnum, SessionEndReasonEnum
+from app.enums import LocaleEnum, OAuthProviderEnum, PresetLanguageEnum, SessionEndReasonEnum
 from app.errors import (
     AuthenticationError,
     AuthenticationServiceUnavailableError,
@@ -259,10 +259,9 @@ async def save_login(
     if is_new_user:
         db.add(UserSetting(user_id=user.id))
 
+        language = locale.value if locale in PresetLanguageEnum else locale.split("-")[0]
         presets = (
-            await db.scalars(
-                select(PresetWord).where(PresetWord.language == locale.split("-")[0]).order_by(PresetWord.created_at)
-            )
+            await db.scalars(select(PresetWord).where(PresetWord.language == language).order_by(PresetWord.created_at))
         ).all()
 
         for preset in presets:
