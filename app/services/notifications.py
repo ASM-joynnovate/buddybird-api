@@ -196,6 +196,7 @@ def build_notification_i18n(
             "ja_jp": "(広告) ",
             "ru_ru": "(Реклама) ",
             "es_es": "(Publicidad) ",
+            "th_th": "(โฆษณา) ",
         }
         title_texts = {name: prefixes[name] + text if text is not None else None for name, text in title_texts.items()}
         body_texts = {name: prefixes[name] + text if text is not None else None for name, text in body_texts.items()}
@@ -403,6 +404,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
     subject_ja = "うちの子が"
     subject_ru = "издаёт ваш попугай"
     subject_es = "ha dicho tu loro"
+    subject_th = "นกแก้วของคุณ"
 
     if len(names) == 1:
         has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
@@ -411,6 +413,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
         subject_ja = f"{names[0]}が"
         subject_ru = f"издаёт {names[0]}"
         subject_es = f"ha dicho {names[0]}"
+        subject_th = names[0]
     elif names:
         others = "other" if len(names) == 2 else "others"
         subject_ko = f"{names[0]} 외 {len(names) - 1}마리가"
@@ -418,6 +421,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
         subject_ja = f"{names[0]}ほか{len(names) - 1}羽が"
         subject_ru = f"издают {names[0]} и ещё {len(names) - 1}"
         subject_es = f"han dicho {names[0]} y {len(names) - 1} más"
+        subject_th = f"{names[0]} และอีก {len(names) - 1} ตัว"
 
     _, delivery_ids = await create_notifications(
         db=db,
@@ -428,6 +432,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
             ja_jp="学習レポートができました",
             ru_ru="Отчёт по обучению готов",
             es_es="Tu informe de aprendizaje está listo",
+            th_th="รายงานการฝึกพร้อมแล้ว",
         ),
         body_i18n=I18n(
             ko_kr=f"앵무새 소리 분석이 끝났어요. {subject_ko} 낸 소리를 들어 보세요!",
@@ -435,6 +440,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
             ja_jp=f"鳴き声の分析が終わりました。{subject_ja}出した声を聞いてみましょう!",
             ru_ru=f"Мы закончили анализ звуков. Послушайте, какие звуки {subject_ru}!",
             es_es=f"Hemos terminado de analizar los sonidos. ¡Ven a escuchar lo que {subject_es}!",
+            th_th=f"วิเคราะห์เสียงนกแก้วเสร็จแล้ว มาฟังเสียงของ {subject_th} กันเลย!",
         ),
         image_file_id=None,
         user_ids=[session.user_id],
@@ -516,6 +522,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
     subject_ja = "うちの子"
     subject_ru = "Попугай"
     subject_es = "tu loro"
+    subject_th = "นกแก้วของคุณ"
 
     if len(names) == 1:
         has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
@@ -524,6 +531,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         subject_ja = names[0]
         subject_ru = names[0]
         subject_es = names[0]
+        subject_th = names[0]
 
     title_i18n = I18n(
         ko_kr=f"{subject_ko} 안 보여요",
@@ -531,6 +539,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         ja_jp=f"{subject_ja}の姿が見えません",
         ru_ru=f"{subject_ru} не в кадре",
         es_es=f"No vemos a {subject_es}",
+        th_th=f"มองไม่เห็น {subject_th} แล้ว",
     )
 
     if event.kind == SessionEventKindEnum.PARROT_APPEARED.value:
@@ -540,6 +549,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
             ja_jp=f"{subject_ja}が戻ってきました",
             ru_ru=f"{subject_ru} снова в кадре",
             es_es=f"Volvemos a ver a {subject_es}",
+            th_th=f"เห็น {subject_th} อีกครั้งแล้ว",
         )
 
     _, delivery_ids = await create_notifications(
@@ -552,6 +562,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
             ja_jp="タップして今の様子を確認しましょう",
             ru_ru="Нажмите, чтобы посмотреть, что происходит сейчас",
             es_es="Toca para ver qué está pasando ahora",
+            th_th="แตะเพื่อดูว่าตอนนี้เป็นอย่างไรบ้าง",
         ),
         image_file_id=image_file_id,
         user_ids=[user_id],
@@ -1103,6 +1114,9 @@ async def deliver(delivery_id: UUID) -> None:
                     LocaleEnum.JA_JP: "無料配信停止: プロフィール > 設定 > 通知でマーケティング通知をオフ",
                     LocaleEnum.RU_RU: "Бесплатная отписка: Профиль > Настройки > Уведомления > отключите маркетинг",
                     LocaleEnum.ES_ES: "Baja gratuita: Perfil > Ajustes > Notificaciones > desactiva las de marketing",
+                    LocaleEnum.TH_TH: (
+                        "ยกเลิกการรับข่าวสารได้ฟรี: โปรไฟล์ > การตั้งค่า > การแจ้งเตือน > ปิดการแจ้งเตือนข่าวสารและโปรโมชัน"
+                    ),
                 }
                 text_locale = locale if getattr(body_i18n, locale.name.lower()) is not None else LocaleEnum.EN_US
                 body += "\n" + unsubscribe_texts[text_locale]

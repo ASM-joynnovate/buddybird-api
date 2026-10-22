@@ -181,6 +181,7 @@ class I18n(Base):
     ja_jp: Mapped[str | None] = mapped_column(Text, nullable=True)
     ru_ru: Mapped[str | None] = mapped_column(Text, nullable=True)
     es_es: Mapped[str | None] = mapped_column(Text, nullable=True)
+    th_th: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def get_text(self, locale: LocaleEnum) -> str:
         return getattr(self, locale.name.lower()) or self.en_us
