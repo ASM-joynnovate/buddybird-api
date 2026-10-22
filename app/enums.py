@@ -25,6 +25,8 @@ class PresetLanguageEnum(StrEnum):
     JA = "ja"
     RU = "ru"
     ES = "es"
+    ZH_CN = "zh-CN"
+    ZH_TW = "zh-TW"
 
 
 class SessionStatusEnum(StrEnum):
@@ -128,6 +130,8 @@ class LocaleEnum(StrEnum):
     JA_JP = "ja-JP"
     RU_RU = "ru-RU"
     ES_ES = "es-ES"
+    ZH_CN = "zh-CN"
+    ZH_TW = "zh-TW"
 
 
 class PlatformEnum(StrEnum):
