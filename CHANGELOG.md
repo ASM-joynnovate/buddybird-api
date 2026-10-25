@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.27.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.26.0...v2.27.0) (2026-10-25)
+
+
+### Features
+
+* **feed:** replace reactions with likes and extend backoffice abuse reports ([#181](https://github.com/ASM-joynnovate/buddybird-api/issues/181)) ([dff79a5](https://github.com/ASM-joynnovate/buddybird-api/commit/dff79a5529c9ceebf819182063ba787ccc799dc7))
+
 ## [2.26.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.25.0...v2.26.0) (2026-10-22)
 
 
