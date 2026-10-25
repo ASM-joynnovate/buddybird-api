@@ -22,6 +22,7 @@ from app.enums import (
 )
 from app.file import build_file_dto
 from app.models import (
+    AbuseReport,
     Announcement,
     AnnouncementRead,
     Consent,
@@ -60,6 +61,7 @@ from app.schemas.dashboard import (
     DashboardDevicesDTO,
     DashboardDeviceVersionDTO,
     DashboardDTO,
+    DashboardLiveAbuseReportsDTO,
     DashboardLiveDTO,
     DashboardLiveHourlyDTO,
     DashboardLiveLast24HoursDTO,
@@ -435,6 +437,9 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
     )
     failed_withdrawal_count = await db.scalar(stmt)
 
+    stmt = select(func.count()).select_from(AbuseReport).where(AbuseReport.handled_at.is_(None))
+    unhandled_abuse_report_count = await db.scalar(stmt)
+
     return DashboardLiveDTO(
         generated_at=now,
         sessions=DashboardLiveSessionsDTO(
@@ -461,6 +466,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             ),
         ),
         withdrawals=DashboardLiveWithdrawalsDTO(failed_count=failed_withdrawal_count),
+        abuse_reports=DashboardLiveAbuseReportsDTO(unhandled_count=unhandled_abuse_report_count),
     )
 
 
@@ -536,6 +542,9 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         .group_by(DeviceActivity.country)
         .order_by(func.count(DeviceActivity.user_id.distinct()).desc())
     )
+    activity_country_counts = (await db.execute(stmt)).all()
+
+    stmt = select(User.country, func.count()).group_by(User.country).order_by(func.count().desc())
     country_counts = (await db.execute(stmt)).all()
 
     stmt = select(LAST_SESSION.label("last_session"), func.count()).select_from(User).group_by("last_session")
@@ -582,6 +591,9 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         ),
         daily=daily,
         countries=[UserDashboardCountryDTO(country=country, count=count) for country, count in country_counts],
+        activity_countries=[
+            UserDashboardCountryDTO(country=country, count=count) for country, count in activity_country_counts
+        ],
         issues=[
             UserDashboardIssueDTO(issue=issue, count=count)
             for issue, count in zip(UserIssueEnum, issue_counts, strict=True)

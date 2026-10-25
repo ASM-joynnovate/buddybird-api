@@ -300,16 +300,6 @@ class FeedSaveUnavailableError(CustomError):
     message = "피드 정보를 일시적으로 저장할 수 없습니다."
 
 
-class InvalidFeedReactionTypeImageError(CustomError):
-    error_code = "FEED__INVALID_REACTION_TYPE_IMAGE"
-    message = "PNG, JPEG, SVG 이미지만 업로드할 수 있습니다."
-
-
-class FeedReactionTypeOrderMismatchError(CustomError):
-    error_code = "FEED__REACTION_TYPE_ORDER_MISMATCH"
-    message = "순서 목록이 현재 반응 종류 목록과 일치하지 않습니다."
-
-
 class AbuseReportSaveUnavailableError(CustomError):
     status_code = 503
     error_code = "ABUSE_REPORT__SAVE_UNAVAILABLE"

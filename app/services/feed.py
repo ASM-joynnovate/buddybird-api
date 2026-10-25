@@ -1,50 +1,21 @@
 from collections.abc import Sequence
 from datetime import datetime
-from uuid import UUID, uuid7
+from uuid import UUID
 
-from pydantic.experimental.missing_sentinel import MISSING
 from sqlalchemy import Select, and_, delete, false, func, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_or_404, transactional
-from app.enums import FileStatusEnum, LocaleEnum
-from app.errors import (
-    FeedReactionTypeOrderMismatchError,
-    FeedSaveUnavailableError,
-    FileSizeExceededError,
-    InvalidFeedReactionTypeImageError,
-    ResourceNotFoundError,
-)
-from app.file import build_file_dto, build_public_file_dto
-from app.models import (
-    FeedItem,
-    FeedItemReaction,
-    FeedReactionType,
-    File,
-    I18n,
-    Parrot,
-    User,
-    UserBlock,
-    UserSetting,
-)
+from app.db import transactional
+from app.errors import FeedSaveUnavailableError, ResourceNotFoundError
+from app.file import build_public_file_dto
+from app.models import FeedItem, FeedItemLike, Parrot, User, UserBlock, UserSetting
 from app.s3 import S3StorageClient
-from app.schemas.base import I18nDTO, ReorderRequest, UploadDTO, UploadRequest
-from app.schemas.feed import (
-    BackofficeFeedReactionTypeDTO,
-    CreateFeedReactionTypeRequest,
-    FeedItemDTO,
-    FeedItemReactionDTO,
-    FeedParams,
-    FeedReactionTypeDTO,
-    UpdateFeedReactionTypeRequest,
-)
+from app.schemas.feed import FeedItemDTO, FeedItemLikeDTO, FeedParams
 from app.schemas.parrots import CommunityParrotDTO
 from app.schemas.users import CommunityUserDTO
-from app.utils import MAX_PHOTO_BYTES
 
 PUBLIC_USER = and_(User.nickname.is_not(None), User.is_anonymous.is_(False))
-REACTION_TYPE_IMAGE_NAMES = {"image/png": "image.png", "image/jpeg": "image.jpg", "image/svg+xml": "image.svg"}
 
 
 def select_visible_items(user: User) -> Select:
@@ -98,17 +69,6 @@ async def build_community_users(
     }
 
 
-def build_backoffice_reaction_type_dto(
-    reaction_type: FeedReactionType, storage: S3StorageClient
-) -> BackofficeFeedReactionTypeDTO:
-    return BackofficeFeedReactionTypeDTO(
-        id=reaction_type.id,
-        name=I18nDTO.model_validate(reaction_type.name_i18n, from_attributes=True),
-        image_file=build_file_dto(storage=storage, file=reaction_type.image_file),
-        sort_order=reaction_type.sort_order,
-    )
-
-
 async def add_items(*, db: AsyncSession, user_id: UUID, now: datetime, items: list[dict]) -> None:
     if not items:
         return
@@ -139,30 +99,22 @@ async def add_items(*, db: AsyncSession, user_id: UUID, now: datetime, items: li
     await db.execute(insert(FeedItem).values(values).on_conflict_do_nothing())
 
 
-async def get_reactions(
-    *, db: AsyncSession, user: User, feed_item_ids: list[UUID]
-) -> dict[UUID, list[FeedItemReactionDTO]]:
+async def get_likes(*, db: AsyncSession, user: User, feed_item_ids: list[UUID]) -> dict[UUID, FeedItemLikeDTO]:
     stmt = (
-        select(
-            FeedItemReaction.feed_item_id,
-            FeedItemReaction.reaction_type_id,
-            func.count(),
-            func.bool_or(FeedItemReaction.user_id == user.id),
-        )
-        .join(User, User.id == FeedItemReaction.user_id)
-        .join(FeedReactionType, FeedReactionType.id == FeedItemReaction.reaction_type_id)
-        .where(FeedItemReaction.feed_item_id.in_(feed_item_ids))
-        .group_by(FeedItemReaction.feed_item_id, FeedItemReaction.reaction_type_id, FeedReactionType.sort_order)
-        .order_by(FeedReactionType.sort_order)
+        select(FeedItemLike.feed_item_id, func.count(), func.bool_or(FeedItemLike.user_id == user.id))
+        .join(User, User.id == FeedItemLike.user_id)
+        .where(FeedItemLike.feed_item_id.in_(feed_item_ids))
+        .group_by(FeedItemLike.feed_item_id)
     )
-    reactions: dict[UUID, list[FeedItemReactionDTO]] = {}
+    rows = (await db.execute(stmt)).all()
 
-    for feed_item_id, reaction_type_id, count, is_mine in (await db.execute(stmt)).all():
-        reactions.setdefault(feed_item_id, []).append(
-            FeedItemReactionDTO(reaction_type_id=reaction_type_id, count=count, is_mine=is_mine)
-        )
+    like_counts = {feed_item_id: count for feed_item_id, count, _ in rows}
+    liked_ids = {feed_item_id for feed_item_id, _, is_liked in rows if is_liked}
 
-    return reactions
+    return {
+        feed_item_id: FeedItemLikeDTO(like_count=like_counts.get(feed_item_id, 0), is_liked=feed_item_id in liked_ids)
+        for feed_item_id in feed_item_ids
+    }
 
 
 async def get_list(
@@ -195,7 +147,7 @@ async def get_list(
         users=list({author.id: author for _, author, _ in rows}.values()),
     )
 
-    reactions = await get_reactions(db=db, user=user, feed_item_ids=[item.id for item, _, _ in rows])
+    likes = await get_likes(db=db, user=user, feed_item_ids=[item.id for item, _, _ in rows])
 
     items = [
         FeedItemDTO(
@@ -206,7 +158,8 @@ async def get_list(
             word_name=item.word_name,
             file=build_public_file_dto(storage=storage, file=item.file) if recording_enabled else None,
             threshold=item.threshold,
-            reactions=reactions.get(item.id, []),
+            like_count=likes[item.id].like_count,
+            is_liked=likes[item.id].is_liked,
         )
         for item, author, recording_enabled in rows
     ]
@@ -215,180 +168,34 @@ async def get_list(
 
 
 @transactional(unavailable_error=FeedSaveUnavailableError)
-async def add_reaction(
-    *, db: AsyncSession, user: User, feed_item_id: UUID, reaction_type: FeedReactionType
-) -> list[FeedItemReactionDTO]:
+async def like(*, db: AsyncSession, user: User, feed_item_id: UUID) -> FeedItemLikeDTO:
     stmt = select_visible_items(user).where(FeedItem.id == feed_item_id)
 
     if await db.scalar(stmt) is None:
         raise ResourceNotFoundError
 
-    stmt = insert(FeedItemReaction).values(
-        feed_item_id=feed_item_id,
-        user_id=user.id,
-        reaction_type_id=reaction_type.id,
-    )
+    stmt = insert(FeedItemLike).values(feed_item_id=feed_item_id, user_id=user.id)
 
     await db.execute(stmt.on_conflict_do_nothing())
 
-    reactions = await get_reactions(db=db, user=user, feed_item_ids=[feed_item_id])
+    likes = await get_likes(db=db, user=user, feed_item_ids=[feed_item_id])
 
-    return reactions.get(feed_item_id, [])
+    return likes[feed_item_id]
 
 
 @transactional(unavailable_error=FeedSaveUnavailableError)
-async def delete_reaction(
-    *, db: AsyncSession, user: User, feed_item_id: UUID, reaction_type_id: UUID
-) -> list[FeedItemReactionDTO]:
-    await db.execute(
-        delete(FeedItemReaction).where(
-            FeedItemReaction.feed_item_id == feed_item_id,
-            FeedItemReaction.user_id == user.id,
-            FeedItemReaction.reaction_type_id == reaction_type_id,
-        )
-    )
+async def unlike(*, db: AsyncSession, user: User, feed_item_id: UUID) -> FeedItemLikeDTO:
+    stmt = delete(FeedItemLike).where(FeedItemLike.feed_item_id == feed_item_id, FeedItemLike.user_id == user.id)
 
-    reactions = await get_reactions(db=db, user=user, feed_item_ids=[feed_item_id])
+    await db.execute(stmt)
 
-    return reactions.get(feed_item_id, [])
+    likes = await get_likes(db=db, user=user, feed_item_ids=[feed_item_id])
+
+    return likes[feed_item_id]
 
 
 @transactional(unavailable_error=FeedSaveUnavailableError)
 async def hide(*, db: AsyncSession, feed_item: FeedItem) -> None:
     feed_item.is_deleted = True
-
-    await db.flush()
-
-
-async def get_reaction_types(
-    *, db: AsyncSession, storage: S3StorageClient, locale: LocaleEnum
-) -> list[FeedReactionTypeDTO]:
-    stmt = (
-        select(FeedReactionType)
-        .join(File, File.id == FeedReactionType.image_file_id)
-        .where(File.status == FileStatusEnum.UPLOADED.value)
-        .order_by(FeedReactionType.sort_order)
-    )
-    reaction_types = (await db.scalars(stmt)).all()
-
-    return [
-        FeedReactionTypeDTO(
-            id=reaction_type.id,
-            name=reaction_type.name_i18n.get_text(locale),
-            image_file=build_public_file_dto(storage=storage, file=reaction_type.image_file),
-        )
-        for reaction_type in reaction_types
-    ]
-
-
-async def get_backoffice_reaction_types(
-    *, db: AsyncSession, storage: S3StorageClient
-) -> list[BackofficeFeedReactionTypeDTO]:
-    stmt = select(FeedReactionType).order_by(FeedReactionType.sort_order)
-    reaction_types = (await db.scalars(stmt)).all()
-
-    return [build_backoffice_reaction_type_dto(reaction_type, storage) for reaction_type in reaction_types]
-
-
-@transactional(unavailable_error=FeedSaveUnavailableError)
-async def add_reaction_type_image(*, db: AsyncSession, storage: S3StorageClient, data: UploadRequest) -> UploadDTO:
-    if data.content_type not in REACTION_TYPE_IMAGE_NAMES:
-        raise InvalidFeedReactionTypeImageError
-
-    if data.file_size > MAX_PHOTO_BYTES:
-        raise FileSizeExceededError
-
-    file_id = uuid7()
-
-    image_file = File(
-        id=file_id,
-        file_name=REACTION_TYPE_IMAGE_NAMES[data.content_type],
-        file_path=f"feed/reaction-types/{file_id}",
-        file_size=data.file_size,
-        file_type=data.content_type,
-        is_deleted=False,
-        status=FileStatusEnum.PENDING.value,
-    )
-
-    db.add(image_file)
-
-    await db.flush()
-
-    return storage.generate_presigned_upload(
-        file_id=file_id,
-        path=f"upload/{image_file.object_key}",
-        content_type=data.content_type,
-        file_size=data.file_size,
-    )
-
-
-@transactional(unavailable_error=FeedSaveUnavailableError)
-async def create_reaction_type(
-    *, db: AsyncSession, storage: S3StorageClient, data: CreateFeedReactionTypeRequest
-) -> BackofficeFeedReactionTypeDTO:
-    image_file = await get_or_404(db=db, model=File, id=data.image_file_id)
-
-    stmt = select(func.coalesce(func.max(FeedReactionType.sort_order) + 1, 0))
-    sort_order = await db.scalar(stmt)
-
-    reaction_type = FeedReactionType(
-        name_i18n=I18n(**data.name.model_dump()),
-        image_file=image_file,
-        sort_order=sort_order,
-        is_deleted=False,
-    )
-
-    db.add(reaction_type)
-    await db.flush()
-
-    return build_backoffice_reaction_type_dto(reaction_type, storage)
-
-
-@transactional(unavailable_error=FeedSaveUnavailableError)
-async def update_reaction_type(
-    *,
-    db: AsyncSession,
-    storage: S3StorageClient,
-    reaction_type: FeedReactionType,
-    data: UpdateFeedReactionTypeRequest,
-) -> BackofficeFeedReactionTypeDTO:
-    if data.name is not MISSING:
-        for name, value in data.name.model_dump(exclude_unset=True).items():
-            setattr(reaction_type.name_i18n, name, value)
-
-    if data.image_file_id is not MISSING and data.image_file_id != reaction_type.image_file_id:
-        old_file = reaction_type.image_file
-
-        reaction_type.image_file = await get_or_404(db=db, model=File, id=data.image_file_id)
-        old_file.is_deleted = True
-
-    await db.flush()
-
-    return build_backoffice_reaction_type_dto(reaction_type, storage)
-
-
-@transactional(unavailable_error=FeedSaveUnavailableError)
-async def reorder_reaction_types(
-    *, db: AsyncSession, storage: S3StorageClient, data: ReorderRequest
-) -> list[BackofficeFeedReactionTypeDTO]:
-    stmt = select(FeedReactionType)
-    reaction_types = {reaction_type.id: reaction_type for reaction_type in (await db.scalars(stmt)).all()}
-
-    if sorted(data.ids) != sorted(reaction_types):
-        raise FeedReactionTypeOrderMismatchError
-
-    for sort_order, reaction_type_id in enumerate(data.ids):
-        reaction_types[reaction_type_id].sort_order = sort_order
-
-    await db.flush()
-
-    return [
-        build_backoffice_reaction_type_dto(reaction_types[reaction_type_id], storage) for reaction_type_id in data.ids
-    ]
-
-
-@transactional(unavailable_error=FeedSaveUnavailableError)
-async def delete_reaction_type(*, db: AsyncSession, reaction_type: FeedReactionType) -> None:
-    reaction_type.is_deleted = True
 
     await db.flush()

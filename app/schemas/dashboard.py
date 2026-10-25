@@ -146,10 +146,15 @@ class DashboardLiveWithdrawalsDTO(CustomBaseModel):
     failed_count: int
 
 
+class DashboardLiveAbuseReportsDTO(CustomBaseModel):
+    unhandled_count: int
+
+
 class DashboardLiveDTO(CustomBaseModel):
     generated_at: datetime
     sessions: DashboardLiveSessionsDTO
     withdrawals: DashboardLiveWithdrawalsDTO
+    abuse_reports: DashboardLiveAbuseReportsDTO
 
 
 class DashboardLiveResponse(BaseResponse):
@@ -226,6 +231,7 @@ class UserDashboardDTO(CustomBaseModel):
     withdrawals: DashboardCountDTO
     daily: list[UserDashboardDailyDTO]
     countries: list[UserDashboardCountryDTO]
+    activity_countries: list[UserDashboardCountryDTO]
     last_sessions: list[UserDashboardLastSessionDTO]
     issues: list[UserDashboardIssueDTO]
     accounts: DashboardAccountsDTO
