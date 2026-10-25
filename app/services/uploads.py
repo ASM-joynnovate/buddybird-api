@@ -38,14 +38,7 @@ async def process(*, key: str, size: int) -> None:
 
             return
 
-        if key != path and path.startswith("feed/"):
-            content = await s3.download(path=key)
-
-            await s3.upload(path=path, file=content, content_type=file.file_type)
-            await s3.delete(path=key)
-
-            size = len(content)
-        elif key != path:
+        if key != path:
             content = await s3.download(path=key)
 
             try:

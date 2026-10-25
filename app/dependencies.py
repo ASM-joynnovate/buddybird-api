@@ -28,7 +28,6 @@ from app.models import (
     Consent,
     Device,
     FeedItem,
-    FeedReactionType,
     Notification,
     NotificationSettingGroup,
     NotificationSettingItem,
@@ -218,10 +217,6 @@ async def require_notification_setting_item(db: DBSession, item_id: UUID) -> Not
 
 async def require_feed_item(db: DBSession, feed_item_id: UUID) -> FeedItem:
     return await get_or_404(db=db, model=FeedItem, id=feed_item_id)
-
-
-async def require_feed_reaction_type(db: DBSession, reaction_type_id: UUID) -> FeedReactionType:
-    return await get_or_404(db=db, model=FeedReactionType, id=reaction_type_id)
 
 
 async def require_abuse_report(db: DBSession, abuse_report_id: UUID) -> AbuseReport:

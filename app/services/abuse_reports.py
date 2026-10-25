@@ -7,14 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_or_404, transactional
 from app.errors import AbuseReportSaveUnavailableError, ResourceNotFoundError, SelfTargetError
 from app.file import build_file_dto
-from app.models import AbuseReport, FeedItem, User
+from app.models import AbuseReport, FeedItem, Parrot, User
 from app.s3 import S3StorageClient
 from app.schemas.abuse_reports import (
     BackofficeAbuseReportDTO,
+    BackofficeAbuseReportedUserDTO,
     BackofficeAbuseReportFeedItemDTO,
     BackofficeAbuseReportListParams,
     CreateAbuseReportRequest,
 )
+from app.schemas.parrots import BackofficeParrotDTO
 from app.services.users import build_backoffice_user_dto
 
 
@@ -59,10 +61,34 @@ async def get_backoffice_list(
         )
     ).all()
 
-    user_ids = {report.reporter_user_id for report in reports} | {report.reported_user_id for report in reports}
+    reported_user_ids = {report.reported_user_id for report in reports}
+    user_ids = {report.reporter_user_id for report in reports} | reported_user_ids
 
     stmt = select(User).where(User.id.in_(user_ids)).execution_options(include_deleted=True)
-    users = {user.id: build_backoffice_user_dto(user) for user in (await db.scalars(stmt)).all()}
+    users = {user.id: user for user in (await db.scalars(stmt)).all()}
+
+    stmt = select(Parrot).where(Parrot.user_id.in_(reported_user_ids)).order_by(Parrot.created_at)
+    parrots = (await db.scalars(stmt)).all()
+
+    reported_users = {
+        user_id: BackofficeAbuseReportedUserDTO(
+            **build_backoffice_user_dto(users[user_id]).model_dump(),
+            photo_file=build_file_dto(storage=storage, file=users[user_id].photo_file),
+            parrots=[
+                BackofficeParrotDTO(
+                    id=parrot.id,
+                    name=parrot.name,
+                    species=parrot.species,
+                    birthdate=parrot.birthdate,
+                    photo_file=build_file_dto(storage=storage, file=parrot.photo_file),
+                    created_at=parrot.created_at,
+                )
+                for parrot in parrots
+                if parrot.user_id == user_id
+            ],
+        )
+        for user_id in reported_user_ids
+    }
 
     stmt = (
         select(FeedItem)
@@ -84,8 +110,8 @@ async def get_backoffice_list(
     items = [
         BackofficeAbuseReportDTO(
             id=report.id,
-            reporter=users[report.reporter_user_id],
-            reported_user=users[report.reported_user_id],
+            reporter=build_backoffice_user_dto(users[report.reporter_user_id]),
+            reported_user=reported_users[report.reported_user_id],
             feed_item=feed_items.get(report.feed_item_id),
             reason=report.reason,
             description=report.description,

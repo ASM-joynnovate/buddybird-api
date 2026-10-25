@@ -6,6 +6,7 @@ from pydantic import StringConstraints
 
 from app.enums import AbuseReportReasonEnum, FeedItemKindEnum
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams
+from app.schemas.parrots import BackofficeParrotDTO
 from app.schemas.users import BackofficeUserDTO
 
 
@@ -33,12 +34,19 @@ class BackofficeAbuseReportFeedItemDTO(CustomBaseModel):
     is_deleted: bool
 
 
+class BackofficeAbuseReportedUserDTO(BackofficeUserDTO):
+    allow_null_fields: ClassVar[set] = {"email", "nickname", "country", "photo_file"}
+
+    photo_file: FileDTO | None
+    parrots: list[BackofficeParrotDTO]
+
+
 class BackofficeAbuseReportDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"feed_item", "description", "handled_at"}
 
     id: UUID
     reporter: BackofficeUserDTO
-    reported_user: BackofficeUserDTO
+    reported_user: BackofficeAbuseReportedUserDTO
     feed_item: BackofficeAbuseReportFeedItemDTO | None
     reason: AbuseReportReasonEnum
     description: str | None

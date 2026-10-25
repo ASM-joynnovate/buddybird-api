@@ -681,7 +681,7 @@ class FeedItem(Base):
             "uq_feed_items_monthly_learning_time",
             "user_id",
             "threshold",
-            text("date_trunc('month', created_at AT TIME ZONE 'UTC')"),
+            text("date_trunc('month'::text, (created_at AT TIME ZONE 'UTC'::text))"),
             unique=True,
             postgresql_where=text("kind = 'monthly_learning_time_reached'"),
         ),
@@ -705,24 +705,11 @@ class FeedItem(Base):
     file: Mapped[File | None] = relationship(lazy="selectin")
 
 
-class FeedReactionType(Base):
-    __tablename__ = "feed_reaction_types"
-
-    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
-    name_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
-    image_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
-    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
-    name_i18n: Mapped[I18n] = relationship(lazy="selectin")
-    image_file: Mapped[File] = relationship(lazy="selectin")
-
-
-class FeedItemReaction(Base):
-    __tablename__ = "feed_item_reactions"
+class FeedItemLike(Base):
+    __tablename__ = "feed_item_likes"
 
     feed_item_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(FeedItem.id), primary_key=True)
     user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
-    reaction_type_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(FeedReactionType.id), primary_key=True)
 
 
 class UserBlock(Base):
