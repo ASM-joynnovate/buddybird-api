@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.27.0...v2.28.0) (2026-10-26)
+
+
+### Features
+
+* **session-sounds:** add operator labeling and user reviews ([#183](https://github.com/ASM-joynnovate/buddybird-api/issues/183)) ([215e72b](https://github.com/ASM-joynnovate/buddybird-api/commit/215e72b09e3c903178b2dd8b4c620a566d511f64))
+
 ## [2.27.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.26.0...v2.27.0) (2026-10-25)
 
 
