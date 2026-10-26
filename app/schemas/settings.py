@@ -31,11 +31,8 @@ class NotificationSettingsDTO(CustomBaseModel):
 
 
 class CommunitySettingsDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"feed_recording_sharing_enabled"}
-
     leaderboard_enabled: bool
     feed_enabled: bool
-    feed_recording_sharing_enabled: bool | None
 
 
 class SettingsDTO(CustomBaseModel):
@@ -56,7 +53,6 @@ class UpdateSleepSettingsRequest(BaseRequest):
 class UpdateCommunitySettingsRequest(BaseRequest):
     leaderboard_enabled: bool | MISSING = MISSING
     feed_enabled: bool | MISSING = MISSING
-    feed_recording_sharing_enabled: bool | MISSING = MISSING
 
 
 class UpdateNotificationSettingsRequest(BaseRequest):

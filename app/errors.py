@@ -157,6 +157,29 @@ class InvalidSessionSoundError(CustomError):
     message = "wav 오디오만 업로드할 수 있습니다."
 
 
+class SessionSoundNotAnalyzedError(CustomError):
+    status_code = 409
+    error_code = "SESSION__SOUND_NOT_ANALYZED"
+    message = "앵무새 소리 판별이 끝나지 않은 소리입니다."
+
+
+class SessionSoundNotParrotError(CustomError):
+    status_code = 409
+    error_code = "SESSION__SOUND_NOT_PARROT"
+    message = "앵무새 소리가 아니라고 판별된 소리입니다."
+
+
+class UnsupportedSessionEventError(CustomError):
+    error_code = "SESSION__UNSUPPORTED_EVENT"
+    message = "신경질적 짹짹, 사라짐, 다시 보임 이벤트만 리뷰하거나 라벨링할 수 있습니다."
+
+
+class SessionJudgmentPendingError(CustomError):
+    status_code = 409
+    error_code = "SESSION__JUDGMENT_PENDING"
+    message = "앵무새 소리 판별이 끝나지 않은 세션의 신경질적 짹짹에는 라벨을 저장할 수 없습니다."
+
+
 class BackofficePasswordMissingError(CustomError):
     status_code = 401
     error_code = "BACKOFFICE__PASSWORD_MISSING"
@@ -298,6 +321,36 @@ class FeedSaveUnavailableError(CustomError):
     status_code = 503
     error_code = "FEED__SAVE_UNAVAILABLE"
     message = "피드 정보를 일시적으로 저장할 수 없습니다."
+
+
+class FeedAnonymousUserError(CustomError):
+    status_code = 403
+    error_code = "FEED__ANONYMOUS_USER"
+    message = "익명 계정은 피드에 공유할 수 없습니다."
+
+
+class FeedNicknameRequiredError(CustomError):
+    status_code = 403
+    error_code = "FEED__NICKNAME_REQUIRED"
+    message = "닉네임을 설정해야 피드에 공유할 수 있습니다."
+
+
+class FeedDisabledError(CustomError):
+    status_code = 403
+    error_code = "FEED__DISABLED"
+    message = "피드 참여를 꺼 두어서 피드에 공유할 수 없습니다."
+
+
+class FeedNotMimicError(CustomError):
+    status_code = 409
+    error_code = "FEED__NOT_MIMIC"
+    message = "모사로 판정된 소리만 피드에 공유할 수 있습니다."
+
+
+class FeedAlreadySharedError(CustomError):
+    status_code = 409
+    error_code = "FEED__ALREADY_SHARED"
+    message = "이미 피드에 공유한 소리입니다."
 
 
 class AbuseReportSaveUnavailableError(CustomError):

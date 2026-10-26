@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import ReportPeriodEnum
+from app.enums import ReportPeriodEnum, SessionSoundKindEnum
 from app.models import Session, SessionSound, User, Word
 from app.schemas.reports import (
     ReportActiveDTO,
@@ -22,7 +22,7 @@ from app.schemas.reports import (
 )
 from app.schemas.sessions import ActiveDurationDTO, SessionJudgmentDTO
 from app.services.session_periods import get_active_periods
-from app.services.sessions import LATEST_JUDGED_WORD_ID, get_judgment_statuses
+from app.services.sessions import get_judgment_statuses
 
 
 async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timezone: str) -> ReportDTO:
@@ -80,10 +80,14 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
         )
     )
     parrot_count = await db.scalar(
-        stmt.where(SessionSound.is_parrot_sound.is_(True)).with_only_columns(func.count(), maintain_column_froms=True)
+        stmt.where(
+            SessionSound.kind.in_([SessionSoundKindEnum.PARROT.value, SessionSoundKindEnum.MIMIC.value])
+        ).with_only_columns(func.count(), maintain_column_froms=True)
     )
     mimic_count = await db.scalar(
-        stmt.where(LATEST_JUDGED_WORD_ID.is_not(None)).with_only_columns(func.count(), maintain_column_froms=True)
+        stmt.where(SessionSound.kind == SessionSoundKindEnum.MIMIC.value).with_only_columns(
+            func.count(), maintain_column_froms=True
+        )
     )
 
     stmt = (
@@ -92,7 +96,7 @@ async def get_report(*, db: AsyncSession, user: User, query: ReportParams, timez
             SessionSound.session_id.in_([session.id for session in sessions]),
             SessionSound.captured_at >= period_start,
             SessionSound.captured_at < period_end,
-            SessionSound.is_parrot_sound.is_(True),
+            SessionSound.kind.in_([SessionSoundKindEnum.PARROT.value, SessionSoundKindEnum.MIMIC.value]),
         )
         .group_by(SessionSound.session_id)
     )

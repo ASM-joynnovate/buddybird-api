@@ -40,7 +40,7 @@ from app.schemas.emergencies import (
 )
 from app.schemas.sessions import SessionSoundAnalysisDTO
 from app.schemas.users import BackofficeUserParrotDTO
-from app.utils import SEOUL
+from app.utils import SEOUL, correctness_filter
 
 EMERGENCY_KINDS = [
     SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
@@ -53,6 +53,7 @@ APPEARED_EVENT_ID = (
         APPEARED_EVENT.session_id == SessionEvent.session_id,
         APPEARED_EVENT.kind == SessionEventKindEnum.PARROT_APPEARED.value,
         APPEARED_EVENT.occurred_at > SessionEvent.occurred_at,
+        APPEARED_EVENT.is_correct.is_not(False),
     )
     .order_by(APPEARED_EVENT.occurred_at)
     .limit(1)
@@ -116,6 +117,9 @@ async def get_backoffice_list(
 
     if query.platform is not None:
         conditions.append(Device.platform == query.platform.value)
+
+    if query.label is not None:
+        conditions.append(correctness_filter(SessionEvent.is_correct, query.label))
 
     stmt = (
         select(func.count())
@@ -249,6 +253,7 @@ async def get_backoffice_list(
                 kind=event.kind,
                 occurred_at=event.occurred_at,
                 ended_at=ended_at,
+                is_correct=event.is_correct,
                 session=BackofficeEmergencySessionDTO(
                     id=row.Session.id,
                     status=row.Session.status,

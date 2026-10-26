@@ -406,6 +406,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         .where(
             SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
             SessionEvent.occurred_at >= since,
+            SessionEvent.is_correct.is_not(False),
         )
     )
     distress_call_detected_count = await db.scalar(stmt)
@@ -416,6 +417,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         .where(
             SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value,
             SessionEvent.occurred_at >= since,
+            SessionEvent.is_correct.is_not(False),
         )
     )
     parrot_disappeared_count = await db.scalar(stmt)
@@ -838,6 +840,7 @@ async def get_emergency_dashboard(
         SessionEvent.kind.in_(EMERGENCY_KINDS),
         SessionEvent.occurred_at >= period_start,
         SessionEvent.occurred_at < period_end,
+        SessionEvent.is_correct.is_not(False),
     )
 
     stmt = (
@@ -854,6 +857,7 @@ async def get_emergency_dashboard(
             SessionEvent.kind.in_(EMERGENCY_KINDS),
             SessionEvent.occurred_at >= previous_start,
             SessionEvent.occurred_at < period_end,
+            SessionEvent.is_correct.is_not(False),
         )
         .execution_options(include_deleted=True)
     )

@@ -90,7 +90,6 @@ async def build_settings_dto(*, db: AsyncSession, setting: UserSetting) -> Setti
         community=CommunitySettingsDTO(
             leaderboard_enabled=setting.leaderboard_enabled,
             feed_enabled=setting.feed_enabled,
-            feed_recording_sharing_enabled=setting.feed_recording_sharing_enabled,
         ),
     )
 

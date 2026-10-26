@@ -1,19 +1,25 @@
 from datetime import datetime
-from typing import ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, ConfigDict, Field
+from pydantic import AwareDatetime, ConfigDict, Field, StringConstraints
 
 from app.enums import (
+    CorrectnessEnum,
     JudgmentStatusEnum,
     SessionActorEnum,
     SessionEndReasonEnum,
     SessionEventKindEnum,
     SessionPhaseEnum,
+    SessionSoundKindEnum,
+    SessionSoundLabelTargetEnum,
     SessionStatusEnum,
 )
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams, UploadDTO, UploadRequest
 from app.schemas.settings import SleepSettingsDTO, UpdateSleepSettingsRequest
+
+OperatorName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
+Memo = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 
 
 class SessionStationDTO(CustomBaseModel):
@@ -105,6 +111,7 @@ class BackofficeSessionDTO(SessionDTO):
 
 class BackofficeSessionListParams(PageParams):
     session_id: UUID | None = None
+    label: list[CorrectnessEnum] | None = None
 
 
 class BackofficeSessionListResponse(BaseResponse):
@@ -196,8 +203,16 @@ class SessionPetcamVideoUploadRequest(BaseRequest):
     file_size: int = Field(gt=0)
 
 
+class SessionUserReviewDTO(CustomBaseModel):
+    is_correct: bool
+
+
+class UpdateSessionUserReviewRequest(BaseRequest):
+    is_correct: bool
+
+
 class SessionEventDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"word", "ended_at", "image", "video"}
+    allow_null_fields: ClassVar[set] = {"word", "ended_at", "image", "video", "user_review"}
 
     id: UUID
     kind: SessionEventKindEnum
@@ -207,6 +222,7 @@ class SessionEventDTO(CustomBaseModel):
     sound_ids: list[UUID]
     image: FileDTO | None
     video: FileDTO | None
+    user_review: SessionUserReviewDTO | None
 
 
 class SessionEventListParams(BaseRequest):
@@ -220,15 +236,74 @@ class SessionEventListResponse(BaseResponse):
     data: list[SessionEventDTO]
 
 
+class BackofficeSessionEventUserReviewDTO(CustomBaseModel):
+    is_correct: bool
+    updated_at: datetime
+
+
 class BackofficeSessionEventDTO(SessionEventDTO):
-    allow_null_fields: ClassVar[set] = {"word", "ended_at", "image", "video", "is_learning"}
+    allow_null_fields: ClassVar[set] = {
+        "word",
+        "ended_at",
+        "image",
+        "video",
+        "user_review",
+        "is_learning",
+        "is_correct",
+    }
 
     word: BackofficeSessionWordDTO | None
+    user_review: BackofficeSessionEventUserReviewDTO | None
     is_learning: bool | None
+    is_correct: bool | None
+
+
+class BackofficeSessionEventListParams(BaseRequest):
+    label: list[CorrectnessEnum] | None = None
 
 
 class BackofficeSessionEventListResponse(BaseResponse):
     data: list[BackofficeSessionEventDTO]
+
+
+class BackofficeSessionEventLabelDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"is_correct", "memo"}
+
+    id: UUID
+    is_correct: bool | None
+    operator_name: str
+    memo: str | None
+    created_at: datetime
+
+
+class BackofficeSessionEventDetailDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"is_correct", "user_review"}
+
+    id: UUID
+    kind: SessionEventKindEnum
+    occurred_at: datetime
+    is_correct: bool | None
+    labels: list[BackofficeSessionEventLabelDTO]
+    user_review: BackofficeSessionEventUserReviewDTO | None
+
+
+class BackofficeSessionEventDetailResponse(BaseResponse):
+    data: BackofficeSessionEventDetailDTO
+
+
+class UpdateSessionEventLabelRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"memo"}
+
+    is_correct: bool
+    memo: Memo | None = None
+    operator_name: OperatorName
+
+
+class CancelSessionLabelRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"memo"}
+
+    memo: Memo | None = None
+    operator_name: OperatorName
 
 
 class SessionSoundAnalysisDTO(CustomBaseModel):
@@ -243,7 +318,7 @@ class SessionSoundJudgmentDTO(CustomBaseModel):
 
 
 class SessionSoundDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"duration_ms", "analysis", "judgment"}
+    allow_null_fields: ClassVar[set] = {"duration_ms", "analysis", "judgment", "user_review"}
 
     id: UUID
     session_id: UUID
@@ -252,6 +327,8 @@ class SessionSoundDTO(CustomBaseModel):
     duration_ms: int | None
     analysis: SessionSoundAnalysisDTO | None
     judgment: SessionSoundJudgmentDTO | None
+    user_review: SessionUserReviewDTO | None
+    is_feed_shared: bool
 
 
 class SessionSoundUploadRequest(UploadRequest):
@@ -268,12 +345,86 @@ class SessionSoundListResponse(BaseResponse):
     data: list[SessionSoundDTO]
 
 
+class BackofficeSessionSoundUserReviewDTO(CustomBaseModel):
+    is_correct: bool
+    kind: SessionSoundKindEnum
+    updated_at: datetime
+
+
 class BackofficeSessionSoundDTO(SessionSoundDTO):
-    is_mimic: bool
+    allow_null_fields: ClassVar[set] = {
+        "duration_ms",
+        "analysis",
+        "judgment",
+        "user_review",
+        "kind",
+        "final_parrot_score",
+        "final_mimic_score",
+    }
+
+    user_review: BackofficeSessionSoundUserReviewDTO | None
+    kind: SessionSoundKindEnum | None
+    final_parrot_score: float | None
+    final_mimic_score: float | None
+    is_labeled: bool
+
+
+class BackofficeSessionSoundListParams(BaseRequest):
+    kind: list[SessionSoundKindEnum] | None = None
+    user_review: list[CorrectnessEnum] | None = None
 
 
 class BackofficeSessionSoundListResponse(BaseResponse):
     data: list[BackofficeSessionSoundDTO]
+
+
+class BackofficeParrotDetectionDTO(CustomBaseModel):
+    model_version: str
+    is_parrot: bool
+    score: float
+    call_count: int
+    chirp_count: int
+    analyzed_at: datetime
+
+
+class BackofficeMimicJudgmentDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"word_id"}
+
+    model_version: str
+    word_id: UUID | None
+    score: float
+    judged_at: datetime
+
+
+class BackofficeSessionSoundLabelDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"is_positive", "score", "memo"}
+
+    id: UUID
+    target: SessionSoundLabelTargetEnum
+    is_positive: bool | None
+    score: float | None
+    operator_name: str
+    memo: str | None
+    created_at: datetime
+
+
+class BackofficeSessionSoundDetailDTO(BackofficeSessionSoundDTO):
+    parrot_detections: list[BackofficeParrotDetectionDTO]
+    mimic_judgments: list[BackofficeMimicJudgmentDTO]
+    labels: list[BackofficeSessionSoundLabelDTO]
+
+
+class BackofficeSessionSoundDetailResponse(BaseResponse):
+    data: BackofficeSessionSoundDetailDTO
+
+
+class UpdateSessionSoundLabelRequest(BaseRequest):
+    null_fields: ClassVar[set] = {"memo"}
+
+    is_positive: bool
+    score: float = Field(..., ge=0, le=1)
+    memo: Memo | None = None
+    operator_name: OperatorName
 
 
 class ActiveDurationDTO(CustomBaseModel):

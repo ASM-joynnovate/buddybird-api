@@ -34,6 +34,8 @@ from app.models import (
     Parrot,
     PresetWord,
     Session,
+    SessionEvent,
+    SessionSound,
     User,
     Word,
 )
@@ -147,6 +149,28 @@ async def require_session(user: ActiveUser, db: DBSession, session_id: UUID) -> 
     return session
 
 
+async def require_session_sound(
+    session: Annotated[Session, Depends(require_session)], db: DBSession, session_sound_id: UUID
+) -> SessionSound:
+    sound = await get_or_404(db=db, model=SessionSound, id=session_sound_id)
+
+    if sound.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return sound
+
+
+async def require_session_event(
+    session: Annotated[Session, Depends(require_session)], db: DBSession, session_event_id: UUID
+) -> SessionEvent:
+    event = await get_or_404(db=db, model=SessionEvent, id=session_event_id)
+
+    if event.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return event
+
+
 async def require_notification(user: ActiveUser, db: DBSession, notification_id: UUID) -> Notification:
     notification = await get_or_404(db=db, model=Notification, id=notification_id)
 
@@ -197,6 +221,28 @@ async def require_backoffice_parrot(
 
 async def require_backoffice_session(db: DBSession, session_id: UUID) -> Session:
     return await get_or_404(db=db, model=Session, id=session_id)
+
+
+async def require_backoffice_session_sound(
+    session: Annotated[Session, Depends(require_backoffice_session)], db: DBSession, session_sound_id: UUID
+) -> SessionSound:
+    sound = await get_or_404(db=db, model=SessionSound, id=session_sound_id)
+
+    if sound.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return sound
+
+
+async def require_backoffice_session_event(
+    session: Annotated[Session, Depends(require_backoffice_session)], db: DBSession, session_event_id: UUID
+) -> SessionEvent:
+    event = await get_or_404(db=db, model=SessionEvent, id=session_event_id)
+
+    if event.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return event
 
 
 async def require_consent(db: DBSession, consent_id: UUID) -> Consent:

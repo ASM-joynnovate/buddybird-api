@@ -131,6 +131,7 @@ ISSUES = {
             Session.user_id == User.id,
             SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
             SessionEvent.occurred_at >= ISSUE_SINCE,
+            SessionEvent.is_correct.is_not(False),
         )
     ),
     UserIssueEnum.PARROT_DISAPPEARED: exists(
@@ -140,6 +141,7 @@ ISSUES = {
             Session.user_id == User.id,
             SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value,
             SessionEvent.occurred_at >= ISSUE_SINCE,
+            SessionEvent.is_correct.is_not(False),
         )
     ),
     UserIssueEnum.WITHDRAWAL_FAILED: exists().where(
