@@ -34,11 +34,3 @@ class LeaderboardDTO(CustomBaseModel):
 
 class LeaderboardResponse(BaseResponse):
     data: LeaderboardDTO
-
-
-class ScoreBackfillDTO(CustomBaseModel):
-    inserted_count: int
-
-
-class ScoreBackfillResponse(BaseResponse):
-    data: ScoreBackfillDTO
