@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.3](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.2...v2.28.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* backfill user country from device activities ([#192](https://github.com/ASM-joynnovate/buddybird-api/issues/192)) ([1a7c644](https://github.com/ASM-joynnovate/buddybird-api/commit/1a7c644379044cf6cbae0917fe4a20c76e7bea5d))
+
 ## [2.28.2](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.1...v2.28.2) (2026-10-26)
 
 
