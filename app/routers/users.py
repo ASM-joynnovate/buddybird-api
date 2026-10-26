@@ -1,8 +1,10 @@
+from uuid import UUID
+
 from fastapi import APIRouter
 
 from app.dependencies import ActiveUser, DBSession, Storage
 from app.schemas.base import BaseResponse, UploadRequest, UploadResponse
-from app.schemas.users import UpdateUserRequest, UserResponse
+from app.schemas.users import CommunityUserDetailResponse, UpdateUserRequest, UserResponse
 from app.services import users
 
 router = APIRouter(prefix="/users")
@@ -33,3 +35,11 @@ async def delete_photo(user: ActiveUser, db: DBSession) -> BaseResponse:
     await users.delete_photo(db=db, user=user)
 
     return BaseResponse(message="프로필 사진 삭제 성공")
+
+
+@router.get("/{user_id}", name="사용자 프로필 조회")
+async def get_profile(user: ActiveUser, user_id: UUID, db: DBSession, storage: Storage) -> CommunityUserDetailResponse:
+    return CommunityUserDetailResponse(
+        message="사용자 프로필 조회 성공",
+        data=await users.get_community_profile(db=db, storage=storage, user=user, target_user_id=user_id),
+    )

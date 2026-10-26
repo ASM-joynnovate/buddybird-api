@@ -1,10 +1,10 @@
 import re
 import unicodedata
 from datetime import date, datetime
-from typing import ClassVar
+from typing import Annotated, ClassVar
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import Field, StringConstraints, field_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
 from app.enums import (
@@ -16,33 +16,65 @@ from app.enums import (
     UserLastSessionEnum,
     UserSortEnum,
 )
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PageParams, PublicFileDTO
 from app.schemas.devices import BackofficeDeviceDTO, BackofficeLastSeenDeviceDTO, Locale
-from app.schemas.parrots import BackofficeParrotDTO
+from app.schemas.parrots import BackofficeParrotDTO, CommunityParrotDTO
 from app.schemas.settings import SettingsDTO
 from app.schemas.withdrawals import BackofficeWithdrawalDTO
 
 
 class UserDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"email", "nickname", "photo_file", "uploading_photo_file"}
+    allow_null_fields: ClassVar[set] = {"email", "nickname", "photo_file", "uploading_photo_file", "country"}
 
     id: UUID
     email: str | None
     nickname: str | None
     photo_file: FileDTO | None
     uploading_photo_file: FileDTO | None
+    country: str | None
 
 
 class UserResponse(BaseResponse):
     data: UserDTO
 
 
+class CommunityUserDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"nickname", "photo_file", "country"}
+
+    id: UUID
+    nickname: str | None
+    photo_file: PublicFileDTO | None
+    country: str | None
+    parrots: list[CommunityParrotDTO]
+
+
+class CommunityUserDetailDTO(CommunityUserDTO):
+    is_blocked: bool
+
+
+class CommunityUserDetailResponse(BaseResponse):
+    data: CommunityUserDetailDTO
+
+
+class BlockedUserDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"nickname", "photo_file"}
+
+    id: UUID
+    nickname: str | None
+    photo_file: PublicFileDTO | None
+
+
+class BlockedUserListResponse(BaseResponse):
+    data: list[BlockedUserDTO]
+
+
 class BackofficeUserDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"email", "nickname"}
+    allow_null_fields: ClassVar[set] = {"email", "nickname", "country"}
 
     id: UUID
     email: str | None
     nickname: str | None
+    country: str | None
     is_anonymous: bool
     is_deleted: bool
     created_at: datetime
@@ -71,6 +103,7 @@ class BackofficeUserListItemDTO(BackofficeUserDTO):
     allow_null_fields: ClassVar[set] = {
         "email",
         "nickname",
+        "country",
         "photo_file",
         "first_parrot",
         "running_session",
@@ -91,7 +124,7 @@ class BackofficeUserListItemDTO(BackofficeUserDTO):
 
 
 class BackofficeUserDetailDTO(BackofficeUserDTO):
-    allow_null_fields: ClassVar[set] = {"email", "nickname", "photo_file", "settings", "withdrawal"}
+    allow_null_fields: ClassVar[set] = {"email", "nickname", "country", "photo_file", "settings", "withdrawal"}
 
     photo_file: FileDTO | None
     providers: list[OAuthProviderEnum]
@@ -133,6 +166,7 @@ class UpdateUserRequest(BaseRequest):
     null_fields: ClassVar[set] = {"nickname"}
 
     nickname: str | MISSING | None = MISSING
+    country: Annotated[str, StringConstraints(pattern=r"^[A-Z]{2}$")] | MISSING = MISSING
 
     @field_validator("nickname")
     @classmethod

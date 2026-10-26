@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import StringConstraints, field_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
-from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO
+from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, FileDTO, PublicFileDTO
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 Species = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
@@ -28,6 +28,14 @@ class ParrotResponse(BaseResponse):
 
 class ParrotListResponse(BaseResponse):
     data: list[ParrotDTO]
+
+
+class CommunityParrotDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"photo_file"}
+
+    name: str
+    species: str
+    photo_file: PublicFileDTO | None
 
 
 class BackofficeParrotDTO(CustomBaseModel):

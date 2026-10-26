@@ -22,16 +22,20 @@ from app.errors import (
 )
 from app.middlewares import AuthContext
 from app.models import (
+    AbuseReport,
     Announcement,
     AppUpdate,
     Consent,
     Device,
+    FeedItem,
     Notification,
     NotificationSettingGroup,
     NotificationSettingItem,
     Parrot,
     PresetWord,
     Session,
+    SessionEvent,
+    SessionSound,
     User,
     Word,
 )
@@ -145,6 +149,28 @@ async def require_session(user: ActiveUser, db: DBSession, session_id: UUID) -> 
     return session
 
 
+async def require_session_sound(
+    session: Annotated[Session, Depends(require_session)], db: DBSession, session_sound_id: UUID
+) -> SessionSound:
+    sound = await get_or_404(db=db, model=SessionSound, id=session_sound_id)
+
+    if sound.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return sound
+
+
+async def require_session_event(
+    session: Annotated[Session, Depends(require_session)], db: DBSession, session_event_id: UUID
+) -> SessionEvent:
+    event = await get_or_404(db=db, model=SessionEvent, id=session_event_id)
+
+    if event.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return event
+
+
 async def require_notification(user: ActiveUser, db: DBSession, notification_id: UUID) -> Notification:
     notification = await get_or_404(db=db, model=Notification, id=notification_id)
 
@@ -182,8 +208,41 @@ async def require_backoffice_user(db: DBSession, user_id: UUID) -> User:
     return user
 
 
+async def require_backoffice_parrot(
+    user: Annotated[User, Depends(require_backoffice_user)], db: DBSession, parrot_id: UUID
+) -> Parrot:
+    parrot = await get_or_404(db=db, model=Parrot, id=parrot_id)
+
+    if parrot.user_id != user.id:
+        raise ResourceNotFoundError
+
+    return parrot
+
+
 async def require_backoffice_session(db: DBSession, session_id: UUID) -> Session:
     return await get_or_404(db=db, model=Session, id=session_id)
+
+
+async def require_backoffice_session_sound(
+    session: Annotated[Session, Depends(require_backoffice_session)], db: DBSession, session_sound_id: UUID
+) -> SessionSound:
+    sound = await get_or_404(db=db, model=SessionSound, id=session_sound_id)
+
+    if sound.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return sound
+
+
+async def require_backoffice_session_event(
+    session: Annotated[Session, Depends(require_backoffice_session)], db: DBSession, session_event_id: UUID
+) -> SessionEvent:
+    event = await get_or_404(db=db, model=SessionEvent, id=session_event_id)
+
+    if event.session_id != session.id:
+        raise ResourceNotFoundError
+
+    return event
 
 
 async def require_consent(db: DBSession, consent_id: UUID) -> Consent:
@@ -200,6 +259,14 @@ async def require_notification_setting_group(db: DBSession, group_id: UUID) -> N
 
 async def require_notification_setting_item(db: DBSession, item_id: UUID) -> NotificationSettingItem:
     return await get_or_404(db=db, model=NotificationSettingItem, id=item_id)
+
+
+async def require_feed_item(db: DBSession, feed_item_id: UUID) -> FeedItem:
+    return await get_or_404(db=db, model=FeedItem, id=feed_item_id)
+
+
+async def require_abuse_report(db: DBSession, abuse_report_id: UUID) -> AbuseReport:
+    return await get_or_404(db=db, model=AbuseReport, id=abuse_report_id)
 
 
 async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:

@@ -20,7 +20,9 @@ from app.enums import (
     WithdrawalStatusEnum,
     WithdrawalUsagePeriodEnum,
 )
+from app.file import build_file_dto
 from app.models import (
+    AbuseReport,
     Announcement,
     AnnouncementRead,
     Consent,
@@ -59,6 +61,7 @@ from app.schemas.dashboard import (
     DashboardDevicesDTO,
     DashboardDeviceVersionDTO,
     DashboardDTO,
+    DashboardLiveAbuseReportsDTO,
     DashboardLiveDTO,
     DashboardLiveHourlyDTO,
     DashboardLiveLast24HoursDTO,
@@ -403,6 +406,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         .where(
             SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
             SessionEvent.occurred_at >= since,
+            SessionEvent.is_correct.is_not(False),
         )
     )
     distress_call_detected_count = await db.scalar(stmt)
@@ -413,6 +417,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         .where(
             SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value,
             SessionEvent.occurred_at >= since,
+            SessionEvent.is_correct.is_not(False),
         )
     )
     parrot_disappeared_count = await db.scalar(stmt)
@@ -433,6 +438,9 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
         .where(UserWithdrawal.completed_at.is_(None), UserWithdrawal.last_error_code.is_not(None))
     )
     failed_withdrawal_count = await db.scalar(stmt)
+
+    stmt = select(func.count()).select_from(AbuseReport).where(AbuseReport.handled_at.is_(None))
+    unhandled_abuse_report_count = await db.scalar(stmt)
 
     return DashboardLiveDTO(
         generated_at=now,
@@ -460,6 +468,7 @@ async def get_live(*, db: AsyncSession) -> DashboardLiveDTO:
             ),
         ),
         withdrawals=DashboardLiveWithdrawalsDTO(failed_count=failed_withdrawal_count),
+        abuse_reports=DashboardLiveAbuseReportsDTO(unhandled_count=unhandled_abuse_report_count),
     )
 
 
@@ -535,6 +544,9 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         .group_by(DeviceActivity.country)
         .order_by(func.count(DeviceActivity.user_id.distinct()).desc())
     )
+    activity_country_counts = (await db.execute(stmt)).all()
+
+    stmt = select(User.country, func.count()).group_by(User.country).order_by(func.count().desc())
     country_counts = (await db.execute(stmt)).all()
 
     stmt = select(LAST_SESSION.label("last_session"), func.count()).select_from(User).group_by("last_session")
@@ -581,6 +593,9 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         ),
         daily=daily,
         countries=[UserDashboardCountryDTO(country=country, count=count) for country, count in country_counts],
+        activity_countries=[
+            UserDashboardCountryDTO(country=country, count=count) for country, count in activity_country_counts
+        ],
         issues=[
             UserDashboardIssueDTO(issue=issue, count=count)
             for issue, count in zip(UserIssueEnum, issue_counts, strict=True)
@@ -825,6 +840,7 @@ async def get_emergency_dashboard(
         SessionEvent.kind.in_(EMERGENCY_KINDS),
         SessionEvent.occurred_at >= period_start,
         SessionEvent.occurred_at < period_end,
+        SessionEvent.is_correct.is_not(False),
     )
 
     stmt = (
@@ -841,6 +857,7 @@ async def get_emergency_dashboard(
             SessionEvent.kind.in_(EMERGENCY_KINDS),
             SessionEvent.occurred_at >= previous_start,
             SessionEvent.occurred_at < period_end,
+            SessionEvent.is_correct.is_not(False),
         )
         .execution_options(include_deleted=True)
     )
@@ -932,7 +949,7 @@ async def get_emergency_dashboard(
             EmergencyDashboardUserDTO(
                 id=row.User.id,
                 nickname=row.User.nickname,
-                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
                 sound_count=row.sound_count,
                 vision_count=row.vision_count,
             )

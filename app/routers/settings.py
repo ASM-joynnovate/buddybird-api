@@ -8,6 +8,7 @@ from app.schemas.settings import (
     NotificationSettingListResponse,
     SaveUserNotificationSettingRequest,
     SettingsResponse,
+    UpdateCommunitySettingsRequest,
     UpdateNotificationSettingsRequest,
     UpdatePushSettingRequest,
     UpdateSleepSettingsRequest,
@@ -26,6 +27,13 @@ async def get_settings(user: ActiveUser, db: DBSession) -> SettingsResponse:
 async def update_sleep(user: ActiveUser, body: UpdateSleepSettingsRequest, db: DBSession) -> SettingsResponse:
     return SettingsResponse(
         message="수면 시간 수정 성공", data=await settings.update_sleep(db=db, user=user, data=body)
+    )
+
+
+@router.patch("/community", name="커뮤니티 설정 수정")
+async def update_community(user: ActiveUser, body: UpdateCommunitySettingsRequest, db: DBSession) -> SettingsResponse:
+    return SettingsResponse(
+        message="커뮤니티 설정 수정 성공", data=await settings.update_community(db=db, user=user, data=body)
     )
 
 

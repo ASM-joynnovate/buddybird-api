@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.28.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.27.0...v2.28.0) (2026-10-26)
+
+
+### Features
+
+* **session-sounds:** add operator labeling and user reviews ([#183](https://github.com/ASM-joynnovate/buddybird-api/issues/183)) ([215e72b](https://github.com/ASM-joynnovate/buddybird-api/commit/215e72b09e3c903178b2dd8b4c620a566d511f64))
+
+## [2.27.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.26.0...v2.27.0) (2026-10-25)
+
+
+### Features
+
+* **feed:** replace reactions with likes and extend backoffice abuse reports ([#181](https://github.com/ASM-joynnovate/buddybird-api/issues/181)) ([dff79a5](https://github.com/ASM-joynnovate/buddybird-api/commit/dff79a5529c9ceebf819182063ba787ccc799dc7))
+
+## [2.26.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.25.0...v2.26.0) (2026-10-22)
+
+
+### Features
+
+* **session-sounds:** raise distress call threshold to 15 chirps in 30 seconds [BB-701] ([#177](https://github.com/ASM-joynnovate/buddybird-api/issues/177)) ([d92d220](https://github.com/ASM-joynnovate/buddybird-api/commit/d92d22091e54a424190114d25e175c9fdb091a5b))
+
+## [2.25.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.24.0...v2.25.0) (2026-10-22)
+
+
+### Features
+
+* **api:** require idempotency keys on write requests by default ([#174](https://github.com/ASM-joynnovate/buddybird-api/issues/174)) ([cea148c](https://github.com/ASM-joynnovate/buddybird-api/commit/cea148c9174b59b504d0eabf1ca053a3cf01d433))
+
+## [2.24.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.23.0...v2.24.0) (2026-10-20)
+
+
+### Features
+
+* **feed:** add feed, leaderboard, abuse reports and user blocks ([#172](https://github.com/ASM-joynnovate/buddybird-api/issues/172)) ([2d40412](https://github.com/ASM-joynnovate/buddybird-api/commit/2d40412b2035331ab3f9ca8e29762c808671600e))
+
 ## [2.23.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.22.0...v2.23.0) (2026-10-18)
 
 

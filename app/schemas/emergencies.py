@@ -4,7 +4,13 @@ from uuid import UUID
 
 from pydantic import Field
 
-from app.enums import EmergencyNotificationEnum, PlatformEnum, SessionEventKindEnum, SessionStatusEnum
+from app.enums import (
+    CorrectnessEnum,
+    EmergencyNotificationEnum,
+    PlatformEnum,
+    SessionEventKindEnum,
+    SessionStatusEnum,
+)
 from app.schemas.base import BaseResponse, CustomBaseModel, FileDTO, PageParams
 from app.schemas.sessions import SessionSoundAnalysisDTO
 from app.schemas.users import BackofficeUserParrotDTO
@@ -76,12 +82,13 @@ class BackofficeEmergencyVisionDTO(CustomBaseModel):
 
 
 class BackofficeEmergencyDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"ended_at", "parrot", "sound", "vision"}
+    allow_null_fields: ClassVar[set] = {"ended_at", "is_correct", "parrot", "sound", "vision"}
 
     id: UUID
     kind: SessionEventKindEnum
     occurred_at: datetime
     ended_at: datetime | None
+    is_correct: bool | None
     session: BackofficeEmergencySessionDTO
     user: BackofficeEmergencyUserDTO
     parrot: BackofficeUserParrotDTO | None
@@ -104,3 +111,4 @@ class BackofficeEmergencyListParams(PageParams):
     is_ongoing: bool | None = None
     notification: EmergencyNotificationEnum | None = None
     platform: PlatformEnum | None = None
+    label: list[CorrectnessEnum] | None = None

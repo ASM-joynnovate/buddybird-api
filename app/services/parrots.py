@@ -6,11 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import transactional
 from app.enums import FileStatusEnum
 from app.errors import FileSizeExceededError, InvalidProfilePhotoError, ParrotSaveUnavailableError
+from app.file import build_file_dto
 from app.models import File, Parrot, User
 from app.s3 import S3StorageClient
 from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.parrots import CreateParrotRequest, ParrotDTO, UpdateParrotRequest
-from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, get_uploading_photo_files
+from app.services.users import get_uploading_photo_files
+from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES
 
 
 def build_parrot_dto(parrot: Parrot, uploading_photo_file: File | None, storage: S3StorageClient) -> ParrotDTO:
@@ -19,8 +21,8 @@ def build_parrot_dto(parrot: Parrot, uploading_photo_file: File | None, storage:
         name=parrot.name,
         species=parrot.species,
         birthdate=parrot.birthdate,
-        photo_file=storage.generate_file_dto(file=parrot.photo_file),
-        uploading_photo_file=storage.generate_file_dto(file=uploading_photo_file),
+        photo_file=build_file_dto(storage=storage, file=parrot.photo_file),
+        uploading_photo_file=build_file_dto(storage=storage, file=uploading_photo_file),
     )
 
 

@@ -12,6 +12,7 @@ from app.enums import (
     SessionEventKindEnum,
     SessionStatusEnum,
 )
+from app.file import build_file_dto
 from app.models import (
     Device,
     Notification,
@@ -39,7 +40,7 @@ from app.schemas.emergencies import (
 )
 from app.schemas.sessions import SessionSoundAnalysisDTO
 from app.schemas.users import BackofficeUserParrotDTO
-from app.utils import SEOUL
+from app.utils import SEOUL, correctness_filter
 
 EMERGENCY_KINDS = [
     SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
@@ -52,6 +53,7 @@ APPEARED_EVENT_ID = (
         APPEARED_EVENT.session_id == SessionEvent.session_id,
         APPEARED_EVENT.kind == SessionEventKindEnum.PARROT_APPEARED.value,
         APPEARED_EVENT.occurred_at > SessionEvent.occurred_at,
+        APPEARED_EVENT.is_correct.is_not(False),
     )
     .order_by(APPEARED_EVENT.occurred_at)
     .limit(1)
@@ -115,6 +117,9 @@ async def get_backoffice_list(
 
     if query.platform is not None:
         conditions.append(Device.platform == query.platform.value)
+
+    if query.label is not None:
+        conditions.append(correctness_filter(SessionEvent.is_correct, query.label))
 
     stmt = (
         select(func.count())
@@ -210,7 +215,7 @@ async def get_backoffice_list(
                     BackofficeEmergencySessionSoundDTO(
                         id=sound.id,
                         captured_at=sound.captured_at,
-                        audio_file=storage.generate_file_dto(file=sound.audio_file),
+                        audio_file=build_file_dto(storage=storage, file=sound.audio_file),
                         duration_ms=sound.duration_ms,
                         analysis=SessionSoundAnalysisDTO(score=analyses[sound.id].score)
                         if sound.id in analyses
@@ -228,15 +233,16 @@ async def get_backoffice_list(
 
                 appeared_dto = BackofficeEmergencyAppearedDTO(
                     occurred_at=row.appeared.occurred_at,
-                    image=storage.generate_file_dto(
-                        file=files.get((row.appeared.id, SessionEventFileKindEnum.IMAGE.value))
+                    image=build_file_dto(
+                        storage=storage,
+                        file=files.get((row.appeared.id, SessionEventFileKindEnum.IMAGE.value)),
                     ),
                     notification=notifications.get(row.appeared.id),
                 )
 
             vision_dto = BackofficeEmergencyVisionDTO(
-                image=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
-                video=storage.generate_file_dto(file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
+                image=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+                video=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
                 notification=notifications.get(event.id),
                 appeared=appeared_dto,
             )
@@ -247,6 +253,7 @@ async def get_backoffice_list(
                 kind=event.kind,
                 occurred_at=event.occurred_at,
                 ended_at=ended_at,
+                is_correct=event.is_correct,
                 session=BackofficeEmergencySessionDTO(
                     id=row.Session.id,
                     status=row.Session.status,
@@ -259,12 +266,12 @@ async def get_backoffice_list(
                     email=row.User.email,
                     is_anonymous=row.User.is_anonymous,
                     is_deleted=row.User.is_deleted,
-                    photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                    photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
                 ),
                 parrot=BackofficeUserParrotDTO(
                     name=user_parrots[0].name,
                     species=user_parrots[0].species,
-                    photo_file=storage.generate_file_dto(file=user_parrots[0].photo_file),
+                    photo_file=build_file_dto(storage=storage, file=user_parrots[0].photo_file),
                 )
                 if user_parrots
                 else None,

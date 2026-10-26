@@ -34,6 +34,7 @@ from app.errors import (
     ResourceNotFoundError,
 )
 from app.fcm import send_push
+from app.file import build_file_dto
 from app.models import (
     Announcement,
     Device,
@@ -77,8 +78,8 @@ from app.schemas.notifications import (
 )
 from app.services.sessions import get_judgment_statuses
 from app.services.settings import ITEM_ENABLED
-from app.services.users import MAX_PHOTO_BYTES, PHOTO_TYPES, PUSHABLE
-from app.utils import SEOUL, resolve_locale
+from app.services.users import PUSHABLE
+from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL, resolve_locale
 
 logger = logging.getLogger(__name__)
 
@@ -666,7 +667,7 @@ async def get_backoffice_list(
                 nickname=row.User.nickname,
                 email=row.User.email,
                 is_anonymous=row.User.is_anonymous,
-                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
             ),
             push_sent_at=row.push_sent_at,
             image_file_id=row.Notification.image_file_id,
@@ -738,7 +739,7 @@ async def get_dispatches(
                 nickname=row.User.nickname,
                 email=row.User.email,
                 is_anonymous=row.User.is_anonymous,
-                photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
                 read_at=row.read_at,
                 push_sent_at=row.push_sent_at,
             )

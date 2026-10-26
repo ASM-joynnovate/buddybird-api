@@ -122,6 +122,23 @@ class MimicJudgmentStatusEnum(StrEnum):
     FAILED = "failed"
 
 
+class SessionSoundKindEnum(StrEnum):
+    NOT_PARROT = "not_parrot"
+    PARROT = "parrot"
+    MIMIC = "mimic"
+
+
+class SessionSoundLabelTargetEnum(StrEnum):
+    PARROT = "parrot"
+    MIMIC = "mimic"
+
+
+class CorrectnessEnum(StrEnum):
+    CORRECT = "correct"
+    INCORRECT = "incorrect"
+    NONE = "none"
+
+
 class LocaleEnum(StrEnum):
     KO_KR = "ko-KR"
     EN_US = "en-US"
@@ -246,3 +263,33 @@ class StabilityIssuePriorityEnum(StrEnum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
+
+
+class ScoreMetricEnum(StrEnum):
+    LEARNING_TIME = "learning_time"
+
+
+class LeaderboardPeriodEnum(StrEnum):
+    MONTHLY = "monthly"
+
+
+class LeaderboardUnrankedReasonEnum(StrEnum):
+    NOT_PARTICIPATING = "not_participating"
+    NO_NICKNAME = "no_nickname"
+    ANONYMOUS = "anonymous"
+    COUNTRY_MISMATCH = "country_mismatch"
+    NO_RECORD = "no_record"
+
+
+class FeedItemKindEnum(StrEnum):
+    MIMIC_SUCCEEDED = "mimic_succeeded"
+    TOTAL_LEARNING_TIME_REACHED = "total_learning_time_reached"
+    MONTHLY_LEARNING_TIME_REACHED = "monthly_learning_time_reached"
+    WORD_PLAY_COUNT_REACHED = "word_play_count_reached"
+
+
+class AbuseReportReasonEnum(StrEnum):
+    SPAM = "spam"
+    INAPPROPRIATE_CONTENT = "inappropriate_content"
+    HARASSMENT = "harassment"
+    OTHER = "other"

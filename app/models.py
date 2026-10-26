@@ -90,6 +90,7 @@ class User(Base):
     photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
     uploading_photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
     is_anonymous: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     photo_file: Mapped[File | None] = relationship(lazy="selectin", foreign_keys=[photo_file_id])
 
@@ -166,6 +167,8 @@ class UserSetting(Base):
     push_notification_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
+    leaderboard_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
+    feed_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
 
 
 class I18n(Base):
@@ -372,6 +375,7 @@ class SessionEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     word_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=True)
     emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
+    is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class LearningSegment(Base):
@@ -456,7 +460,47 @@ class SessionSound(Base):
         server_default=ParrotDetectionStatusEnum.PENDING.value,
     )
     mimic_judgment_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kind: Mapped[str | None] = mapped_column(Text, nullable=True)
+    final_parrot_score: Mapped[float | None] = mapped_column(Double, nullable=True)
+    final_mimic_score: Mapped[float | None] = mapped_column(Double, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+
+
+class SessionSoundLabel(Base):
+    __tablename__ = "session_sound_labels"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    session_sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=False)
+    target: Mapped[str] = mapped_column(Text, nullable=False)
+    is_positive: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    score: Mapped[float | None] = mapped_column(Double, nullable=True)
+    operator_name: Mapped[str] = mapped_column(Text, nullable=False)
+    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SessionSoundUserReview(Base):
+    __tablename__ = "session_sound_user_reviews"
+
+    session_sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)
+    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SessionEventLabel(Base):
+    __tablename__ = "session_event_labels"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    session_event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), nullable=False)
+    is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    operator_name: Mapped[str] = mapped_column(Text, nullable=False)
+    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SessionEventUserReview(Base):
+    __tablename__ = "session_event_user_reviews"
+
+    session_event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
+    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
 class MimicJudgment(Base):
@@ -639,3 +683,100 @@ class AppUpdate(Base):
     is_forced: Mapped[bool] = mapped_column(Boolean, nullable=False)
     release_notes_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
     release_notes_i18n: Mapped[I18n | None] = relationship(lazy="selectin")
+
+
+class ScoreEntry(Base):
+    __tablename__ = "score_entries"
+    __table_args__ = (
+        UniqueConstraint("session_id", "metric", name="uq_score_entries_session_id_metric"),
+        Index("ix_score_entries_metric_occurred_at", "metric", "occurred_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), index=True, nullable=False)
+    metric: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    session_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Session.id), nullable=True)
+
+
+class FeedItem(Base):
+    __tablename__ = "feed_items"
+    __table_args__ = (
+        Index("ix_feed_items_user_id_id", "user_id", "id"),
+        Index(
+            "uq_feed_items_mimic_succeeded",
+            "file_id",
+            unique=True,
+            postgresql_where=text("kind = 'mimic_succeeded'"),
+        ),
+        Index(
+            "uq_feed_items_total_learning_time",
+            "user_id",
+            "threshold",
+            unique=True,
+            postgresql_where=text("kind = 'total_learning_time_reached'"),
+        ),
+        Index(
+            "uq_feed_items_monthly_learning_time",
+            "user_id",
+            "threshold",
+            text("date_trunc('month'::text, (created_at AT TIME ZONE 'UTC'::text))"),
+            unique=True,
+            postgresql_where=text("kind = 'monthly_learning_time_reached'"),
+        ),
+        Index(
+            "uq_feed_items_word_play_count",
+            "word_id",
+            "threshold",
+            unique=True,
+            postgresql_where=text("kind = 'word_play_count_reached'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    word_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=True)
+    word_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    threshold: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    file: Mapped[File | None] = relationship(lazy="selectin")
+
+
+class FeedItemLike(Base):
+    __tablename__ = "feed_item_likes"
+
+    feed_item_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(FeedItem.id), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+
+
+class UserBlock(Base):
+    __tablename__ = "user_blocks"
+
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+    blocked_user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), primary_key=True)
+
+
+class AbuseReport(Base):
+    __tablename__ = "abuse_reports"
+    __table_args__ = (
+        Index(
+            "uq_abuse_reports_open",
+            "reporter_user_id",
+            "reported_user_id",
+            "feed_item_id",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+            postgresql_where=text("handled_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    reporter_user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    reported_user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    feed_item_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(FeedItem.id), nullable=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

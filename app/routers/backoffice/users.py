@@ -2,15 +2,22 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
-from app.dependencies import DBSession, Storage, require_backoffice_user
-from app.models import User
+from app.dependencies import DBSession, Storage, require_backoffice_parrot, require_backoffice_user
+from app.models import Parrot, User
+from app.schemas.base import BaseResponse
 from app.schemas.consents import BackofficeUserConsentListResponse
+from app.schemas.parrots import ParrotResponse, UpdateParrotRequest
 from app.schemas.sessions import BackofficeSessionListParams, BackofficeSessionListResponse
 from app.schemas.settings import BackofficeUserNotificationSettingListResponse
-from app.schemas.users import BackofficeUserDetailResponse, BackofficeUserListParams, BackofficeUserListResponse
+from app.schemas.users import (
+    BackofficeUserDetailResponse,
+    BackofficeUserListParams,
+    BackofficeUserListResponse,
+    UpdateUserRequest,
+)
 from app.schemas.withdrawals import WithdrawalResponse
 from app.schemas.words import BackofficeWordListResponse
-from app.services import sessions, settings, user_consents, users, withdrawals, words
+from app.services import parrots, sessions, settings, user_consents, users, withdrawals, words
 
 router = APIRouter(prefix="/users")
 
@@ -46,6 +53,43 @@ async def delete(
     background_tasks.add_task(withdrawals.enqueue_withdrawal, data.user_id)
 
     return WithdrawalResponse(message="사용자 삭제 요청이 접수되었습니다.", data=data)
+
+
+@router.patch("/{user_id}", name="사용자 프로필 수정")
+async def update(
+    user: Annotated[User, Depends(require_backoffice_user)], body: UpdateUserRequest, db: DBSession
+) -> BaseResponse:
+    await users.update_profile(db=db, user=user, data=body)
+
+    return BaseResponse(message="사용자 프로필 수정 성공")
+
+
+@router.delete("/{user_id}/photo", name="사용자 프로필 사진 삭제")
+async def delete_photo(user: Annotated[User, Depends(require_backoffice_user)], db: DBSession) -> BaseResponse:
+    await users.delete_photo(db=db, user=user)
+
+    return BaseResponse(message="사용자 프로필 사진 삭제 성공")
+
+
+@router.patch("/{user_id}/parrots/{parrot_id}", name="사용자 앵무새 수정")
+async def update_parrot(
+    parrot: Annotated[Parrot, Depends(require_backoffice_parrot)],
+    body: UpdateParrotRequest,
+    db: DBSession,
+    storage: Storage,
+) -> ParrotResponse:
+    return ParrotResponse(
+        message="사용자 앵무새 수정 성공", data=await parrots.update(db=db, storage=storage, parrot=parrot, data=body)
+    )
+
+
+@router.delete("/{user_id}/parrots/{parrot_id}/photo", name="사용자 앵무새 사진 삭제")
+async def delete_parrot_photo(
+    parrot: Annotated[Parrot, Depends(require_backoffice_parrot)], db: DBSession
+) -> BaseResponse:
+    await parrots.delete_photo(db=db, parrot=parrot)
+
+    return BaseResponse(message="사용자 앵무새 사진 삭제 성공")
 
 
 @router.get("/{user_id}/sessions", name="사용자 세션 목록 조회")

@@ -18,19 +18,23 @@ from app.legacy.routers import captures, labels, uploads
 from app.middlewares import AuthBackend, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
 from app.routers import (
+    abuse_reports,
     announcements,
     app_updates,
     auth,
     backoffice,
     consents,
     devices,
+    feed,
     feedback,
+    leaderboard,
     notifications,
     parrots,
     petcam,
     reports,
     sessions,
     settings,
+    user_blocks,
     user_consents,
     user_parrot_sounds,
     users,
@@ -87,6 +91,7 @@ def create_app() -> FastAPI:
     application.include_router(uploads.router, prefix="/api/v1", tags=["오디오 클립"])
     application.include_router(auth.router, prefix="/api/v1", tags=["인증"])
     application.include_router(users.router, prefix="/api/v1", tags=["사용자"])
+    application.include_router(user_blocks.router, prefix="/api/v1", tags=["사용자"])
     application.include_router(settings.router, prefix="/api/v1", tags=["설정"])
     application.include_router(consents.router, prefix="/api/v1", tags=["동의"])
     application.include_router(user_consents.router, prefix="/api/v1", tags=["동의"])
@@ -101,6 +106,9 @@ def create_app() -> FastAPI:
     application.include_router(app_updates.router, prefix="/api/v1", tags=["앱 업데이트"])
     application.include_router(reports.router, prefix="/api/v1", tags=["리포트"])
     application.include_router(petcam.router, prefix="/api/v1", tags=["펫캠"])
+    application.include_router(leaderboard.router, prefix="/api/v1", tags=["리더보드"])
+    application.include_router(feed.router, prefix="/api/v1", tags=["피드"])
+    application.include_router(abuse_reports.router, prefix="/api/v1", tags=["신고"])
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:

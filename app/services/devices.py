@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import ARRAY, BigInteger, Case, and_, case, cast, false, func, select
+from sqlalchemy import ARRAY, BigInteger, Case, and_, case, cast, false, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -18,6 +18,7 @@ from app.schemas.devices import (
     UpdateDeviceRequest,
     UpdatePushTokenRequest,
 )
+from app.services.leaderboard import record_finished_sessions
 from app.utils import SEOUL
 
 VERSION_PATTERN = r"^[0-9]+(\.[0-9]+)*$"
@@ -108,6 +109,8 @@ async def finish_running_sessions(
             )
         )
 
+    await record_finished_sessions(db=db, sessions=sessions, now=now)
+
     return [session.id for session in sessions]
 
 
@@ -121,6 +124,11 @@ async def mark_seen(*, db: AsyncSession, device: Device, country: str | None) ->
 
     if seen_today:
         return
+
+    if country is not None:
+        stmt = update(User).where(User.id == device.user_id, User.country.is_(None)).values(country=country)
+
+        await db.execute(stmt)
 
     stmt = insert(DeviceActivity).values(
         activity_date=today,

@@ -20,6 +20,7 @@ from app.enums import (
     WithdrawalStepStatusEnum,
 )
 from app.errors import AuthenticationError, WithdrawalOperationError, WithdrawalSaveUnavailableError
+from app.file import build_file_dto
 from app.models import (
     Feedback,
     File,
@@ -183,7 +184,7 @@ async def get_backoffice_list(
                     nickname=row.User.nickname,
                     email=row.User.email,
                     is_anonymous=row.User.is_anonymous,
-                    photo_file=storage.generate_file_dto(file=row.User.photo_file),
+                    photo_file=build_file_dto(storage=storage, file=row.User.photo_file),
                     created_at=row.User.created_at,
                     session_count=row.session_count,
                     last_session_started_at=row.last_session_started_at,

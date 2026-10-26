@@ -3,8 +3,18 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import ActiveDevice, ActiveUser, Country, DBSession, Storage, require_device, require_session
-from app.models import Session
+from app.dependencies import (
+    ActiveDevice,
+    ActiveUser,
+    Country,
+    DBSession,
+    Storage,
+    require_device,
+    require_session,
+    require_session_event,
+    require_session_sound,
+)
+from app.models import Session, SessionEvent, SessionSound
 from app.schemas.base import BaseResponse, PageParams, UploadResponse
 from app.schemas.sessions import (
     AddSessionEventsRequest,
@@ -22,6 +32,7 @@ from app.schemas.sessions import (
     SessionSoundUploadRequest,
     SessionSummaryResponse,
     StartSessionRequest,
+    UpdateSessionUserReviewRequest,
 )
 from app.services import notifications, session_sounds, sessions
 
@@ -167,6 +178,42 @@ async def get_sounds(
         data=items,
         meta=query.meta(total),
     )
+
+
+@router.put("/{session_id}/sounds/{session_sound_id}/user-review", name="세션 소리 리뷰")
+async def update_sound_user_review(
+    sound: Annotated[SessionSound, Depends(require_session_sound)], body: UpdateSessionUserReviewRequest, db: DBSession
+) -> BaseResponse:
+    await session_sounds.update_user_review(db=db, sound=sound, data=body)
+
+    return BaseResponse(message="세션 소리 리뷰 성공")
+
+
+@router.delete("/{session_id}/sounds/{session_sound_id}/user-review", name="세션 소리 리뷰 취소")
+async def delete_sound_user_review(
+    sound: Annotated[SessionSound, Depends(require_session_sound)], db: DBSession
+) -> BaseResponse:
+    await session_sounds.delete_user_review(db=db, sound=sound)
+
+    return BaseResponse(message="세션 소리 리뷰 취소 성공")
+
+
+@router.put("/{session_id}/events/{session_event_id}/user-review", name="세션 이벤트 리뷰")
+async def update_event_user_review(
+    event: Annotated[SessionEvent, Depends(require_session_event)], body: UpdateSessionUserReviewRequest, db: DBSession
+) -> BaseResponse:
+    await sessions.update_event_user_review(db=db, event=event, data=body)
+
+    return BaseResponse(message="세션 이벤트 리뷰 성공")
+
+
+@router.delete("/{session_id}/events/{session_event_id}/user-review", name="세션 이벤트 리뷰 취소")
+async def delete_event_user_review(
+    event: Annotated[SessionEvent, Depends(require_session_event)], db: DBSession
+) -> BaseResponse:
+    await sessions.delete_event_user_review(db=db, event=event)
+
+    return BaseResponse(message="세션 이벤트 리뷰 취소 성공")
 
 
 @router.get("/{session_id}/summary", name="세션 요약 조회")
