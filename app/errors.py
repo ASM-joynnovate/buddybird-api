@@ -306,12 +306,6 @@ class PetcamTurnUnavailableError(CustomError):
     message = "영상 중계 접속 정보를 일시적으로 발급할 수 없습니다."
 
 
-class ScoreSaveUnavailableError(CustomError):
-    status_code = 503
-    error_code = "SCORE__SAVE_UNAVAILABLE"
-    message = "점수를 일시적으로 저장할 수 없습니다."
-
-
 class SelfTargetError(CustomError):
     error_code = "USER__SELF_TARGET"
     message = "자기 자신은 차단하거나 신고할 수 없습니다."

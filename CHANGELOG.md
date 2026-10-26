@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.0...v2.28.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* remove is_parrot_sound mapping and leaderboard backfill ([9f9d624](https://github.com/ASM-joynnovate/buddybird-api/commit/9f9d624b62a9c5dc6d98eaf49a9bae5b1fe306f6))
+
 ## [2.28.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.27.0...v2.28.0) (2026-10-26)
 
 
