@@ -452,7 +452,6 @@ class SessionSound(Base):
     audio_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
     audio_file: Mapped[File] = relationship(lazy="selectin")
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    is_parrot_sound: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     parrot_detection_status: Mapped[str] = mapped_column(
         Text,
         nullable=False,

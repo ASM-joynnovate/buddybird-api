@@ -2,21 +2,12 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select, true
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import transactional
-from app.enums import FeedItemKindEnum, LeaderboardUnrankedReasonEnum, ScoreMetricEnum, SessionStatusEnum
-from app.errors import ScoreSaveUnavailableError
+from app.enums import FeedItemKindEnum, LeaderboardUnrankedReasonEnum, ScoreMetricEnum
 from app.models import LearningSegment, ScoreEntry, Session, User, UserSetting, Word
 from app.s3 import S3StorageClient
-from app.schemas.leaderboard import (
-    LeaderboardDTO,
-    LeaderboardItemDTO,
-    LeaderboardMeDTO,
-    LeaderboardParams,
-    ScoreBackfillDTO,
-)
+from app.schemas.leaderboard import LeaderboardDTO, LeaderboardItemDTO, LeaderboardMeDTO, LeaderboardParams
 from app.services.feed import PUBLIC_USER, add_items, build_community_users
 from app.services.session_periods import get_active_durations
 
@@ -95,32 +86,6 @@ async def record_finished_sessions(*, db: AsyncSession, sessions: Sequence[Sessi
             ]
 
         await add_items(db=db, user_id=session.user_id, now=now, items=items)
-
-
-@transactional(unavailable_error=ScoreSaveUnavailableError)
-async def backfill_score_entries(*, db: AsyncSession) -> ScoreBackfillDTO:
-    recorded = select(ScoreEntry.id).where(ScoreEntry.session_id == Session.id).exists()
-    stmt = select(Session).where(Session.status == SessionStatusEnum.FINISHED, ~recorded)
-    sessions = (await db.scalars(stmt)).all()
-    durations = await get_active_durations(db=db, sessions=sessions)
-    values = [
-        {
-            "user_id": session.user_id,
-            "metric": ScoreMetricEnum.LEARNING_TIME,
-            "amount": durations[session.id],
-            "occurred_at": session.ended_at,
-            "session_id": session.id,
-        }
-        for session in sessions
-        if durations[session.id] > 0
-    ]
-
-    if not values:
-        return ScoreBackfillDTO(inserted_count=0)
-
-    result = await db.execute(insert(ScoreEntry).values(values).on_conflict_do_nothing())
-
-    return ScoreBackfillDTO(inserted_count=result.rowcount)
 
 
 async def get_leaderboard(
