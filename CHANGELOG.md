@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.2](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.1...v2.28.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* drop is_parrot_sound column and fill empty sound kinds ([#189](https://github.com/ASM-joynnovate/buddybird-api/issues/189)) ([3ad2dd8](https://github.com/ASM-joynnovate/buddybird-api/commit/3ad2dd8befd23961238af6fff235cc86aeec8f26))
+
 ## [2.28.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.0...v2.28.1) (2026-10-26)
 
 
