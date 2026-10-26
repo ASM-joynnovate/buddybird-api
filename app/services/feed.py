@@ -2,16 +2,25 @@ from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Select, and_, delete, false, func, or_, select, true
+from sqlalchemy import Select, and_, delete, func, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.errors import FeedSaveUnavailableError, ResourceNotFoundError
+from app.enums import FeedItemKindEnum, SessionSoundKindEnum
+from app.errors import (
+    FeedAlreadySharedError,
+    FeedAnonymousUserError,
+    FeedDisabledError,
+    FeedNicknameRequiredError,
+    FeedNotMimicError,
+    FeedSaveUnavailableError,
+    ResourceNotFoundError,
+)
 from app.file import build_public_file_dto
-from app.models import FeedItem, FeedItemLike, Parrot, User, UserBlock, UserSetting
+from app.models import FeedItem, FeedItemLike, Parrot, Session, SessionSound, User, UserBlock, UserSetting, Word
 from app.s3 import S3StorageClient
-from app.schemas.feed import FeedItemDTO, FeedItemLikeDTO, FeedParams
+from app.schemas.feed import CreateFeedItemRequest, FeedItemDTO, FeedItemLikeDTO, FeedParams
 from app.schemas.parrots import CommunityParrotDTO
 from app.schemas.users import CommunityUserDTO
 
@@ -120,9 +129,7 @@ async def get_likes(*, db: AsyncSession, user: User, feed_item_ids: list[UUID]) 
 async def get_list(
     *, db: AsyncSession, storage: S3StorageClient, user: User, query: FeedParams
 ) -> tuple[list[FeedItemDTO], UUID | None]:
-    stmt = select_visible_items(user).add_columns(
-        User, func.coalesce(UserSetting.feed_recording_sharing_enabled, false())
-    )
+    stmt = select_visible_items(user).add_columns(User)
 
     if query.cursor is not None:
         stmt = stmt.where(FeedItem.id < query.cursor)
@@ -144,10 +151,10 @@ async def get_list(
     users = await build_community_users(
         db=db,
         storage=storage,
-        users=list({author.id: author for _, author, _ in rows}.values()),
+        users=list({author.id: author for _, author in rows}.values()),
     )
 
-    likes = await get_likes(db=db, user=user, feed_item_ids=[item.id for item, _, _ in rows])
+    likes = await get_likes(db=db, user=user, feed_item_ids=[item.id for item, _ in rows])
 
     items = [
         FeedItemDTO(
@@ -156,15 +163,61 @@ async def get_list(
             created_at=item.created_at,
             user=users[author.id],
             word_name=item.word_name,
-            file=build_public_file_dto(storage=storage, file=item.file) if recording_enabled else None,
+            file=build_public_file_dto(storage=storage, file=item.file),
             threshold=item.threshold,
             like_count=likes[item.id].like_count,
             is_liked=likes[item.id].is_liked,
         )
-        for item, author, recording_enabled in rows
+        for item, author in rows
     ]
 
     return items, next_cursor
+
+
+@transactional(unavailable_error=FeedSaveUnavailableError)
+async def create(*, db: AsyncSession, user: User, data: CreateFeedItemRequest) -> None:
+    stmt = (
+        select(SessionSound.kind, SessionSound.audio_file_id, Session.word_id)
+        .join(Session, Session.id == SessionSound.session_id)
+        .where(SessionSound.id == data.session_sound_id, Session.user_id == user.id)
+    )
+    sound = (await db.execute(stmt)).first()
+
+    if sound is None:
+        raise ResourceNotFoundError
+
+    if user.is_anonymous:
+        raise FeedAnonymousUserError
+
+    if user.nickname is None:
+        raise FeedNicknameRequiredError
+
+    stmt = select(UserSetting.feed_enabled).where(UserSetting.user_id == user.id)
+
+    if await db.scalar(stmt) is False:
+        raise FeedDisabledError
+
+    if sound.kind != SessionSoundKindEnum.MIMIC.value:
+        raise FeedNotMimicError
+
+    stmt = select(Word.name).where(Word.id == sound.word_id).execution_options(include_deleted=True)
+    word_name = await db.scalar(stmt)
+
+    stmt = (
+        insert(FeedItem)
+        .values(
+            user_id=user.id,
+            kind=FeedItemKindEnum.MIMIC_SUCCEEDED.value,
+            word_name=word_name,
+            file_id=sound.audio_file_id,
+            is_deleted=False,
+        )
+        .on_conflict_do_nothing()
+        .returning(FeedItem.id)
+    )
+
+    if await db.scalar(stmt) is None:
+        raise FeedAlreadySharedError
 
 
 @transactional(unavailable_error=FeedSaveUnavailableError)

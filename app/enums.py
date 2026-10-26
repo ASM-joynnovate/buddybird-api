@@ -122,6 +122,23 @@ class MimicJudgmentStatusEnum(StrEnum):
     FAILED = "failed"
 
 
+class SessionSoundKindEnum(StrEnum):
+    NOT_PARROT = "not_parrot"
+    PARROT = "parrot"
+    MIMIC = "mimic"
+
+
+class SessionSoundLabelTargetEnum(StrEnum):
+    PARROT = "parrot"
+    MIMIC = "mimic"
+
+
+class CorrectnessEnum(StrEnum):
+    CORRECT = "correct"
+    INCORRECT = "incorrect"
+    NONE = "none"
+
+
 class LocaleEnum(StrEnum):
     KO_KR = "ko-KR"
     EN_US = "en-US"

@@ -17,6 +17,10 @@ class FeedParams(BaseRequest):
     user_id: UUID | None = None
 
 
+class CreateFeedItemRequest(BaseRequest):
+    session_sound_id: UUID
+
+
 class FeedItemLikeDTO(CustomBaseModel):
     like_count: int
     is_liked: bool

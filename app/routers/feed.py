@@ -4,7 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.dependencies import ActiveUser, DBSession, Storage
-from app.schemas.feed import FeedItemLikeResponse, FeedParams, FeedResponse
+from app.schemas.base import BaseResponse
+from app.schemas.feed import CreateFeedItemRequest, FeedItemLikeResponse, FeedParams, FeedResponse
 from app.services import feed
 
 router = APIRouter(prefix="/feed")
@@ -17,6 +18,13 @@ async def get_list(
     items, next_cursor = await feed.get_list(db=db, storage=storage, user=user, query=query)
 
     return FeedResponse(message="피드 조회 성공", data=items, meta={"next_cursor": next_cursor})
+
+
+@router.post("", name="피드에 공유")
+async def create(user: ActiveUser, body: CreateFeedItemRequest, db: DBSession) -> BaseResponse:
+    await feed.create(db=db, user=user, data=body)
+
+    return BaseResponse(message="피드에 공유 성공")
 
 
 @router.put("/{feed_item_id}/like", name="좋아요")

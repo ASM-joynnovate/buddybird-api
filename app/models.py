@@ -169,7 +169,6 @@ class UserSetting(Base):
     )
     leaderboard_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     feed_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
-    feed_recording_sharing_enabled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class I18n(Base):
@@ -376,6 +375,7 @@ class SessionEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     word_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(Word.id), nullable=True)
     emergency_event_id: Mapped[UUID | None] = mapped_column(SQL_UUID, nullable=True)
+    is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class LearningSegment(Base):
@@ -460,7 +460,47 @@ class SessionSound(Base):
         server_default=ParrotDetectionStatusEnum.PENDING.value,
     )
     mimic_judgment_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kind: Mapped[str | None] = mapped_column(Text, nullable=True)
+    final_parrot_score: Mapped[float | None] = mapped_column(Double, nullable=True)
+    final_mimic_score: Mapped[float | None] = mapped_column(Double, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+
+
+class SessionSoundLabel(Base):
+    __tablename__ = "session_sound_labels"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    session_sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), nullable=False)
+    target: Mapped[str] = mapped_column(Text, nullable=False)
+    is_positive: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    score: Mapped[float | None] = mapped_column(Double, nullable=True)
+    operator_name: Mapped[str] = mapped_column(Text, nullable=False)
+    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SessionSoundUserReview(Base):
+    __tablename__ = "session_sound_user_reviews"
+
+    session_sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)
+    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SessionEventLabel(Base):
+    __tablename__ = "session_event_labels"
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    session_event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), nullable=False)
+    is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    operator_name: Mapped[str] = mapped_column(Text, nullable=False)
+    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SessionEventUserReview(Base):
+    __tablename__ = "session_event_user_reviews"
+
+    session_event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
+    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
 class MimicJudgment(Base):
