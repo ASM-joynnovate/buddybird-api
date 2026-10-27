@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.30.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.29.0...v2.30.0) (2026-10-27)
+
+
+### Features
+
+* add target countries to dashboard announcements ([#202](https://github.com/ASM-joynnovate/buddybird-api/issues/202)) ([9dffe1f](https://github.com/ASM-joynnovate/buddybird-api/commit/9dffe1f716d730fca479257129cbbfe702ac47ff))
+
+
+### Bug Fixes
+
+* confirm pending backoffice photos at request time ([#200](https://github.com/ASM-joynnovate/buddybird-api/issues/200)) ([498aac1](https://github.com/ASM-joynnovate/buddybird-api/commit/498aac1b0fd079b90c40ea7ab075b2655c112b93))
+
 ## [2.29.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.4...v2.29.0) (2026-10-27)
 
 
