@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.4...v2.29.0) (2026-10-27)
+
+
+### Features
+
+* add target countries to announcements and broadcasts ([#198](https://github.com/ASM-joynnovate/buddybird-api/issues/198)) ([753ab09](https://github.com/ASM-joynnovate/buddybird-api/commit/753ab09a19d4682f37bf33360bfdb151aedd4abe))
+
 ## [2.28.4](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.3...v2.28.4) (2026-10-27)
 
 
