@@ -1,12 +1,10 @@
 import asyncio
-import io
 import logging
 from datetime import UTC, datetime, time, timedelta
 from urllib.parse import urlsplit
 from uuid import UUID, uuid7
 
 import httpx
-from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import (
     ARRAY,
     BigInteger,
@@ -86,7 +84,6 @@ from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL
 
 logger = logging.getLogger(__name__)
 
-MAX_PHOTO_PIXELS = 20_000_000
 SOCIAL_PHOTO_TYPES = {"image/jpeg": "profile.jpg", "image/png": "profile.png", "image/webp": "profile.webp"}
 SOCIAL_PHOTO_HOSTS = {
     "google": {"googleusercontent.com", "lh3.googleusercontent.com"},
@@ -192,34 +189,6 @@ async def download_social_photo(*, url: str, provider: str) -> tuple[bytes, str,
         return None
 
     return bytes(content), file_name, file_type
-
-
-async def prepare_uploaded_photo(content: bytes) -> bytes:
-    def transform() -> bytes:
-        with Image.open(io.BytesIO(content)) as source:
-            if source.format not in {"JPEG", "PNG"} or source.width * source.height > MAX_PHOTO_PIXELS:
-                raise ValueError
-
-            image = ImageOps.exif_transpose(source)
-
-            if "A" in image.getbands() or (image.mode == "P" and "transparency" in image.info):
-                image = image.convert("RGBA")
-                background = Image.new("RGB", image.size, "white")
-                background.paste(image, mask=image.getchannel("A"))
-                image = background
-            else:
-                image = image.convert("RGB")
-
-            image.thumbnail((512, 512), Image.Resampling.LANCZOS)
-            output = io.BytesIO()
-            image.save(output, format="JPEG", quality=85)
-
-            return output.getvalue()
-
-    try:
-        return await asyncio.to_thread(transform)
-    except (Image.DecompressionBombError, UnidentifiedImageError, OSError, ValueError) as exc:
-        raise InvalidProfilePhotoError from exc
 
 
 async def delete_uploaded_photo(*, storage: S3StorageClient, path: str, version_id: str) -> None:
