@@ -42,6 +42,7 @@ from app.models import (
     I18n,
     Notification,
     NotificationDispatch,
+    NotificationDispatchCountry,
     Parrot,
     PushDelivery,
     Session,
@@ -76,6 +77,7 @@ from app.schemas.notifications import (
     NotificationImageDTO,
     SendNotificationRequest,
 )
+from app.services.announcements import TARGET_USER
 from app.services.sessions import get_judgment_statuses
 from app.services.settings import ITEM_ENABLED
 from app.services.users import PUSHABLE
@@ -222,6 +224,7 @@ async def create_notifications(
     body_i18n: I18n,
     image_file_id: UUID | None,
     user_ids: list[UUID] | None,
+    countries: set[str] | None,
     local_datetime: datetime | None,
     session_id: UUID | None,
     target: NotificationDispatchTargetEnum | None,
@@ -244,6 +247,9 @@ async def create_notifications(
 
     if user_ids is not None:
         stmt = stmt.where(User.id.in_(user_ids))
+
+    if countries is not None:
+        stmt = stmt.where(User.country.in_(countries))
 
     rows = (await db.execute(stmt)).all()
     now = datetime.now(UTC)
@@ -303,6 +309,7 @@ async def create_notifications(
                 image_file=image_file,
                 target=target.value,
                 recipient_local_datetime=local_datetime,
+                countries=[NotificationDispatchCountry(country=country) for country in sorted(countries or [])],
             )
         )
         await db.flush()
@@ -327,6 +334,7 @@ async def create(
         body_i18n=body_i18n,
         image_file_id=data.image_file_id,
         user_ids=[user.id],
+        countries=None,
         local_datetime=None,
         session_id=None,
         target=NotificationDispatchTargetEnum.SELECTED,
@@ -350,6 +358,13 @@ async def send(
 
 @transactional(unavailable_error=NotificationSendFailedError)
 async def create_broadcast(*, db: AsyncSession, data: BroadcastNotificationRequest) -> tuple[int, list[UUID]]:
+    target = NotificationDispatchTargetEnum.SELECTED
+
+    if data.all_users:
+        target = NotificationDispatchTargetEnum.ALL
+    elif data.countries is not None:
+        target = NotificationDispatchTargetEnum.COUNTRIES
+
     title_i18n, body_i18n = build_notification_i18n(kind=data.kind, title=data.title, body=data.body)
     notifications, delivery_ids = await create_notifications(
         db=db,
@@ -358,9 +373,10 @@ async def create_broadcast(*, db: AsyncSession, data: BroadcastNotificationReque
         body_i18n=body_i18n,
         image_file_id=data.image_file_id,
         user_ids=data.user_ids,
+        countries=data.countries,
         local_datetime=data.recipient_local_datetime,
         session_id=None,
-        target=NotificationDispatchTargetEnum.ALL if data.all_users else NotificationDispatchTargetEnum.SELECTED,
+        target=target,
     )
 
     return len(notifications), delivery_ids
@@ -438,6 +454,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
         ),
         image_file_id=None,
         user_ids=[session.user_id],
+        countries=None,
         local_datetime=None,
         session_id=session_id,
         target=None,
@@ -555,6 +572,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         ),
         image_file_id=image_file_id,
         user_ids=[user_id],
+        countries=None,
         local_datetime=None,
         session_id=event.session_id,
         target=None,
@@ -758,6 +776,7 @@ async def get_dispatches(
                 image=image,
                 image_file_id=dispatch.image_file_id,
                 target=dispatch.target,
+                countries=[dispatch_country.country for dispatch_country in dispatch.countries],
                 recipient_local_datetime=dispatch.recipient_local_datetime,
                 created_at=dispatch.created_at,
                 status=status,
@@ -891,6 +910,10 @@ async def get_backoffice_audience(
         func.count().filter(KIND_ENABLED[query.kind]),
         func.count().filter(KIND_ENABLED[query.kind], PUSHABLE),
     ).select_from(User)
+
+    if query.countries is not None:
+        stmt = stmt.where(User.country.in_(query.countries))
+
     user_count, recipient_count, pushable_count = (await db.execute(stmt)).one()
 
     return BackofficeNotificationAudienceDTO(
@@ -977,14 +1000,18 @@ async def dispatch_due_pushes() -> None:
         )
         announcements = (await db.scalars(stmt)).all()
 
-        stmt = (
-            select(Device)
-            .join(User, User.id == Device.user_id)
-            .outerjoin(UserSetting, UserSetting.user_id == User.id)
-            .where(Device.push_token.is_not(None), PUSH_ENABLED, KIND_ENABLED[NotificationKindEnum.ANNOUNCEMENT])
-        )
-
         for announcement in announcements:
+            stmt = (
+                select(Device)
+                .join(User, User.id == Device.user_id)
+                .outerjoin(UserSetting, UserSetting.user_id == User.id)
+                .where(
+                    Device.push_token.is_not(None),
+                    PUSH_ENABLED,
+                    KIND_ENABLED[NotificationKindEnum.ANNOUNCEMENT],
+                    exists().where(Announcement.id == announcement.id, TARGET_USER),
+                )
+            )
             devices = (await db.scalars(stmt)).all()
             started_at = max(announcement.starts_at, announcement.created_at)
             announcement.push_prepared_at = now
@@ -1073,6 +1100,9 @@ async def deliver(delivery_id: UUID) -> None:
                     select(Session.station_device_id).where(Session.status == SessionStatusEnum.RUNNING.value)
                 )
             )
+
+        if delivery.announcement_id is not None:
+            stmt = stmt.where(exists().where(Announcement.id == delivery.announcement_id, TARGET_USER))
 
         row = (await db.execute(stmt)).first()
         sendable = (

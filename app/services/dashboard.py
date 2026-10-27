@@ -106,6 +106,7 @@ from app.schemas.dashboard import (
     WithdrawalDashboardSessionRangeDTO,
     WithdrawalDashboardUsagePeriodDTO,
 )
+from app.services.announcements import TARGET_USER_COUNT
 from app.services.devices import LAST_SEEN_DEVICE, MIN_SUPPORTED_APP_UPDATE, VERSION_UNSUPPORTED
 from app.services.emergencies import EMERGENCY_KINDS, IS_ONGOING, NOTIFICATION_STATUS
 from app.services.notifications import NOTIFICATION_PUSH
@@ -282,6 +283,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             I18n,
             Announcement.starts_at,
             func.count(User.id).label("read_count"),
+            TARGET_USER_COUNT.label("user_count"),
         )
         .select_from(Announcement)
         .join(I18n, I18n.id == Announcement.title_i18n_id)
@@ -347,6 +349,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
                 title=I18nDTO.model_validate(announcement.I18n, from_attributes=True),
                 starts_at=announcement.starts_at,
                 read_count=announcement.read_count,
+                user_count=announcement.user_count,
             )
             for announcement in announcements
         ],

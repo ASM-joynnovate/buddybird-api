@@ -72,6 +72,7 @@ class NotificationSettingKindEnum(StrEnum):
 class NotificationDispatchTargetEnum(StrEnum):
     ALL = "all"
     SELECTED = "selected"
+    COUNTRIES = "countries"
 
 
 class NotificationDispatchStatusEnum(StrEnum):

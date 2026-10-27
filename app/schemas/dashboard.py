@@ -79,6 +79,7 @@ class DashboardAnnouncementDTO(CustomBaseModel):
     title: I18nDTO
     starts_at: datetime
     read_count: int
+    user_count: int
 
 
 class DashboardDeviceVersionDTO(CustomBaseModel):
