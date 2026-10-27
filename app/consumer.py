@@ -4,6 +4,7 @@ import logging
 import signal
 import time
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from uuid import UUID
 
@@ -175,6 +176,7 @@ async def main() -> None:
     logging.getLogger("urllib3").setLevel(logging.INFO)
 
     asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, asyncio.current_task().cancel)
+    asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=32))
 
     try:
         await asyncio.gather(
