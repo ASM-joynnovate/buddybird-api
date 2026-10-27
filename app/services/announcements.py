@@ -17,6 +17,7 @@ from app.errors import (
     InvalidProfilePhotoError,
     ResourceNotFoundError,
 )
+from app.file import ensure_uploaded_photo
 from app.models import Announcement, AnnouncementCountry, AnnouncementImage, AnnouncementRead, File, I18n, User
 from app.s3 import S3StorageClient
 from app.schemas.announcements import (
@@ -196,11 +197,14 @@ async def create(
     if len(set(data.image_file_ids)) != len(data.image_file_ids) or await db.scalar(stmt):
         raise DuplicateAnnouncementImageError
 
-    stmt = select(File).where(File.id.in_(data.image_file_ids), File.status == FileStatusEnum.UPLOADED.value)
+    stmt = select(File).where(File.id.in_(data.image_file_ids))
     files = {file.id: file for file in (await db.scalars(stmt)).all() if file.file_path == f"announcement/{file.id}"}
 
     if any(file_id not in files for file_id in data.image_file_ids):
         raise ResourceNotFoundError
+
+    for file in files.values():
+        await ensure_uploaded_photo(storage=storage, file=file)
 
     announcement = Announcement(
         title_i18n=I18n(**data.title.model_dump()),
@@ -273,13 +277,16 @@ async def update(
 
         images = {image.file_id: image for image in announcement.images}
 
-        stmt = select(File).where(File.id.in_(data.image_file_ids), File.status == FileStatusEnum.UPLOADED.value)
+        stmt = select(File).where(File.id.in_(data.image_file_ids))
         files = {
             file.id: file for file in (await db.scalars(stmt)).all() if file.file_path == f"announcement/{file.id}"
         }
 
         if any(file_id not in images and file_id not in files for file_id in data.image_file_ids):
             raise ResourceNotFoundError
+
+        for file in files.values():
+            await ensure_uploaded_photo(storage=storage, file=file)
 
         for display_order, image in enumerate(images.values()):
             image.display_order = -1 - display_order
