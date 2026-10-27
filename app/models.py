@@ -560,6 +560,18 @@ class NotificationDispatch(Base):
     recipient_local_datetime: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
     body_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
+    countries: Mapped[list[NotificationDispatchCountry]] = relationship(
+        lazy="selectin", order_by="NotificationDispatchCountry.country"
+    )
+
+
+class NotificationDispatchCountry(Base):
+    __tablename__ = "notification_dispatch_countries"
+
+    notification_dispatch_id: Mapped[UUID] = mapped_column(
+        SQL_UUID, ForeignKey(NotificationDispatch.id), primary_key=True
+    )
+    country: Mapped[str] = mapped_column(String(2), primary_key=True)
 
 
 class Notification(Base):
@@ -621,6 +633,9 @@ class Announcement(Base):
     push_prepared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     images: Mapped[list[AnnouncementImage]] = relationship(lazy="selectin", order_by="AnnouncementImage.display_order")
+    countries: Mapped[list[AnnouncementCountry]] = relationship(
+        lazy="selectin", order_by="AnnouncementCountry.country", cascade="all, delete-orphan"
+    )
     title_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[title_i18n_id])
     body_i18n: Mapped[I18n | None] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
 
@@ -639,6 +654,13 @@ class AnnouncementImage(Base):
     file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     file: Mapped[File] = relationship(lazy="selectin")
+
+
+class AnnouncementCountry(Base):
+    __tablename__ = "announcement_countries"
+
+    announcement_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Announcement.id), primary_key=True)
+    country: Mapped[str] = mapped_column(String(2), primary_key=True)
 
 
 class AnnouncementRead(Base):

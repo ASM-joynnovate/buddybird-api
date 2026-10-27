@@ -8,6 +8,7 @@ from app.enums import FileStatusEnum
 
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 Body = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Country = Annotated[str, StringConstraints(pattern=r"^[A-Z]{2}$")]
 
 
 class BaseRequest(BaseModel):

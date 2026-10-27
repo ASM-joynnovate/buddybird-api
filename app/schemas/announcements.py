@@ -9,6 +9,7 @@ from app.enums import AnnouncementSortEnum, SortOrderEnum
 from app.schemas.base import (
     BaseRequest,
     BaseResponse,
+    Country,
     CustomBaseModel,
     I18nBodyRequest,
     I18nDTO,
@@ -56,6 +57,7 @@ class BackofficeAnnouncementDTO(CustomBaseModel):
     body: I18nDTO | None
     starts_at: datetime
     ends_at: datetime | None
+    countries: list[str]
     push_enabled: bool
     push_local_time: time | None
     push_prepared_at: datetime | None
@@ -68,6 +70,7 @@ class BackofficeAnnouncementResponse(BaseResponse):
 
 class BackofficeAnnouncementListItemDTO(BackofficeAnnouncementDTO):
     read_count: int
+    user_count: int
 
 
 class BackofficeAnnouncementListResponse(BaseResponse):
@@ -81,6 +84,7 @@ class CreateAnnouncementRequest(BaseRequest):
     body: I18nBodyRequest | None = None
     starts_at: AwareDatetime
     ends_at: AwareDatetime | None = None
+    countries: set[Country]
     push_enabled: bool = False
     push_local_time: time | None = None
     image_file_ids: list[UUID]
@@ -100,6 +104,7 @@ class UpdateAnnouncementRequest(BaseRequest):
     body: UpdateI18nBodyRequest | MISSING | None = MISSING
     starts_at: AwareDatetime | MISSING = MISSING
     ends_at: AwareDatetime | MISSING | None = MISSING
+    countries: set[Country] | MISSING = MISSING
     push_enabled: bool | MISSING = MISSING
     push_local_time: time | MISSING | None = MISSING
     image_file_ids: list[UUID] | MISSING = MISSING

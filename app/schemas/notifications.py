@@ -9,6 +9,7 @@ from app.schemas.base import (
     BaseRequest,
     BaseResponse,
     Body,
+    Country,
     CustomBaseModel,
     FileDTO,
     I18nDTO,
@@ -108,6 +109,7 @@ class BackofficeNotificationDispatchDTO(CustomBaseModel):
     image: NotificationImageDTO | None
     image_file_id: UUID | None
     target: NotificationDispatchTargetEnum
+    countries: list[str]
     recipient_local_datetime: NaiveDatetime | None
     created_at: datetime
     status: NotificationDispatchStatusEnum
@@ -208,12 +210,15 @@ class BroadcastNotificationRequest(NotificationContentRequest):
 
     user_ids: list[UUID] | None = Field(None, min_length=1, max_length=1000)
     all_users: bool = False
+    countries: set[Country] | None = Field(None, min_length=1)
     recipient_local_datetime: NaiveDatetime | None = None
 
     @model_validator(mode="after")
     def validate_broadcast(self) -> BroadcastNotificationRequest:
-        if (self.user_ids is not None) == self.all_users:
-            raise ValueError("user_ids와 all_users 중 하나만 지정해야 합니다.")
+        target_count = sum([self.user_ids is not None, self.all_users, self.countries is not None])
+
+        if target_count != 1:
+            raise ValueError("user_ids, all_users, countries 중 하나만 지정해야 합니다.")
 
         if self.kind == NotificationKindEnum.URGENT and self.recipient_local_datetime is not None:
             raise ValueError("urgent에는 recipient_local_datetime을 지정할 수 없습니다.")
@@ -242,6 +247,7 @@ class BackofficeNotificationDispatchListParams(PageParams):
 
 class BackofficeNotificationAudienceParams(BaseRequest):
     kind: Literal[NotificationKindEnum.ANNOUNCEMENT, NotificationKindEnum.URGENT, NotificationKindEnum.MARKETING]
+    countries: list[Country] | None = Field(None, min_length=1)
 
 
 class BackofficePushDeliveryListParams(PageParams):
