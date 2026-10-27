@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.4](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.3...v2.28.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* **consumer:** raise the default thread pool to 32 workers ([#195](https://github.com/ASM-joynnovate/buddybird-api/issues/195)) ([ffb166a](https://github.com/ASM-joynnovate/buddybird-api/commit/ffb166a6a7a1c16607c70bd86a929f13ac4a36e1))
+
 ## [2.28.3](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.28.2...v2.28.3) (2026-10-26)
 
 
