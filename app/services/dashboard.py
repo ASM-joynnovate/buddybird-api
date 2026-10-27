@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, time, timedelta
 
 from sqlalchemy import Date, Integer, Row, and_, case, cast, exists, func, not_, or_, select, true
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -24,6 +25,7 @@ from app.file import build_file_dto
 from app.models import (
     AbuseReport,
     Announcement,
+    AnnouncementCountry,
     AnnouncementRead,
     Consent,
     Device,
@@ -277,11 +279,19 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             for row in rows
         ]
 
+    countries = (
+        select(func.array_agg(aggregate_order_by(AnnouncementCountry.country, AnnouncementCountry.country)))
+        .where(AnnouncementCountry.announcement_id == Announcement.id)
+        .correlate(Announcement)
+        .scalar_subquery()
+    )
+
     stmt = (
         select(
             Announcement.id,
             I18n,
             Announcement.starts_at,
+            countries.label("countries"),
             func.count(User.id).label("read_count"),
             TARGET_USER_COUNT.label("user_count"),
         )
@@ -348,6 +358,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
                 id=announcement.id,
                 title=I18nDTO.model_validate(announcement.I18n, from_attributes=True),
                 starts_at=announcement.starts_at,
+                countries=announcement.countries or [],
                 read_count=announcement.read_count,
                 user_count=announcement.user_count,
             )
