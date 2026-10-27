@@ -78,7 +78,9 @@ class DashboardAnnouncementDTO(CustomBaseModel):
     id: UUID
     title: I18nDTO
     starts_at: datetime
+    countries: list[str]
     read_count: int
+    user_count: int
 
 
 class DashboardDeviceVersionDTO(CustomBaseModel):

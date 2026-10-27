@@ -11,10 +11,10 @@ from app.config import config
 from app.db import session_factory, transactional
 from app.enums import FileStatusEnum
 from app.errors import InvalidProfilePhotoError
+from app.file import confirm_uploaded_photo
 from app.models import File, Parrot, SessionSound, User
 from app.s3 import s3
 from app.services import notifications
-from app.services.users import prepare_uploaded_photo
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,8 @@ async def process(*, key: str, size: int) -> None:
             return
 
         if key != path:
-            content = await s3.download(path=key)
-
             try:
-                photo = await prepare_uploaded_photo(content)
+                await confirm_uploaded_photo(storage=s3, file=file)
             except InvalidProfilePhotoError:
                 logger.warning("이미지 검증 실패로 업로드를 거부함; key=%s", key)
 
@@ -51,10 +49,7 @@ async def process(*, key: str, size: int) -> None:
 
                 return
 
-            await s3.upload(path=path, file=photo)
-            await s3.delete(path=key)
-
-            size = len(photo)
+            size = file.file_size
 
         duration_ms = None
 

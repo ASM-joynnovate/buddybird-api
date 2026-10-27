@@ -110,9 +110,11 @@ async def send(body: SendNotificationRequest, db: DBSession, storage: Storage) -
 
 
 @router.post("/broadcast", name="알림 일괄 발송")
-async def broadcast(body: BroadcastNotificationRequest, db: DBSession) -> BroadcastNotificationResponse:
+async def broadcast(
+    body: BroadcastNotificationRequest, db: DBSession, storage: Storage
+) -> BroadcastNotificationResponse:
     return BroadcastNotificationResponse(
-        message="알림 일괄 발송 성공", data=await notifications.broadcast(db=db, data=body)
+        message="알림 일괄 발송 성공", data=await notifications.broadcast(db=db, storage=storage, data=body)
     )
 
 

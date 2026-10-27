@@ -21,12 +21,12 @@ router = APIRouter(prefix="/announcements")
 async def get_list(
     query: Annotated[BackofficeAnnouncementListParams, Query()], db: DBSession, storage: Storage
 ) -> BackofficeAnnouncementListResponse:
-    items, total, user_count = await announcements.get_backoffice_list(db=db, storage=storage, query=query)
+    items, total = await announcements.get_backoffice_list(db=db, storage=storage, query=query)
 
     return BackofficeAnnouncementListResponse(
         message="공지 목록 조회 성공",
         data=items,
-        meta={**query.meta(total), "user_count": user_count},
+        meta=query.meta(total),
     )
 
 

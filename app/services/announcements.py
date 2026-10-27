@@ -17,7 +17,8 @@ from app.errors import (
     InvalidProfilePhotoError,
     ResourceNotFoundError,
 )
-from app.models import Announcement, AnnouncementImage, AnnouncementRead, File, I18n, User
+from app.file import ensure_uploaded_photo
+from app.models import Announcement, AnnouncementCountry, AnnouncementImage, AnnouncementRead, File, I18n, User
 from app.s3 import S3StorageClient
 from app.schemas.announcements import (
     AnnouncementDTO,
@@ -31,6 +32,16 @@ from app.schemas.announcements import (
 )
 from app.schemas.base import I18nDTO, PageParams, UploadDTO, UploadRequest
 from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES
+
+TARGET_USER = or_(
+    ~exists().where(AnnouncementCountry.announcement_id == Announcement.id).correlate(Announcement),
+    exists()
+    .where(AnnouncementCountry.announcement_id == Announcement.id, AnnouncementCountry.country == User.country)
+    .correlate(Announcement, User),
+)
+TARGET_USER_COUNT = (
+    select(func.count()).select_from(User).where(User.is_deleted.is_(False), TARGET_USER).scalar_subquery()
+)
 
 
 def build_announcement_dto(
@@ -61,6 +72,7 @@ def build_backoffice_announcement_dto(
         else None,
         starts_at=announcement.starts_at,
         ends_at=announcement.ends_at,
+        countries=[announcement_country.country for announcement_country in announcement.countries],
         push_enabled=announcement.push_enabled,
         push_local_time=announcement.push_local_time,
         push_prepared_at=announcement.push_prepared_at,
@@ -85,7 +97,11 @@ async def get_list(
             AnnouncementRead,
             and_(AnnouncementRead.announcement_id == Announcement.id, AnnouncementRead.user_id == user.id),
         )
-        .where(Announcement.starts_at <= now, or_(Announcement.ends_at.is_(None), Announcement.ends_at > now))
+        .where(
+            Announcement.starts_at <= now,
+            or_(Announcement.ends_at.is_(None), Announcement.ends_at > now),
+            exists().where(User.id == user.id, TARGET_USER),
+        )
     )
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     rows = (
@@ -113,7 +129,7 @@ async def get_detail(
 
 async def get_backoffice_list(
     *, db: AsyncSession, storage: S3StorageClient, query: BackofficeAnnouncementListParams
-) -> tuple[list[BackofficeAnnouncementListItemDTO], int, int]:
+) -> tuple[list[BackofficeAnnouncementListItemDTO], int]:
     now = datetime.now(UTC)
     stmt = select(Announcement)
 
@@ -132,7 +148,7 @@ async def get_backoffice_list(
         order_by = [direction(read_count), Announcement.starts_at.desc()]
 
     stmt = (
-        stmt.add_columns(read_count.label("read_count"))
+        stmt.add_columns(read_count.label("read_count"), TARGET_USER_COUNT.label("user_count"))
         .outerjoin(AnnouncementRead, AnnouncementRead.announcement_id == Announcement.id)
         .outerjoin(User, User.id == AnnouncementRead.user_id)
         .group_by(Announcement.id)
@@ -142,18 +158,16 @@ async def get_backoffice_list(
     )
     rows = (await db.execute(stmt)).all()
 
-    stmt = select(func.count()).select_from(User)
-    user_count = await db.scalar(stmt)
-
     items = [
         BackofficeAnnouncementListItemDTO(
             **build_backoffice_announcement_dto(announcement, storage).model_dump(),
             read_count=read_count,
+            user_count=user_count,
         )
-        for announcement, read_count in rows
+        for announcement, read_count, user_count in rows
     ]
 
-    return items, total, user_count
+    return items, total
 
 
 @transactional(unavailable_error=AnnouncementSaveUnavailableError)
@@ -183,17 +197,21 @@ async def create(
     if len(set(data.image_file_ids)) != len(data.image_file_ids) or await db.scalar(stmt):
         raise DuplicateAnnouncementImageError
 
-    stmt = select(File).where(File.id.in_(data.image_file_ids), File.status == FileStatusEnum.UPLOADED.value)
+    stmt = select(File).where(File.id.in_(data.image_file_ids))
     files = {file.id: file for file in (await db.scalars(stmt)).all() if file.file_path == f"announcement/{file.id}"}
 
     if any(file_id not in files for file_id in data.image_file_ids):
         raise ResourceNotFoundError
+
+    for file in files.values():
+        await ensure_uploaded_photo(storage=storage, file=file)
 
     announcement = Announcement(
         title_i18n=I18n(**data.title.model_dump()),
         body_i18n=I18n(**data.body.model_dump()) if data.body is not None else None,
         starts_at=data.starts_at,
         ends_at=data.ends_at,
+        countries=[AnnouncementCountry(country=country) for country in sorted(data.countries)],
         push_enabled=data.push_enabled,
         push_local_time=data.push_local_time,
         is_deleted=False,
@@ -228,11 +246,23 @@ async def update(
 
         announcement.body_i18n = I18n(**data.body.model_dump(exclude_unset=True))
 
-    for name, value in data.model_dump(exclude_unset=True, exclude={"title", "body", "image_file_ids"}).items():
+    for name, value in data.model_dump(
+        exclude_unset=True, exclude={"title", "body", "countries", "image_file_ids"}
+    ).items():
         setattr(announcement, name, value)
 
     if announcement.ends_at is not None and announcement.ends_at <= announcement.starts_at:
         raise InvalidAnnouncementPeriodError
+
+    if data.countries is not MISSING:
+        announcement_countries = {
+            announcement_country.country: announcement_country for announcement_country in announcement.countries
+        }
+
+        announcement.countries = [
+            announcement_countries.get(country) or AnnouncementCountry(country=country)
+            for country in sorted(data.countries)
+        ]
 
     if data.image_file_ids is not MISSING:
         stmt = select(
@@ -247,13 +277,16 @@ async def update(
 
         images = {image.file_id: image for image in announcement.images}
 
-        stmt = select(File).where(File.id.in_(data.image_file_ids), File.status == FileStatusEnum.UPLOADED.value)
+        stmt = select(File).where(File.id.in_(data.image_file_ids))
         files = {
             file.id: file for file in (await db.scalars(stmt)).all() if file.file_path == f"announcement/{file.id}"
         }
 
         if any(file_id not in images and file_id not in files for file_id in data.image_file_ids):
             raise ResourceNotFoundError
+
+        for file in files.values():
+            await ensure_uploaded_photo(storage=storage, file=file)
 
         for display_order, image in enumerate(images.values()):
             image.display_order = -1 - display_order
