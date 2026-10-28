@@ -260,9 +260,7 @@ async def save_login(
         db.add(UserSetting(user_id=user.id))
 
         presets = (
-            await db.scalars(
-                select(PresetWord).where(PresetWord.language == locale.split("-")[0]).order_by(PresetWord.created_at)
-            )
+            await db.scalars(select(PresetWord).where(PresetWord.language == locale).order_by(PresetWord.created_at))
         ).all()
 
         for preset in presets:

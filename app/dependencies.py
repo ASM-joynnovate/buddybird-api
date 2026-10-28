@@ -40,7 +40,6 @@ from app.models import (
     Word,
 )
 from app.s3 import S3StorageClient, get_s3
-from app.utils import resolve_locale
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -270,7 +269,7 @@ async def require_abuse_report(db: DBSession, abuse_report_id: UUID) -> AbuseRep
 
 
 async def get_locale(accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None) -> LocaleEnum:
-    return resolve_locale(accept_language)
+    return LocaleEnum.ranked(accept_language)[0]
 
 
 Locale = Annotated[LocaleEnum, Depends(get_locale)]
