@@ -201,6 +201,9 @@ def build_notification_i18n(
             "zh_hans": "(广告) ",
             "zh_hant": "(廣告) ",
             "th_th": "(โฆษณา) ",
+            "vi_vn": "[QC] ",
+            "hi_in": "(विज्ञापन) ",
+            "bn_bd": "(বিজ্ঞাপন) ",
         }
         title_texts = {name: prefixes[name] + text if text is not None else None for name, text in title_texts.items()}
         body_texts = {name: prefixes[name] + text if text is not None else None for name, text in body_texts.items()}
@@ -431,6 +434,9 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
     subject_zh_hans = "你的鹦鹉"
     subject_zh_hant = "你的鸚鵡"
     subject_th = "นกแก้วของคุณ"
+    subject_vi = "vẹt của bạn"
+    subject_hi = "आपके तोते"
+    subject_bn = "আপনার টিয়া"
 
     if len(names) == 1:
         has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
@@ -442,6 +448,9 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
         subject_zh_hans = names[0]
         subject_zh_hant = names[0]
         subject_th = names[0]
+        subject_vi = names[0]
+        subject_hi = names[0]
+        subject_bn = names[0]
     elif names:
         others = "other" if len(names) == 2 else "others"
         subject_ko = f"{names[0]} 외 {len(names) - 1}마리가"
@@ -452,6 +461,11 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
         subject_zh_hans = f"{names[0]}和另外{len(names) - 1}只鹦鹉"
         subject_zh_hant = f"{names[0]}和另外{len(names) - 1}隻鸚鵡"
         subject_th = f"{names[0]} และอีก {len(names) - 1} ตัว"
+        subject_vi = f"{names[0]} và {len(names) - 1} con khác"
+        subject_hi = f"{names[0]} और {len(names) - 1} अन्य"
+        subject_bn = (
+            f"{names[0]} এবং আরও {str(len(names) - 1).translate(str.maketrans('0123456789', '০১২৩৪৫৬৭৮৯'))}টি টিয়া"
+        )
 
     _, delivery_ids = await create_notifications(
         db=db,
@@ -466,6 +480,9 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
             zh_hans="学习报告准备好啦",
             zh_hant="學習報告準備好囉",
             th_th="รายงานการฝึกพร้อมแล้ว",
+            vi_vn="Báo cáo học tập đã sẵn sàng",
+            hi_in="लर्निंग रिपोर्ट तैयार है",
+            bn_bd="শেখার রিপোর্ট তৈরি হয়ে গেছে",
         ),
         body_i18n=I18n(
             ko_kr=f"앵무새 소리 분석이 끝났어요. {subject_ko} 낸 소리를 들어 보세요!",
@@ -476,6 +493,9 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
             zh_hans=f"声音分析完成啦。快来听听{subject_zh_hans}发出的声音吧!",
             zh_hant=f"聲音分析完成囉。快來聽聽{subject_zh_hant}發出的聲音吧!",
             th_th=f"วิเคราะห์เสียงนกแก้วเสร็จแล้ว มาฟังเสียงของ {subject_th} กันเลย!",
+            vi_vn=f"Phân tích tiếng kêu đã xong. Nghe thử xem {subject_vi} đã nói gì nhé!",
+            hi_in=f"आवाज़ों का विश्लेषण पूरा हो गया। सुनिए {subject_hi} ने क्या कहा!",
+            bn_bd=f"শব্দ বিশ্লেষণ শেষ হয়েছে। শুনে দেখুন {subject_bn} কী বলেছে!",
         ),
         image_file_id=None,
         user_ids=[session.user_id],
@@ -561,6 +581,9 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
     subject_zh_hans = "你的鹦鹉"
     subject_zh_hant = "你的鸚鵡"
     subject_th = "นกแก้วของคุณ"
+    subject_vi = "vẹt của bạn"
+    subject_hi = "आपका तोता"
+    subject_bn = "আপনার টিয়াকে"
 
     if len(names) == 1:
         has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
@@ -572,6 +595,9 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         subject_zh_hans = names[0]
         subject_zh_hant = names[0]
         subject_th = names[0]
+        subject_vi = names[0]
+        subject_hi = names[0]
+        subject_bn = f"{names[0]}-কে"
 
     title_i18n = I18n(
         ko_kr=f"{subject_ko} 안 보여요",
@@ -582,6 +608,9 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         zh_hans=f"看不到{subject_zh_hans}了",
         zh_hant=f"看不到{subject_zh_hant}了",
         th_th=f"มองไม่เห็น {subject_th} แล้ว",
+        vi_vn=f"Không thấy {subject_vi} đâu",
+        hi_in=f"{subject_hi} दिखाई नहीं दे रहा",
+        bn_bd=f"{subject_bn} দেখা যাচ্ছে না",
     )
 
     if event.kind == SessionEventKindEnum.PARROT_APPEARED.value:
@@ -594,6 +623,9 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
             zh_hans=f"又看到{subject_zh_hans}了",
             zh_hant=f"又看到{subject_zh_hant}了",
             th_th=f"เห็น {subject_th} อีกครั้งแล้ว",
+            vi_vn=f"Đã thấy {subject_vi} trở lại",
+            hi_in=f"{subject_hi} फिर से दिखाई दे रहा है",
+            bn_bd=f"{subject_bn} আবার দেখা যাচ্ছে",
         )
 
     _, delivery_ids = await create_notifications(
@@ -610,6 +642,9 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
             zh_hans="点击查看现在的情况",
             zh_hant="點一下查看現在的狀況",
             th_th="แตะเพื่อดูว่าตอนนี้เป็นอย่างไรบ้าง",
+            vi_vn="Chạm để xem tình hình hiện tại",
+            hi_in="अभी क्या हो रहा है, देखने के लिए टैप करें",
+            bn_bd="এখন কী হচ্ছে দেখতে ট্যাপ করুন",
         ),
         image_file_id=image_file_id,
         user_ids=[user_id],
@@ -1179,6 +1214,9 @@ async def deliver(delivery_id: UUID) -> None:
                     LocaleEnum.TH_TH: (
                         "ยกเลิกการรับข่าวสารได้ฟรี: โปรไฟล์ > การตั้งค่า > การแจ้งเตือน > ปิดการแจ้งเตือนข่าวสารและโปรโมชั่น"
                     ),
+                    LocaleEnum.VI_VN: "Từ chối nhận miễn phí: Hồ sơ > Cài đặt > Thông báo > tắt thông báo khuyến mãi",
+                    LocaleEnum.HI_IN: "मुफ़्त में अनसब्सक्राइब करें: प्रोफ़ाइल > सेटिंग > सूचनाएं > प्रमोशन सूचनाएं बंद करें",
+                    LocaleEnum.BN_BD: "বিনামূল্যে আনসাবস্ক্রাইব: প্রোফাইল > সেটিংস > বিজ্ঞপ্তি > মার্কেটিং বিজ্ঞপ্তি বন্ধ করুন",
                 }
                 body += "\n" + unsubscribe_texts[body_i18n.text_locale(locale)]
 

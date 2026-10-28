@@ -183,6 +183,9 @@ class I18n(Base):
     zh_hans: Mapped[str | None] = mapped_column(Text, nullable=True)
     zh_hant: Mapped[str | None] = mapped_column(Text, nullable=True)
     th_th: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vi_vn: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hi_in: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bn_bd: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def text_locale(self, locale: LocaleEnum) -> LocaleEnum:
         return next(item for item in LocaleEnum.ranked(locale) if getattr(self, item.column))
