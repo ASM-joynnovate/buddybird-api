@@ -157,6 +157,7 @@ class LocaleEnum(StrEnum):
     ES_ES = "es-ES"
     ZH_HANS = "zh-Hans", "CN", "SG"
     ZH_HANT = "zh-Hant", "TW", "HK", "MO"
+    TH_TH = "th-TH"
 
     @property
     def column(self) -> str:
