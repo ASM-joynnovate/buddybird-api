@@ -183,13 +183,15 @@ class BroadcastNotificationResponse(BaseResponse):
 
 
 class I18nNotificationBodyRequest(BaseRequest):
-    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es"}
+    null_fields: ClassVar[set] = {"ko_kr", "ja_jp", "ru_ru", "es_es", "zh_hans", "zh_hant"}
 
     ko_kr: Body | None = Field(None, max_length=500)
     en_us: Body = Field(..., max_length=500)
     ja_jp: Body | None = Field(None, max_length=500)
     ru_ru: Body | None = Field(None, max_length=500)
     es_es: Body | None = Field(None, max_length=500)
+    zh_hans: Body | None = Field(None, max_length=500)
+    zh_hant: Body | None = Field(None, max_length=500)
 
 
 class NotificationContentRequest(BaseRequest):
