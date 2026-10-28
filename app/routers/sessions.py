@@ -23,6 +23,8 @@ from app.schemas.sessions import (
     SessionEventListParams,
     SessionEventListResponse,
     SessionListResponse,
+    SessionLogListParams,
+    SessionLogListResponse,
     SessionPetcamEventRequest,
     SessionPetcamEventUploadResponse,
     SessionPetcamVideoUploadRequest,
@@ -100,7 +102,7 @@ async def add_events(
     return BaseResponse(message="세션 이벤트 기록 성공")
 
 
-@router.get("/{session_id}/events", name="세션 이벤트 조회")
+@router.get("/{session_id}/events", name="세션 이벤트 조회", deprecated=True)
 async def get_events(
     session: Annotated[Session, Depends(require_session)],
     query: Annotated[SessionEventListParams, Query()],
@@ -164,7 +166,7 @@ async def upload_sound(
     )
 
 
-@router.get("/{session_id}/sounds", name="세션 소리 목록 조회")
+@router.get("/{session_id}/sounds", name="세션 소리 목록 조회", deprecated=True)
 async def get_sounds(
     session: Annotated[Session, Depends(require_session)],
     query: Annotated[SessionSoundListParams, Query()],
@@ -175,6 +177,22 @@ async def get_sounds(
 
     return SessionSoundListResponse(
         message="세션 소리 목록 조회 성공",
+        data=items,
+        meta=query.meta(total),
+    )
+
+
+@router.get("/{session_id}/log", name="세션 기록 조회")
+async def get_log(
+    session: Annotated[Session, Depends(require_session)],
+    query: Annotated[SessionLogListParams, Query()],
+    db: DBSession,
+    storage: Storage,
+) -> SessionLogListResponse:
+    items, total = await sessions.get_log(db=db, storage=storage, session=session, query=query)
+
+    return SessionLogListResponse(
+        message="세션 기록 조회 성공",
         data=items,
         meta=query.meta(total),
     )
