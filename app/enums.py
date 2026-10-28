@@ -146,7 +146,7 @@ class LocaleEnum(StrEnum):
     def __new__(cls, value: str, *aliases: str) -> LocaleEnum:
         member = str.__new__(cls, value)
         member._value_ = value
-        member.tags = frozenset(value.split("-")) | frozenset(aliases)
+        member.tags = frozenset(value.split("-")[1:]) | frozenset(aliases)
 
         return member
 
@@ -158,6 +158,9 @@ class LocaleEnum(StrEnum):
     ZH_HANS = "zh-Hans", "CN", "SG"
     ZH_HANT = "zh-Hant", "TW", "HK", "MO"
     TH_TH = "th-TH"
+    VI_VN = "vi-VN"
+    HI_IN = "hi-IN"
+    BN_BD = "bn-BD"
 
     @property
     def column(self) -> str:
@@ -165,9 +168,9 @@ class LocaleEnum(StrEnum):
 
     @classmethod
     def ranked(cls, value: str | None) -> list[LocaleEnum]:
-        parts = set((value or "").split("-"))
+        language, *subtags = (value or "").split("-")
 
-        return sorted(cls, key=lambda item: -len(item.tags & parts))
+        return sorted(cls, key=lambda item: (item.split("-")[0] != language, -len(item.tags & set(subtags))))
 
 
 class PlatformEnum(StrEnum):
