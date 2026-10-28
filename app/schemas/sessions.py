@@ -10,6 +10,7 @@ from app.enums import (
     SessionActorEnum,
     SessionEndReasonEnum,
     SessionEventKindEnum,
+    SessionLogKindEnum,
     SessionPhaseEnum,
     SessionSoundKindEnum,
     SessionSoundLabelTargetEnum,
@@ -63,6 +64,11 @@ class SessionSoundsDTO(CustomBaseModel):
     mimic_count: int
 
 
+class SessionEventsDTO(CustomBaseModel):
+    distress_call_count: int
+    parrot_disappeared_count: int
+
+
 class SessionDTO(CustomBaseModel):
     id: UUID
     status: SessionStatusEnum
@@ -73,6 +79,7 @@ class SessionDTO(CustomBaseModel):
     period: SessionPeriodDTO
     judgment: SessionJudgmentDTO
     sounds: SessionSoundsDTO
+    events: SessionEventsDTO
 
 
 class SessionResponse(BaseResponse):
@@ -425,6 +432,88 @@ class UpdateSessionSoundLabelRequest(BaseRequest):
     score: float = Field(..., ge=0, le=1)
     memo: Memo | None = None
     operator_name: OperatorName
+
+
+class SessionLogListParams(PageParams):
+    model_config = ConfigDict(extra="ignore")
+
+    kind: list[SessionLogKindEnum] = Field(..., min_length=1)
+
+
+class SessionLogSoundDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"duration_ms", "score", "user_review"}
+
+    id: UUID
+    occurred_at: datetime
+    audio_file: FileDTO
+    duration_ms: int | None
+    score: float | None
+    user_review: SessionUserReviewDTO | None
+
+
+class SessionLogParrotDTO(SessionLogSoundDTO):
+    kind: Literal[SessionLogKindEnum.PARROT]
+
+
+class SessionLogMimicDTO(SessionLogSoundDTO):
+    kind: Literal[SessionLogKindEnum.MIMIC]
+    is_feed_shared: bool
+
+
+class SessionLogDistressCallSoundDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"duration_ms"}
+
+    id: UUID
+    captured_at: datetime
+    audio_file: FileDTO
+    duration_ms: int | None
+
+
+class SessionLogDistressCallDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"user_review"}
+
+    id: UUID
+    kind: Literal[SessionLogKindEnum.DISTRESS_CALL_DETECTED]
+    occurred_at: datetime
+    ended_at: datetime
+    sounds: list[SessionLogDistressCallSoundDTO]
+    user_review: SessionUserReviewDTO | None
+
+
+class SessionLogParrotDisappearedDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"ended_at", "image", "video", "user_review"}
+
+    id: UUID
+    kind: Literal[SessionLogKindEnum.PARROT_DISAPPEARED]
+    occurred_at: datetime
+    ended_at: datetime | None
+    image: FileDTO | None
+    video: FileDTO | None
+    user_review: SessionUserReviewDTO | None
+
+
+class SessionLogParrotAppearedDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"image", "user_review"}
+
+    id: UUID
+    kind: Literal[SessionLogKindEnum.PARROT_APPEARED]
+    occurred_at: datetime
+    image: FileDTO | None
+    user_review: SessionUserReviewDTO | None
+
+
+SessionLogItemDTO = Annotated[
+    SessionLogParrotDTO
+    | SessionLogMimicDTO
+    | SessionLogDistressCallDTO
+    | SessionLogParrotDisappearedDTO
+    | SessionLogParrotAppearedDTO,
+    Field(discriminator="kind"),
+]
+
+
+class SessionLogListResponse(BaseResponse):
+    data: list[SessionLogItemDTO]
 
 
 class ActiveDurationDTO(CustomBaseModel):

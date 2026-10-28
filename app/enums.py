@@ -134,6 +134,14 @@ class SessionSoundLabelTargetEnum(StrEnum):
     MIMIC = "mimic"
 
 
+class SessionLogKindEnum(StrEnum):
+    PARROT = "parrot"
+    MIMIC = "mimic"
+    DISTRESS_CALL_DETECTED = "distress_call_detected"
+    PARROT_DISAPPEARED = "parrot_disappeared"
+    PARROT_APPEARED = "parrot_appeared"
+
+
 class CorrectnessEnum(StrEnum):
     CORRECT = "correct"
     INCORRECT = "incorrect"

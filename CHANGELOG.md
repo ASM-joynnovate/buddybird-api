@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.31.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.30.0...v2.31.0) (2026-10-28)
+
+
+### Features
+
+* add session log API ([#204](https://github.com/ASM-joynnovate/buddybird-api/issues/204)) ([5d9c95f](https://github.com/ASM-joynnovate/buddybird-api/commit/5d9c95fc0b5b1d5d5d4708b5c0f36943c5afacb4))
+
 ## [2.30.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.29.0...v2.30.0) (2026-10-27)
 
 

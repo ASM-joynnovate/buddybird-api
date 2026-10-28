@@ -2,13 +2,15 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid7
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, case, delete, exists, func, not_, or_, select, union_all
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.db import transactional
 from app.enums import (
+    FeedItemKindEnum,
     FileStatusEnum,
     JudgmentStatusEnum,
     MimicJudgmentStatusEnum,
@@ -17,6 +19,7 @@ from app.enums import (
     SessionEndReasonEnum,
     SessionEventFileKindEnum,
     SessionEventKindEnum,
+    SessionLogKindEnum,
     SessionSoundKindEnum,
     SessionStatusEnum,
 )
@@ -33,6 +36,7 @@ from app.errors import (
 from app.file import build_file_dto
 from app.models import (
     Device,
+    FeedItem,
     File,
     LearningSegment,
     Session,
@@ -42,10 +46,11 @@ from app.models import (
     SessionEventSound,
     SessionEventUserReview,
     SessionSound,
+    SessionSoundUserReview,
     User,
     Word,
 )
-from app.s3 import S3StorageClient
+from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
 from app.schemas.base import PageParams, UploadDTO
 from app.schemas.sessions import (
     AcknowledgedLearningSegmentDTO,
@@ -66,8 +71,17 @@ from app.schemas.sessions import (
     HeartbeatSessionDTO,
     SessionDTO,
     SessionEventDTO,
+    SessionEventsDTO,
     SessionEventWordDTO,
     SessionJudgmentDTO,
+    SessionLogDistressCallDTO,
+    SessionLogDistressCallSoundDTO,
+    SessionLogItemDTO,
+    SessionLogListParams,
+    SessionLogMimicDTO,
+    SessionLogParrotAppearedDTO,
+    SessionLogParrotDisappearedDTO,
+    SessionLogParrotDTO,
     SessionPeriodDTO,
     SessionPetcamEventRequest,
     SessionPetcamEventUploadDTO,
@@ -106,9 +120,24 @@ SESSION_COUNT = (
     .where(Session.user_id == User.id, Session.is_deleted.is_(False))
     .scalar_subquery()
 )
+APPEARED_EVENT = aliased(SessionEvent)
+APPEARED_EVENT_ID = (
+    select(APPEARED_EVENT.id)
+    .where(
+        APPEARED_EVENT.session_id == SessionEvent.session_id,
+        APPEARED_EVENT.kind == SessionEventKindEnum.PARROT_APPEARED.value,
+        APPEARED_EVENT.occurred_at > SessionEvent.occurred_at,
+        APPEARED_EVENT.is_correct.is_not(False),
+    )
+    .order_by(APPEARED_EVENT.occurred_at)
+    .limit(1)
+    .scalar_subquery()
+)
 
 
-def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum, sounds: SessionSoundsDTO) -> SessionDTO:
+def build_session_dto(
+    session: Session, judgment_status: JudgmentStatusEnum, sounds: SessionSoundsDTO, events: SessionEventsDTO
+) -> SessionDTO:
     return SessionDTO(
         id=session.id,
         status=session.status,
@@ -128,6 +157,7 @@ def build_session_dto(session: Session, judgment_status: JudgmentStatusEnum, sou
         period=SessionPeriodDTO(started_at=session.started_at, ended_at=session.ended_at, ended_by=session.ended_by),
         judgment=SessionJudgmentDTO(status=judgment_status),
         sounds=sounds,
+        events=events,
     )
 
 
@@ -177,6 +207,33 @@ async def get_sound_counts(*, db: AsyncSession, sessions: Sequence[Session]) -> 
 
     return {
         session.id: sound_counts.get(session.id, SessionSoundsDTO(vad_count=0, parrot_count=0, mimic_count=0))
+        for session in sessions
+    }
+
+
+async def get_event_counts(*, db: AsyncSession, sessions: Sequence[Session]) -> dict[UUID, SessionEventsDTO]:
+    stmt = (
+        select(
+            SessionEvent.session_id,
+            func.count().filter(SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value),
+            func.count().filter(SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value),
+        )
+        .where(
+            SessionEvent.session_id.in_([session.id for session in sessions]),
+            SessionEvent.is_correct.is_not(False),
+        )
+        .group_by(SessionEvent.session_id)
+    )
+    event_counts = {
+        session_id: SessionEventsDTO(
+            distress_call_count=distress_call_count,
+            parrot_disappeared_count=parrot_disappeared_count,
+        )
+        for session_id, distress_call_count, parrot_disappeared_count in (await db.execute(stmt)).all()
+    }
+
+    return {
+        session.id: event_counts.get(session.id, SessionEventsDTO(distress_call_count=0, parrot_disappeared_count=0))
         for session in sessions
     }
 
@@ -248,9 +305,11 @@ async def get_list(*, db: AsyncSession, user: User, query: PageParams) -> tuple[
     ).all()
     judgment_statuses = await get_judgment_statuses(db=db, sessions=sessions)
     sound_counts = await get_sound_counts(db=db, sessions=sessions)
+    event_counts = await get_event_counts(db=db, sessions=sessions)
 
     return [
-        build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id]) for session in sessions
+        build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id], event_counts[session.id])
+        for session in sessions
     ], total
 
 
@@ -281,6 +340,7 @@ async def get_backoffice_list(
     session_ids = [session.id for session in sessions]
     judgment_statuses = await get_judgment_statuses(db=db, sessions=sessions)
     sound_counts = await get_sound_counts(db=db, sessions=sessions)
+    event_counts = await get_event_counts(db=db, sessions=sessions)
 
     stmt = (
         select(Word.id, Word.name)
@@ -338,9 +398,9 @@ async def get_backoffice_list(
 
     items = [
         BackofficeSessionDTO(
-            **build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id]).model_dump(
-                exclude={"word", "period"}
-            ),
+            **build_session_dto(
+                session, judgment_statuses[session.id], sound_counts[session.id], event_counts[session.id]
+            ).model_dump(exclude={"word", "period"}),
             word=BackofficeSessionWordDTO(id=session.word_id, name=word_names[session.word_id]),
             period=BackofficeSessionPeriodDTO(
                 started_at=session.started_at,
@@ -361,8 +421,9 @@ async def get_backoffice_list(
 async def get_detail(*, db: AsyncSession, session: Session) -> SessionDTO:
     judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
     sound_counts = await get_sound_counts(db=db, sessions=[session])
+    event_counts = await get_event_counts(db=db, sessions=[session])
 
-    return build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id])
+    return build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id], event_counts[session.id])
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
@@ -403,6 +464,7 @@ async def start(*, db: AsyncSession, user: User, device: Device, data: StartSess
         session,
         JudgmentStatusEnum.PENDING,
         SessionSoundsDTO(vad_count=0, parrot_count=0, mimic_count=0),
+        SessionEventsDTO(distress_call_count=0, parrot_disappeared_count=0),
     )
 
 
@@ -429,8 +491,9 @@ async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
 
     judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
     sound_counts = await get_sound_counts(db=db, sessions=[session])
+    event_counts = await get_event_counts(db=db, sessions=[session])
 
-    return build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id])
+    return build_session_dto(session, judgment_statuses[session.id], sound_counts[session.id], event_counts[session.id])
 
 
 @transactional(unavailable_error=SessionSaveUnavailableError)
@@ -717,6 +780,178 @@ async def get_events(
         )
         for event in events
     ]
+
+
+async def get_log(
+    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: SessionLogListParams
+) -> tuple[list[SessionLogItemDTO], int]:
+    distress_call_sound = (
+        select(SessionEventSound.sound_id)
+        .join(SessionEvent, SessionEvent.id == SessionEventSound.event_id)
+        .where(
+            SessionEventSound.sound_id == SessionSound.id,
+            SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
+            SessionEvent.is_correct.is_not(False),
+        )
+    )
+    sound_stmt = (
+        select(
+            SessionSound.id,
+            case(
+                (SessionSound.kind == SessionSoundKindEnum.MIMIC.value, SessionLogKindEnum.MIMIC.value),
+                else_=SessionLogKindEnum.PARROT.value,
+            ).label("kind"),
+            SessionSound.captured_at.label("occurred_at"),
+        )
+        .join(File, File.id == SessionSound.audio_file_id)
+        .where(
+            SessionSound.session_id == session.id,
+            SessionSound.kind.is_distinct_from(SessionSoundKindEnum.NOT_PARROT.value),
+            SessionSound.parrot_detection_status != ParrotDetectionStatusEnum.FAILED.value,
+            or_(
+                File.status == FileStatusEnum.UPLOADED.value,
+                and_(
+                    File.status == FileStatusEnum.PENDING.value,
+                    File.created_at > datetime.now(UTC) - timedelta(seconds=UPLOAD_URL_EXPIRES_IN),
+                ),
+            ),
+            or_(SessionSound.kind == SessionSoundKindEnum.MIMIC.value, not_(exists(distress_call_sound))),
+        )
+    )
+    event_stmt = select(SessionEvent.id, SessionEvent.kind, SessionEvent.occurred_at).where(
+        SessionEvent.session_id == session.id,
+        SessionEvent.kind.in_(REVIEWABLE_EVENT_KINDS),
+        SessionEvent.is_correct.is_not(False),
+    )
+    subquery = union_all(sound_stmt, event_stmt).subquery()
+
+    stmt = select(subquery.c.id, subquery.c.kind).where(subquery.c.kind.in_(query.kind))
+    total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
+    rows = (
+        await db.execute(
+            stmt.order_by(subquery.c.occurred_at, subquery.c.id)
+            .offset((query.page - 1) * query.count_by_page)
+            .limit(query.count_by_page)
+        )
+    ).all()
+    sound_ids = [row.id for row in rows if row.kind in (SessionLogKindEnum.PARROT, SessionLogKindEnum.MIMIC)]
+    event_ids = [row.id for row in rows if row.kind in REVIEWABLE_EVENT_KINDS]
+
+    stmt = select(SessionSound).where(SessionSound.id.in_(sound_ids))
+    sounds = (await db.scalars(stmt)).all()
+
+    stmt = select(SessionSoundUserReview).where(SessionSoundUserReview.session_sound_id.in_(sound_ids))
+    sound_reviews = {review.session_sound_id: review for review in (await db.scalars(stmt)).all()}
+
+    stmt = (
+        select(FeedItem.file_id)
+        .where(
+            FeedItem.kind == FeedItemKindEnum.MIMIC_SUCCEEDED.value,
+            FeedItem.file_id.in_([sound.audio_file_id for sound in sounds]),
+        )
+        .execution_options(include_deleted=True)
+    )
+    shared_file_ids = set((await db.scalars(stmt)).all())
+
+    appeared_event = aliased(SessionEvent)
+    stmt = (
+        select(SessionEvent, appeared_event.occurred_at)
+        .outerjoin(appeared_event, appeared_event.id == APPEARED_EVENT_ID)
+        .where(SessionEvent.id.in_(event_ids))
+    )
+    events = (await db.execute(stmt)).all()
+
+    stmt = select(SessionEventUserReview).where(SessionEventUserReview.session_event_id.in_(event_ids))
+    event_reviews = {review.session_event_id: review for review in (await db.scalars(stmt)).all()}
+
+    stmt = select(SessionEventFile).where(SessionEventFile.event_id.in_(event_ids))
+    files = {(event_file.event_id, event_file.kind): event_file.file for event_file in (await db.scalars(stmt)).all()}
+
+    stmt = (
+        select(SessionEventSound.event_id, SessionSound)
+        .join(SessionSound, SessionSound.id == SessionEventSound.sound_id)
+        .where(SessionEventSound.event_id.in_(event_ids))
+        .order_by(SessionSound.captured_at)
+    )
+    event_sounds: dict[UUID, list[SessionSound]] = {}
+
+    for event_id, sound in (await db.execute(stmt)).all():
+        event_sounds.setdefault(event_id, []).append(sound)
+
+    items: dict[UUID, SessionLogItemDTO] = {}
+
+    for sound in sounds:
+        review = sound_reviews.get(sound.id)
+        user_review = (
+            SessionUserReviewDTO(is_correct=review.is_correct)
+            if review is not None and review.kind == sound.kind
+            else None
+        )
+
+        if sound.kind == SessionSoundKindEnum.MIMIC:
+            items[sound.id] = SessionLogMimicDTO(
+                id=sound.id,
+                kind=SessionLogKindEnum.MIMIC,
+                occurred_at=sound.captured_at,
+                audio_file=build_file_dto(storage=storage, file=sound.audio_file),
+                duration_ms=sound.duration_ms,
+                score=sound.final_mimic_score,
+                is_feed_shared=sound.audio_file_id in shared_file_ids,
+                user_review=user_review,
+            )
+        else:
+            items[sound.id] = SessionLogParrotDTO(
+                id=sound.id,
+                kind=SessionLogKindEnum.PARROT,
+                occurred_at=sound.captured_at,
+                audio_file=build_file_dto(storage=storage, file=sound.audio_file),
+                duration_ms=sound.duration_ms,
+                score=sound.final_parrot_score,
+                user_review=user_review,
+            )
+
+    for event, appeared_at in events:
+        user_review = (
+            SessionUserReviewDTO(is_correct=event_reviews[event.id].is_correct) if event.id in event_reviews else None
+        )
+
+        if event.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value:
+            items[event.id] = SessionLogDistressCallDTO(
+                id=event.id,
+                kind=SessionLogKindEnum.DISTRESS_CALL_DETECTED,
+                occurred_at=event.occurred_at,
+                ended_at=event_sounds[event.id][-1].captured_at,
+                sounds=[
+                    SessionLogDistressCallSoundDTO(
+                        id=sound.id,
+                        captured_at=sound.captured_at,
+                        audio_file=build_file_dto(storage=storage, file=sound.audio_file),
+                        duration_ms=sound.duration_ms,
+                    )
+                    for sound in event_sounds[event.id]
+                ],
+                user_review=user_review,
+            )
+        elif event.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value:
+            items[event.id] = SessionLogParrotDisappearedDTO(
+                id=event.id,
+                kind=SessionLogKindEnum.PARROT_DISAPPEARED,
+                occurred_at=event.occurred_at,
+                ended_at=appeared_at,
+                image=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+                video=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
+                user_review=user_review,
+            )
+        else:
+            items[event.id] = SessionLogParrotAppearedDTO(
+                id=event.id,
+                kind=SessionLogKindEnum.PARROT_APPEARED,
+                occurred_at=event.occurred_at,
+                image=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+                user_review=user_review,
+            )
+
+    return [items[row.id] for row in rows], total
 
 
 async def get_backoffice_events(
