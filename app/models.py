@@ -532,6 +532,7 @@ class ParrotDetection(Base):
 
 class SessionEventSound(Base):
     __tablename__ = "session_event_sounds"
+    __table_args__ = (Index("ix_session_event_sounds_sound_id", "sound_id"),)
 
     event_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionEvent.id), primary_key=True)
     sound_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(SessionSound.id), primary_key=True)

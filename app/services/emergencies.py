@@ -40,25 +40,13 @@ from app.schemas.emergencies import (
 )
 from app.schemas.sessions import SessionSoundAnalysisDTO
 from app.schemas.users import BackofficeUserParrotDTO
+from app.services.sessions import APPEARED_EVENT_ID
 from app.utils import SEOUL, correctness_filter
 
 EMERGENCY_KINDS = [
     SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
     SessionEventKindEnum.PARROT_DISAPPEARED.value,
 ]
-APPEARED_EVENT = aliased(SessionEvent)
-APPEARED_EVENT_ID = (
-    select(APPEARED_EVENT.id)
-    .where(
-        APPEARED_EVENT.session_id == SessionEvent.session_id,
-        APPEARED_EVENT.kind == SessionEventKindEnum.PARROT_APPEARED.value,
-        APPEARED_EVENT.occurred_at > SessionEvent.occurred_at,
-        APPEARED_EVENT.is_correct.is_not(False),
-    )
-    .order_by(APPEARED_EVENT.occurred_at)
-    .limit(1)
-    .scalar_subquery()
-)
 IS_ONGOING = and_(
     SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value,
     Session.status == SessionStatusEnum.RUNNING.value,
