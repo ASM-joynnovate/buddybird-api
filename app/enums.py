@@ -19,14 +19,6 @@ class ConsentStatusEnum(StrEnum):
     DENIED = "denied"
 
 
-class PresetLanguageEnum(StrEnum):
-    KO = "ko"
-    EN = "en"
-    JA = "ja"
-    RU = "ru"
-    ES = "es"
-
-
 class SessionStatusEnum(StrEnum):
     RUNNING = "running"
     FINISHED = "finished"
@@ -149,11 +141,36 @@ class CorrectnessEnum(StrEnum):
 
 
 class LocaleEnum(StrEnum):
-    KO_KR = "ko-KR"
+    tags: frozenset[str]
+
+    def __new__(cls, value: str, *aliases: str) -> LocaleEnum:
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.tags = frozenset(value.split("-")[1:]) | frozenset(aliases)
+
+        return member
+
     EN_US = "en-US"
+    KO_KR = "ko-KR"
     JA_JP = "ja-JP"
     RU_RU = "ru-RU"
     ES_ES = "es-ES"
+    ZH_HANS = "zh-Hans", "CN", "SG"
+    ZH_HANT = "zh-Hant", "TW", "HK", "MO"
+    TH_TH = "th-TH"
+    VI_VN = "vi-VN"
+    HI_IN = "hi-IN"
+    BN_BD = "bn-BD"
+
+    @property
+    def column(self) -> str:
+        return self.name.lower()
+
+    @classmethod
+    def ranked(cls, value: str | None) -> list[LocaleEnum]:
+        language, *subtags = (value or "").split("-")
+
+        return sorted(cls, key=lambda item: (item.split("-")[0] != language, -len(item.tags & set(subtags))))
 
 
 class PlatformEnum(StrEnum):

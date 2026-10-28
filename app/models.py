@@ -180,9 +180,18 @@ class I18n(Base):
     ja_jp: Mapped[str | None] = mapped_column(Text, nullable=True)
     ru_ru: Mapped[str | None] = mapped_column(Text, nullable=True)
     es_es: Mapped[str | None] = mapped_column(Text, nullable=True)
+    zh_hans: Mapped[str | None] = mapped_column(Text, nullable=True)
+    zh_hant: Mapped[str | None] = mapped_column(Text, nullable=True)
+    th_th: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vi_vn: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hi_in: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bn_bd: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def text_locale(self, locale: LocaleEnum) -> LocaleEnum:
+        return next(item for item in LocaleEnum.ranked(locale) if getattr(self, item.column))
 
     def get_text(self, locale: LocaleEnum) -> str:
-        return getattr(self, locale.name.lower()) or self.en_us
+        return getattr(self, self.text_locale(locale).column)
 
 
 class NotificationSettingGroup(Base):

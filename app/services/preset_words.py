@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import FileStatusEnum, PresetLanguageEnum
+from app.enums import FileStatusEnum, LocaleEnum
 from app.errors import (
     DuplicatePresetWordError,
     FileSizeExceededError,
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def build_preset_word_dto(preset_word: PresetWord, storage: S3StorageClient) -> PresetWordDTO:
     return PresetWordDTO(
         id=preset_word.id,
-        language=PresetLanguageEnum(preset_word.language),
+        language=LocaleEnum(preset_word.language),
         name=preset_word.name,
         audio_file=FileDTO(
             url=storage.generate_presigned_url(path=preset_word.audio_file.object_key),

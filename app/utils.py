@@ -2,7 +2,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, or_
 
-from app.enums import CorrectnessEnum, LocaleEnum
+from app.enums import CorrectnessEnum
 
 SEOUL = ZoneInfo("Asia/Seoul")
 MAX_PHOTO_BYTES = 5 * 1024 * 1024
@@ -16,19 +16,3 @@ def correctness_filter(column: ColumnElement, values: list[CorrectnessEnum]) -> 
             for value in values
         )
     )
-
-
-def resolve_locale(value: str | None) -> LocaleEnum:
-    if value is None:
-        return LocaleEnum.EN_US
-
-    if value in LocaleEnum:
-        return LocaleEnum(value)
-
-    language = value.split("-")[0]
-
-    for locale in LocaleEnum:
-        if locale.split("-")[0] == language:
-            return locale
-
-    return LocaleEnum.EN_US
