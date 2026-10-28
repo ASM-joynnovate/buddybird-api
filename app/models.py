@@ -181,8 +181,11 @@ class I18n(Base):
     ru_ru: Mapped[str | None] = mapped_column(Text, nullable=True)
     es_es: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    def text_locale(self, locale: LocaleEnum) -> LocaleEnum:
+        return next(item for item in LocaleEnum.ranked(locale) if getattr(self, item.column))
+
     def get_text(self, locale: LocaleEnum) -> str:
-        return getattr(self, locale.name.lower()) or self.en_us
+        return getattr(self, self.text_locale(locale).column)
 
 
 class NotificationSettingGroup(Base):

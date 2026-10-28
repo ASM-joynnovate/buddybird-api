@@ -81,7 +81,7 @@ from app.services.announcements import TARGET_USER
 from app.services.sessions import get_judgment_statuses
 from app.services.settings import ITEM_ENABLED
 from app.services.users import PUSHABLE
-from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL, resolve_locale
+from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL
 
 logger = logging.getLogger(__name__)
 
@@ -1125,7 +1125,7 @@ async def deliver(delivery_id: UUID) -> None:
 
         if sendable:
             device = row.Device
-            locale = resolve_locale(device.locale)
+            locale = LocaleEnum.ranked(device.locale)[0]
             body = body_i18n.get_text(locale) if body_i18n is not None else ""
             image_url = s3.generate_presigned_url(path=image_file.object_key) if image_file is not None else None
 
@@ -1142,8 +1142,7 @@ async def deliver(delivery_id: UUID) -> None:
                     LocaleEnum.RU_RU: "Бесплатная отписка: Профиль > Настройки > Уведомления > отключите маркетинг",
                     LocaleEnum.ES_ES: "Baja gratuita: Perfil > Ajustes > Notificaciones > desactiva las de marketing",
                 }
-                text_locale = locale if getattr(body_i18n, locale.name.lower()) is not None else LocaleEnum.EN_US
-                body += "\n" + unsubscribe_texts[text_locale]
+                body += "\n" + unsubscribe_texts[body_i18n.text_locale(locale)]
 
             try:
                 await send_push(
