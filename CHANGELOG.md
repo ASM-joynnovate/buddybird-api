@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.32.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.31.0...v2.32.0) (2026-10-28)
+
+
+### Features
+
+* **i18n:** add Simplified and Traditional Chinese [BB-707] ([c142adc](https://github.com/ASM-joynnovate/buddybird-api/commit/c142adcfd8c23db1335f7b8a6097908ae6129338))
+* **i18n:** add Simplified and Traditional Chinese [BB-707] ([25b1aa9](https://github.com/ASM-joynnovate/buddybird-api/commit/25b1aa9b8e70e38b41ac2234ef64bd17769f009c))
+* **i18n:** add Thai [BB-704] ([987d16b](https://github.com/ASM-joynnovate/buddybird-api/commit/987d16b3ba32d7386b0d52d9712557ed580d2af7))
+* **i18n:** add Thai [BB-704] ([9deac46](https://github.com/ASM-joynnovate/buddybird-api/commit/9deac462cb579e20d1f9ad3e5912ed7171079866))
+* **i18n:** add Vietnamese, Hindi and Bengali [BB-705 BB-706 BB-708] ([67dd7d3](https://github.com/ASM-joynnovate/buddybird-api/commit/67dd7d3633224958a22f97c0078d945a5df34d5f))
+* **i18n:** add Vietnamese, Hindi and Bengali [BB-705 BB-706 BB-708] ([e4e468e](https://github.com/ASM-joynnovate/buddybird-api/commit/e4e468e148a714bc8065d8d68f7f240de99f6872))
+* **i18n:** support multiple locales per language ([b5eb6aa](https://github.com/ASM-joynnovate/buddybird-api/commit/b5eb6aa48aa4d58b013b0a0aca4f29f99b30fcaf))
+* **i18n:** support multiple locales per language ([2b098b6](https://github.com/ASM-joynnovate/buddybird-api/commit/2b098b65e480bb9f500d33b4eef6d425554d03d7))
+
 ## [2.31.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.30.0...v2.31.0) (2026-10-28)
 
 
