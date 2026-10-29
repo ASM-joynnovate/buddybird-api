@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.33.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.32.0...v2.33.0) (2026-10-29)
+
+
+### Features
+
+* **backoffice:** include v1 app users in user stats ([53d4919](https://github.com/ASM-joynnovate/buddybird-api/commit/53d491905858f14ff2b4c79fda9789926ad9b6d5))
+* **backoffice:** include v1 app users in user stats ([5e32084](https://github.com/ASM-joynnovate/buddybird-api/commit/5e32084f6bea405a57a355709e53810a8242037c))
+
+
+### Bug Fixes
+
+* **backoffice:** exclude sessions under a minute from average duration ([8a214b9](https://github.com/ASM-joynnovate/buddybird-api/commit/8a214b90aceaa5bbc9dbd42ac18bfabef331b8c0))
+
 ## [2.32.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.31.0...v2.32.0) (2026-10-28)
 
 
