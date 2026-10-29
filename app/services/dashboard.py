@@ -223,7 +223,7 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             func.count().filter(Session.started_at < period_start).label("previous_session_count"),
             func.count(Session.user_id.distinct()).filter(in_period).label("active_user_count"),
             func.coalesce(func.sum(duration).filter(in_period), timedelta(0)).label("duration"),
-            func.avg(duration).filter(in_period).label("average_duration"),
+            func.avg(duration).filter(in_period, duration >= timedelta(minutes=1)).label("average_duration"),
         )
         .select_from(Session)
         .where(Session.started_at >= previous_start, Session.started_at < period_end)
