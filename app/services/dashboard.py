@@ -22,6 +22,7 @@ from app.enums import (
     WithdrawalUsagePeriodEnum,
 )
 from app.file import build_file_dto
+from app.legacy.dashboard import LEGACY_DAILY_USERS, get_legacy_user_counts
 from app.models import (
     AbuseReport,
     Announcement,
@@ -234,6 +235,8 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
 
+    legacy_total_count, legacy_signup_count, legacy_previous_signup_count = get_legacy_user_counts(dates)
+
     feedback_counts = await get_feedback_counts(
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
@@ -329,11 +332,17 @@ async def get_dashboard(*, db: AsyncSession, query: DashboardParams) -> Dashboar
             daily=[DashboardDailyCountDTO(date=date, count=daily_counts[Session].get(date, 0)) for date in dates],
         ),
         users=DashboardUsersDTO(
-            total_count=user_counts.total_count,
+            total_count=user_counts.total_count + legacy_total_count,
             active_count=session_totals.active_user_count,
-            signup_count=user_counts.signup_count,
-            previous_signup_count=user_counts.previous_signup_count,
-            daily_signups=[DashboardDailyCountDTO(date=date, count=daily_counts[User].get(date, 0)) for date in dates],
+            signup_count=user_counts.signup_count + legacy_signup_count,
+            previous_signup_count=user_counts.previous_signup_count + legacy_previous_signup_count,
+            daily_signups=[
+                DashboardDailyCountDTO(
+                    date=date,
+                    count=daily_counts[User].get(date, 0) + LEGACY_DAILY_USERS.get(date, {}).get("signup_count", 0),
+                )
+                for date in dates
+            ],
         ),
         withdrawals=DashboardWithdrawalsDTO(
             count=sum(daily_counts[UserWithdrawal].values()),
@@ -494,6 +503,8 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
 
+    legacy_total_count, legacy_signup_count, legacy_previous_signup_count = get_legacy_user_counts(dates)
+
     withdrawal_counts = await get_withdrawal_counts(
         db=db, period_start=period_start, period_end=period_end, previous_start=previous_start
     )
@@ -533,22 +544,26 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
         .where(UserWithdrawal.created_at < period_start)
         .scalar_subquery()
     ).execution_options(include_deleted=True)
-    total_count = await db.scalar(stmt)
+    total_count = await db.scalar(stmt) + sum(
+        row["signup_count"] for day, row in LEGACY_DAILY_USERS.items() if day < query.date_from
+    )
     daily = []
 
     for day, (count, dau, wau, mau) in zip(dates, daily_user_counts, strict=True):
-        total_count += daily_signup_counts.get(day, 0) - daily_withdrawal_counts.get(day, 0)
+        legacy = LEGACY_DAILY_USERS.get(day, {})
+        signup_count = daily_signup_counts.get(day, 0) + legacy.get("signup_count", 0)
+        total_count += signup_count - daily_withdrawal_counts.get(day, 0)
 
         daily.append(
             UserDashboardDailyDTO(
                 date=day,
                 total_count=total_count,
-                signup_count=daily_signup_counts.get(day, 0),
+                signup_count=signup_count,
                 withdrawal_count=daily_withdrawal_counts.get(day, 0),
                 running_user_count=count,
-                dau=dau,
-                wau=wau,
-                mau=mau,
+                dau=dau + legacy.get("dau", 0),
+                wau=wau + legacy.get("wau", 0),
+                mau=mau + legacy.get("mau", 0),
             )
         )
 
@@ -596,9 +611,9 @@ async def get_user_dashboard(*, db: AsyncSession, query: DashboardParams) -> Use
 
     return UserDashboardDTO(
         users=UserDashboardUsersDTO(
-            total_count=user_counts.total_count,
-            signup_count=user_counts.signup_count,
-            previous_signup_count=user_counts.previous_signup_count,
+            total_count=user_counts.total_count + legacy_total_count,
+            signup_count=user_counts.signup_count + legacy_signup_count,
+            previous_signup_count=user_counts.previous_signup_count + legacy_previous_signup_count,
             deleted_count=deleted_count,
         ),
         withdrawals=DashboardCountDTO(
