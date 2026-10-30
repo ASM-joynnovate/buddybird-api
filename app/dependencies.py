@@ -23,6 +23,7 @@ from app.errors import (
 from app.middlewares import AuthContext
 from app.models import (
     AbuseReport,
+    Ad,
     Announcement,
     AppUpdate,
     Consent,
@@ -181,6 +182,10 @@ async def require_notification(user: ActiveUser, db: DBSession, notification_id:
 
 async def require_announcement(db: DBSession, announcement_id: UUID) -> Announcement:
     return await get_or_404(db=db, model=Announcement, id=announcement_id)
+
+
+async def require_ad(db: DBSession, ad_id: UUID) -> Ad:
+    return await get_or_404(db=db, model=Ad, id=ad_id)
 
 
 async def require_preset_word(db: DBSession, preset_word_id: UUID) -> PresetWord:

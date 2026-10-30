@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from app.dependencies import ActiveUser, DBSession, Storage
+from app.dependencies import ActiveUser, DBSession, Locale, Storage
 from app.schemas.base import BaseResponse
 from app.schemas.feed import CreateFeedItemRequest, FeedItemLikeResponse, FeedParams, FeedResponse
 from app.services import feed
@@ -13,9 +13,9 @@ router = APIRouter(prefix="/feed")
 
 @router.get("", name="피드 조회")
 async def get_list(
-    user: ActiveUser, query: Annotated[FeedParams, Query()], db: DBSession, storage: Storage
+    user: ActiveUser, locale: Locale, query: Annotated[FeedParams, Query()], db: DBSession, storage: Storage
 ) -> FeedResponse:
-    items, next_cursor = await feed.get_list(db=db, storage=storage, user=user, query=query)
+    items, next_cursor = await feed.get_list(db=db, storage=storage, user=user, locale=locale, query=query)
 
     return FeedResponse(message="피드 조회 성공", data=items, meta={"next_cursor": next_cursor})
 
