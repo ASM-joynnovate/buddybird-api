@@ -19,6 +19,7 @@ from app.middlewares import AuthBackend, IdempotencyMiddleware, NoStoreMiddlewar
 from app.oauth.base import http_client
 from app.routers import (
     abuse_reports,
+    ads,
     announcements,
     app_updates,
     auth,
@@ -109,6 +110,7 @@ def create_app() -> FastAPI:
     application.include_router(leaderboard.router, prefix="/api/v1", tags=["리더보드"])
     application.include_router(feed.router, prefix="/api/v1", tags=["피드"])
     application.include_router(abuse_reports.router, prefix="/api/v1", tags=["신고"])
+    application.include_router(ads.router, prefix="/api/v1", tags=["광고"])
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:

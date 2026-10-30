@@ -312,6 +312,7 @@ class FeedItemKindEnum(StrEnum):
     TOTAL_LEARNING_TIME_REACHED = "total_learning_time_reached"
     MONTHLY_LEARNING_TIME_REACHED = "monthly_learning_time_reached"
     WORD_PLAY_COUNT_REACHED = "word_play_count_reached"
+    AD = "ad"
 
 
 class AbuseReportReasonEnum(StrEnum):
@@ -319,3 +320,33 @@ class AbuseReportReasonEnum(StrEnum):
     INAPPROPRIATE_CONTENT = "inappropriate_content"
     HARASSMENT = "harassment"
     OTHER = "other"
+
+
+class AdKindEnum(StrEnum):
+    HOME_BANNER = "home_banner"
+    FEED = "feed"
+
+
+class AdImageKindEnum(StrEnum):
+    HOME_BANNER = "home_banner"
+    FEED = "feed"
+    ADVERTISER = "advertiser"
+
+
+class AdStatusEnum(StrEnum):
+    SCHEDULED = "scheduled"
+    ACTIVE = "active"
+    ENDED = "ended"
+    DISABLED = "disabled"
+
+
+class AdEventKindEnum(StrEnum):
+    IMPRESSION = "impression"
+    CLICK = "click"
+
+
+class AdClickTargetEnum(StrEnum):
+    IMAGE = "image"
+    BUTTON = "button"
+    PROFILE = "profile"
+    BACKGROUND = "background"

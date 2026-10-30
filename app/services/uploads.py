@@ -10,7 +10,7 @@ from app import sqs
 from app.config import config
 from app.db import session_factory, transactional
 from app.enums import FileStatusEnum
-from app.errors import InvalidProfilePhotoError
+from app.errors import InvalidAdImageError, InvalidProfilePhotoError
 from app.file import confirm_uploaded_photo
 from app.models import File, Parrot, SessionSound, User
 from app.s3 import s3
@@ -41,7 +41,7 @@ async def process(*, key: str, size: int) -> None:
         if key != path:
             try:
                 await confirm_uploaded_photo(storage=s3, file=file)
-            except InvalidProfilePhotoError:
+            except InvalidAdImageError, InvalidProfilePhotoError:
                 logger.warning("이미지 검증 실패로 업로드를 거부함; key=%s", key)
 
                 await s3.delete(path=key)

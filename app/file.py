@@ -3,8 +3,8 @@ import io
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from app.enums import FileStatusEnum
-from app.errors import InvalidProfilePhotoError, ResourceNotFoundError
+from app.enums import AdImageKindEnum, FileStatusEnum
+from app.errors import InvalidAdImageError, InvalidProfilePhotoError, ResourceNotFoundError
 from app.models import File
 from app.s3 import S3StorageClient
 from app.schemas.base import FileDTO, PublicFileDTO
@@ -29,6 +29,15 @@ def build_public_file_dto(*, storage: S3StorageClient, file: File | None) -> Pub
 async def confirm_uploaded_photo(*, storage: S3StorageClient, file: File) -> None:
     key = f"upload/{file.object_key}"
     content = await storage.download(path=key)
+    parts = file.file_path.split("/")
+    ad_image_shape = None
+
+    if parts[0] == "ad":
+        ad_image_shape = {
+            AdImageKindEnum.HOME_BANNER: (3, 1, 1200, 400),
+            AdImageKindEnum.FEED: (16, 9, 1280, 720),
+            AdImageKindEnum.ADVERTISER: (1, 1, 240, 240),
+        }[parts[1]]
 
     def transform() -> bytes:
         with Image.open(io.BytesIO(content)) as source:
@@ -36,6 +45,16 @@ async def confirm_uploaded_photo(*, storage: S3StorageClient, file: File) -> Non
                 raise ValueError
 
             image = ImageOps.exif_transpose(source)
+
+            if ad_image_shape is not None:
+                ratio_width, ratio_height, min_width, min_height = ad_image_shape
+                ratio_mismatch = abs(image.width * ratio_height - image.height * ratio_width)
+
+                if image.width < min_width or image.height < min_height:
+                    raise ValueError
+
+                if ratio_mismatch > image.width * ratio_height // 100:
+                    raise ValueError
 
             if "A" in image.getbands() or (image.mode == "P" and "transparency" in image.info):
                 image = image.convert("RGBA")
@@ -45,7 +64,9 @@ async def confirm_uploaded_photo(*, storage: S3StorageClient, file: File) -> Non
             else:
                 image = image.convert("RGB")
 
-            image.thumbnail((512, 512), Image.Resampling.LANCZOS)
+            if ad_image_shape is None:
+                image.thumbnail((512, 512), Image.Resampling.LANCZOS)
+
             output = io.BytesIO()
             image.save(output, format="JPEG", quality=85)
 
@@ -54,6 +75,9 @@ async def confirm_uploaded_photo(*, storage: S3StorageClient, file: File) -> Non
     try:
         photo = await asyncio.to_thread(transform)
     except (Image.DecompressionBombError, UnidentifiedImageError, OSError, ValueError) as exc:
+        if ad_image_shape is not None:
+            raise InvalidAdImageError from exc
+
         raise InvalidProfilePhotoError from exc
 
     await storage.upload(path=file.object_key, file=photo)

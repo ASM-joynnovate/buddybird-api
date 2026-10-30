@@ -219,6 +219,48 @@ class DuplicateAnnouncementImageError(CustomError):
     message = "사진 목록에 중복된 사진이 있거나 다른 공지에 이미 등록된 사진이 있습니다."
 
 
+class AdSaveUnavailableError(CustomError):
+    status_code = 503
+    error_code = "AD__SAVE_UNAVAILABLE"
+    message = "광고를 일시적으로 저장할 수 없습니다."
+
+
+class InvalidAdPeriodError(CustomError):
+    error_code = "AD__INVALID_PERIOD"
+    message = "노출 종료 시각은 노출 시작 시각보다 늦어야 합니다."
+
+
+class InvalidAdCreativeError(CustomError):
+    error_code = "AD__INVALID_CREATIVE"
+    message = (
+        "홈 배너는 광고일 때만 AD 표시 색이 있고 광고주 사진, 본문, 버튼 문구, 버튼 색은 비워야 하며, "
+        "피드 광고는 광고주 사진, 본문, 버튼 문구, 버튼 배경색, 버튼 글자색이 모두 있고 AD 표시 색은 비워야 합니다."
+    )
+
+
+class InvalidAdI18nError(CustomError):
+    error_code = "AD__INVALID_I18N"
+    message = "광고주 설명, 본문, 버튼 문구를 새로 추가할 때는 en_us가 필요합니다."
+
+
+class InvalidAdImageError(CustomError):
+    error_code = "AD__INVALID_IMAGE"
+    message = (
+        "배너 사진은 3:1 비율에 1200x400 이상, 피드 사진은 16:9 비율에 1280x720 이상, "
+        "광고주 사진은 정사각형에 240x240 이상인 JPEG 또는 PNG여야 합니다."
+    )
+
+
+class DuplicateAdImageError(CustomError):
+    error_code = "AD__DUPLICATE_IMAGE"
+    message = "다른 광고에 이미 등록된 파일입니다."
+
+
+class AdOrderMismatchError(CustomError):
+    error_code = "AD__ORDER_MISMATCH"
+    message = "순서 목록이 진행 중이거나 예정된 홈 배너 목록과 일치하지 않습니다."
+
+
 class NotificationReadFailedError(CustomError):
     status_code = 503
     error_code = "NOTIFICATION__READ_FAILED"
