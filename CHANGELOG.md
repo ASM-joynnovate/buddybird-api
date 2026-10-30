@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.34.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.33.0...v2.34.0) (2026-10-30)
+
+
+### Features
+
+* add ads API ([90b342f](https://github.com/ASM-joynnovate/buddybird-api/commit/90b342f0755b42dc9e50dba94fa1fdcebcd9237b))
+* add ads API ([84767c5](https://github.com/ASM-joynnovate/buddybird-api/commit/84767c54f8f1d338afc0224be867262ba4a73949))
+
 ## [2.33.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.32.0...v2.33.0) (2026-10-29)
 
 
