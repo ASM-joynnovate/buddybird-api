@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import FeedItemKindEnum, SessionSoundKindEnum
+from app.enums import FeedItemKindEnum, LocaleEnum, SessionSoundKindEnum
 from app.errors import (
     FeedAlreadySharedError,
     FeedAnonymousUserError,
@@ -20,9 +20,10 @@ from app.errors import (
 from app.file import build_public_file_dto
 from app.models import FeedItem, FeedItemLike, Parrot, Session, SessionSound, User, UserBlock, UserSetting, Word
 from app.s3 import S3StorageClient
-from app.schemas.feed import CreateFeedItemRequest, FeedItemDTO, FeedItemLikeDTO, FeedParams
+from app.schemas.feed import CreateFeedItemRequest, FeedEntryDTO, FeedItemDTO, FeedItemLikeDTO, FeedParams
 from app.schemas.parrots import CommunityParrotDTO
 from app.schemas.users import CommunityUserDTO
+from app.services.ads import pick_feed_ads
 
 PUBLIC_USER = and_(User.nickname.is_not(None), User.is_anonymous.is_(False))
 
@@ -127,8 +128,8 @@ async def get_likes(*, db: AsyncSession, user: User, feed_item_ids: list[UUID]) 
 
 
 async def get_list(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, query: FeedParams
-) -> tuple[list[FeedItemDTO], UUID | None]:
+    *, db: AsyncSession, storage: S3StorageClient, user: User, locale: LocaleEnum, query: FeedParams
+) -> tuple[list[FeedEntryDTO], UUID | None]:
     stmt = select_visible_items(user).add_columns(User)
 
     if query.cursor is not None:
@@ -171,7 +172,19 @@ async def get_list(
         for item, author in rows
     ]
 
-    return items, next_cursor
+    if query.kind is not None or query.user_id is not None or not items:
+        return items, next_cursor
+
+    ads = await pick_feed_ads(db=db, user=user, locale=locale, storage=storage, count=(len(items) + 3) // 4)
+    entries = []
+
+    for index, item in enumerate(items):
+        entries.append(item)
+
+        if index % 4 == 0 and ads:
+            entries.append(ads.pop(0))
+
+    return entries, next_cursor
 
 
 @transactional(unavailable_error=FeedSaveUnavailableError)

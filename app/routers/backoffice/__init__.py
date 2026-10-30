@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from app.dependencies import require_backoffice
 from app.routers.backoffice import (
     abuse_reports,
+    ads,
     announcements,
     app_updates,
     consents,
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/backoffice", dependencies=[Depends(require_backoffic
 
 for module in (
     abuse_reports,
+    ads,
     announcements,
     app_updates,
     consents,

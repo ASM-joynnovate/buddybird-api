@@ -811,3 +811,84 @@ class AbuseReport(Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Ad(Base):
+    __tablename__ = "ads"
+    __table_args__ = (
+        UniqueConstraint("image_file_id", name="uq_ads_image_file_id"),
+        UniqueConstraint("advertiser_photo_file_id", name="uq_ads_advertiser_photo_file_id"),
+        Index("ix_ads_kind_starts_at", "kind", "starts_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    is_ad: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    weight: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    display_order: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    advertiser_name_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    advertiser_description_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
+    advertiser_photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
+    link_url_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
+    image_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
+    ad_tag_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    body_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
+    button_text_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
+    button_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    button_text_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    countries: Mapped[list[AdCountry]] = relationship(
+        lazy="selectin", order_by="AdCountry.country", cascade="all, delete-orphan"
+    )
+    advertiser_name_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[advertiser_name_i18n_id])
+    advertiser_description_i18n: Mapped[I18n | None] = relationship(
+        lazy="selectin", foreign_keys=[advertiser_description_i18n_id]
+    )
+    advertiser_photo_file: Mapped[File | None] = relationship(lazy="selectin", foreign_keys=[advertiser_photo_file_id])
+    link_url_i18n: Mapped[I18n] = relationship(lazy="selectin", foreign_keys=[link_url_i18n_id])
+    image_file: Mapped[File] = relationship(lazy="selectin", foreign_keys=[image_file_id])
+    body_i18n: Mapped[I18n | None] = relationship(lazy="selectin", foreign_keys=[body_i18n_id])
+    button_text_i18n: Mapped[I18n | None] = relationship(lazy="selectin", foreign_keys=[button_text_i18n_id])
+
+
+class AdCountry(Base):
+    __tablename__ = "ad_countries"
+
+    ad_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Ad.id), primary_key=True)
+    country: Mapped[str] = mapped_column(String(2), primary_key=True)
+
+
+class AdEvent(Base):
+    __tablename__ = "ad_events"
+    __table_args__ = (
+        UniqueConstraint("serve_id", "kind", name="uq_ad_events_serve_id_kind"),
+        Index("ix_ad_events_ad_id_occurred_at", "ad_id", "occurred_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQL_UUID, primary_key=True, default=uuid7)
+    ad_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Ad.id), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(User.id), nullable=False)
+    device_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Device.id), nullable=False)
+    serve_id: Mapped[UUID] = mapped_column(SQL_UUID, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    position: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    click_target: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visible_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    locale: Mapped[str] = mapped_column(Text, nullable=False)
+    platform: Mapped[str] = mapped_column(String(10), nullable=False)
+    app_version: Mapped[str] = mapped_column(String(12), nullable=False)
+    os_version: Mapped[str] = mapped_column(String(20), nullable=False)
+
+
+class AdHourlyStat(Base):
+    __tablename__ = "ad_hourly_stats"
+
+    ad_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(Ad.id), primary_key=True)
+    occurred_hour: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, nullable=False)

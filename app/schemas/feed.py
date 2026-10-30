@@ -1,18 +1,26 @@
 from datetime import datetime
-from typing import ClassVar
+from typing import Annotated, ClassVar, Literal
 from uuid import UUID
 
 from pydantic import Field
 
 from app.enums import FeedItemKindEnum
+from app.schemas.ads import FeedAdDTO
 from app.schemas.base import BaseRequest, BaseResponse, CustomBaseModel, PublicFileDTO
 from app.schemas.users import CommunityUserDTO
+
+FeedItemKind = Literal[
+    FeedItemKindEnum.MIMIC_SUCCEEDED,
+    FeedItemKindEnum.TOTAL_LEARNING_TIME_REACHED,
+    FeedItemKindEnum.MONTHLY_LEARNING_TIME_REACHED,
+    FeedItemKindEnum.WORD_PLAY_COUNT_REACHED,
+]
 
 
 class FeedParams(BaseRequest):
     cursor: UUID | None = None
     count_by_page: int = Field(12, ge=1, le=100)
-    kind: FeedItemKindEnum | None = None
+    kind: FeedItemKind | None = None
     country: str | None = Field(None, pattern=r"^[A-Z]{2}$")
     user_id: UUID | None = None
 
@@ -34,7 +42,7 @@ class FeedItemDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"word_name", "file", "threshold"}
 
     id: UUID
-    kind: FeedItemKindEnum
+    kind: FeedItemKind
     created_at: datetime
     user: CommunityUserDTO
     word_name: str | None
@@ -44,5 +52,8 @@ class FeedItemDTO(CustomBaseModel):
     is_liked: bool
 
 
+FeedEntryDTO = Annotated[FeedItemDTO | FeedAdDTO, Field(discriminator="kind")]
+
+
 class FeedResponse(BaseResponse):
-    data: list[FeedItemDTO]
+    data: list[FeedEntryDTO]
