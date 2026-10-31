@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.dependencies import ActiveUser, DBSession, Locale, Storage, require_notification
 from app.models import Notification
 from app.schemas.base import BaseResponse, PageParams
-from app.schemas.notifications import NotificationListResponse, NotificationResponse
+from app.schemas.notifications import NotificationListResponse, NotificationResponse, NotificationUnreadCountResponse
 from app.services import notifications
 
 router = APIRouter(prefix="/notifications")
@@ -21,6 +21,14 @@ async def get_list(
         message="알림 목록 조회 성공",
         data=items,
         meta=query.meta(total),
+    )
+
+
+@router.get("/unread-count", name="읽지 않은 알림 개수 조회")
+async def get_unread_count(user: ActiveUser, db: DBSession) -> NotificationUnreadCountResponse:
+    return NotificationUnreadCountResponse(
+        message="읽지 않은 알림 개수 조회 성공",
+        data=await notifications.get_unread_count(db=db, user=user),
     )
 
 

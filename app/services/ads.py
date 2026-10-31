@@ -44,12 +44,8 @@ from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL
 
 def check_creative(ad: Ad) -> None:
     feed_fields = (ad.advertiser_photo_file, ad.body_i18n, ad.button_text_i18n, ad.button_color, ad.button_text_color)
-    banner_invalid = ad.kind == AdKindEnum.HOME_BANNER.value and (
-        any(field is not None for field in feed_fields) or (ad.ad_tag_color is None) == ad.is_ad
-    )
-    feed_invalid = ad.kind == AdKindEnum.FEED.value and (
-        any(field is None for field in feed_fields) or ad.ad_tag_color is not None
-    )
+    banner_invalid = ad.kind == AdKindEnum.HOME_BANNER.value and any(field is not None for field in feed_fields)
+    feed_invalid = ad.kind == AdKindEnum.FEED.value and any(field is None for field in feed_fields)
 
     if banner_invalid or feed_invalid:
         raise InvalidAdCreativeError
@@ -78,7 +74,6 @@ def build_home_banner_ad_dto(ad: Ad, locale: LocaleEnum, storage: S3StorageClien
         advertiser_name=ad.advertiser_name_i18n.get_text(locale),
         link_url=ad.link_url_i18n.get_text(locale),
         image_file=build_public_file_dto(storage=storage, file=ad.image_file),
-        ad_tag_color=ad.ad_tag_color,
     )
 
 
@@ -139,7 +134,6 @@ def build_backoffice_ad_dto(ad: Ad, storage: S3StorageClient, event_counts: list
         image_file=BackofficeAdFileDTO(
             file_id=ad.image_file_id, url=storage.generate_presigned_url(path=ad.image_file.object_key)
         ),
-        ad_tag_color=ad.ad_tag_color,
         body=I18nDTO.model_validate(ad.body_i18n, from_attributes=True) if ad.body_i18n is not None else None,
         button_text=I18nDTO.model_validate(ad.button_text_i18n, from_attributes=True)
         if ad.button_text_i18n is not None
@@ -344,7 +338,6 @@ async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreateAdRe
         advertiser_photo_file=advertiser_photo_file,
         link_url_i18n=I18n(**data.link_url.model_dump()),
         image_file=image_file,
-        ad_tag_color=data.ad_tag_color,
         body_i18n=I18n(**data.body.model_dump()) if data.body is not None else None,
         button_text_i18n=I18n(**data.button_text.model_dump()) if data.button_text is not None else None,
         button_color=data.button_color,

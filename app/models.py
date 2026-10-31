@@ -834,7 +834,6 @@ class Ad(Base):
     advertiser_photo_file_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=True)
     link_url_i18n_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=False)
     image_file_id: Mapped[UUID] = mapped_column(SQL_UUID, ForeignKey(File.id), nullable=False)
-    ad_tag_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     body_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
     button_text_i18n_id: Mapped[UUID | None] = mapped_column(SQL_UUID, ForeignKey(I18n.id), nullable=True)
     button_color: Mapped[str | None] = mapped_column(String(7), nullable=True)

@@ -43,6 +43,14 @@ class NotificationListResponse(BaseResponse):
     data: list[NotificationDTO]
 
 
+class NotificationUnreadCountDTO(CustomBaseModel):
+    count: int
+
+
+class NotificationUnreadCountResponse(BaseResponse):
+    data: NotificationUnreadCountDTO
+
+
 class BackofficeNotificationDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"image", "data_id", "read_at"}
 

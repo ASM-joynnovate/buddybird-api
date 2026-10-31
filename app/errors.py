@@ -232,10 +232,7 @@ class InvalidAdPeriodError(CustomError):
 
 class InvalidAdCreativeError(CustomError):
     error_code = "AD__INVALID_CREATIVE"
-    message = (
-        "홈 배너는 광고일 때만 AD 표시 색이 있고 광고주 사진, 본문, 버튼 문구, 버튼 색은 비워야 하며, "
-        "피드 광고는 광고주 사진, 본문, 버튼 문구, 버튼 배경색, 버튼 글자색이 모두 있고 AD 표시 색은 비워야 합니다."
-    )
+    message = "홈 배너에 피드 광고 항목이 있거나 피드 광고에 빠진 항목이 있습니다."
 
 
 class InvalidAdI18nError(CustomError):
