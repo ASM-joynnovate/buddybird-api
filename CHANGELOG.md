@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.34.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.34.0...v2.34.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **session-sounds:** revert distress call threshold to 7 chirps [BB-821] ([c5fcf7d](https://github.com/ASM-joynnovate/buddybird-api/commit/c5fcf7d28a72dd9aebf24aa01d4914370480cb2a))
+* **session-sounds:** revert distress call threshold to 7 chirps in 30 seconds ([0a27213](https://github.com/ASM-joynnovate/buddybird-api/commit/0a27213df2cc94562e71b49673014b6fdb6dc2da))
+
 ## [2.34.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.33.0...v2.34.0) (2026-10-30)
 
 
