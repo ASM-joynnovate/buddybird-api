@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.35.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.34.1...v2.35.0) (2026-10-31)
+
+
+### Features
+
+* add unread notification count API and remove ad tag color ([5fc1b96](https://github.com/ASM-joynnovate/buddybird-api/commit/5fc1b963b3629216f0e31c6ab746a72b4f366e17))
+* add unread notification count API and remove ad tag color ([1cc9881](https://github.com/ASM-joynnovate/buddybird-api/commit/1cc988129ec4b4f671c5a506b58aae86a4eac44d))
+
 ## [2.34.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.34.0...v2.34.1) (2026-10-31)
 
 

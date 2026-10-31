@@ -75,6 +75,7 @@ from app.schemas.notifications import (
     I18nNotificationBodyRequest,
     NotificationDTO,
     NotificationImageDTO,
+    NotificationUnreadCountDTO,
     SendNotificationRequest,
 )
 from app.services.announcements import TARGET_USER
@@ -703,6 +704,20 @@ async def get_list(
     ).all()
 
     return [build_notification_dto(notification, locale, storage) for notification in notifications], total
+
+
+async def get_unread_count(*, db: AsyncSession, user: User) -> NotificationUnreadCountDTO:
+    stmt = (
+        select(func.count())
+        .select_from(Notification)
+        .where(
+            Notification.user_id == user.id,
+            Notification.read_at.is_(None),
+            Notification.sent_at <= datetime.now(UTC),
+        )
+    )
+
+    return NotificationUnreadCountDTO(count=await db.scalar(stmt))
 
 
 async def get_backoffice_list(

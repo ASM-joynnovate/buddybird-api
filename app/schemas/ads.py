@@ -29,15 +29,12 @@ class AdListParams(BaseRequest):
 
 
 class HomeBannerAdDTO(CustomBaseModel):
-    allow_null_fields: ClassVar[set] = {"ad_tag_color"}
-
     id: UUID
     serve_id: UUID
     is_ad: bool
     advertiser_name: str
     link_url: str
     image_file: PublicFileDTO
-    ad_tag_color: str | None
 
 
 class HomeBannerAdListResponse(BaseResponse):
@@ -93,7 +90,6 @@ class BackofficeAdDTO(CustomBaseModel):
         "display_order",
         "advertiser_description",
         "advertiser_photo_file",
-        "ad_tag_color",
         "body",
         "button_text",
         "button_color",
@@ -115,7 +111,6 @@ class BackofficeAdDTO(CustomBaseModel):
     advertiser_photo_file: BackofficeAdFileDTO | None
     link_url: I18nDTO
     image_file: BackofficeAdFileDTO
-    ad_tag_color: str | None
     body: I18nDTO | None
     button_text: I18nDTO | None
     button_color: str | None
@@ -143,7 +138,6 @@ class CreateAdRequest(BaseRequest):
         "ends_at",
         "advertiser_description",
         "advertiser_photo_file_id",
-        "ad_tag_color",
         "body",
         "button_text",
         "button_color",
@@ -162,7 +156,6 @@ class CreateAdRequest(BaseRequest):
     advertiser_photo_file_id: UUID | None = None
     link_url: I18nBodyRequest
     image_file_id: UUID
-    ad_tag_color: Color | None = None
     body: I18nBodyRequest | None = None
     button_text: I18nTitleRequest | None = None
     button_color: Color | None = None
@@ -189,7 +182,6 @@ class UpdateAdRequest(BaseRequest):
         "ends_at",
         "advertiser_description",
         "advertiser_photo_file_id",
-        "ad_tag_color",
         "body",
         "button_text",
         "button_color",
@@ -207,7 +199,6 @@ class UpdateAdRequest(BaseRequest):
     advertiser_photo_file_id: UUID | MISSING | None = MISSING
     link_url: UpdateI18nBodyRequest | MISSING = MISSING
     image_file_id: UUID | MISSING = MISSING
-    ad_tag_color: Color | MISSING | None = MISSING
     body: UpdateI18nBodyRequest | MISSING | None = MISSING
     button_text: UpdateI18nTitleRequest | MISSING | None = MISSING
     button_color: Color | MISSING | None = MISSING
