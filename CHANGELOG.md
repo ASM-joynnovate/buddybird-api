@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.37.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.36.0...v2.37.0) (2026-11-01)
+
+
+### Features
+
+* add total ad stats API and daily stats interval ([9541c1c](https://github.com/ASM-joynnovate/buddybird-api/commit/9541c1cf867465493888e00a32207ddcb2af67cc))
+* add total ad stats API and daily stats interval ([ad89c53](https://github.com/ASM-joynnovate/buddybird-api/commit/ad89c5344dcf75744f4d7daa94db728c52f108b9))
+
 ## [2.36.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.35.0...v2.36.0) (2026-11-01)
 
 
