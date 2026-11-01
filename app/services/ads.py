@@ -26,19 +26,20 @@ from app.s3 import S3StorageClient
 from app.schemas.ads import (
     AddAdEventsRequest,
     AdEventCountDTO,
-    AdHourlyStatDTO,
     AdImageUploadRequest,
     AdListParams,
+    AdStatDTO,
     BackofficeAdDTO,
     BackofficeAdFileDTO,
     BackofficeAdListParams,
+    BackofficeAdStatsParams,
+    BackofficeAdTotalStatsParams,
     CreateAdRequest,
     FeedAdDTO,
     HomeBannerAdDTO,
     UpdateAdRequest,
 )
 from app.schemas.base import I18nDTO, ReorderRequest, UploadDTO
-from app.schemas.dashboard import DashboardParams
 from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL
 
 
@@ -491,18 +492,51 @@ async def add_image(*, db: AsyncSession, storage: S3StorageClient, data: AdImage
     )
 
 
-async def get_stats(*, db: AsyncSession, ad: Ad, query: DashboardParams) -> list[AdHourlyStatDTO]:
+def build_stats_stmt(query: BackofficeAdStatsParams) -> Select:
     period_start = datetime.combine(query.date_from, time(0), tzinfo=SEOUL)
     period_end = datetime.combine(query.date_to + timedelta(days=1), time(0), tzinfo=SEOUL)
-    stmt = (
-        select(AdHourlyStat)
+    started_at = func.timezone(
+        SEOUL.key,
+        func.date_trunc(query.interval.value, func.timezone(SEOUL.key, AdHourlyStat.occurred_hour)),
+    )
+
+    return (
+        select(started_at, AdHourlyStat.kind, func.sum(AdHourlyStat.count))
         .where(
-            AdHourlyStat.ad_id == ad.id,
             AdHourlyStat.occurred_hour >= period_start,
             AdHourlyStat.occurred_hour < period_end,
         )
-        .order_by(AdHourlyStat.occurred_hour, AdHourlyStat.kind)
+        .group_by(started_at, AdHourlyStat.kind)
+        .order_by(started_at, AdHourlyStat.kind)
     )
-    stats = (await db.scalars(stmt)).all()
 
-    return [AdHourlyStatDTO.model_validate(stat, from_attributes=True) for stat in stats]
+
+async def get_stats(*, db: AsyncSession, ad: Ad, query: BackofficeAdStatsParams) -> list[AdStatDTO]:
+    stmt = build_stats_stmt(query).where(AdHourlyStat.ad_id == ad.id)
+    rows = (await db.execute(stmt)).all()
+
+    return [AdStatDTO(started_at=started_at, kind=kind, count=count) for started_at, kind, count in rows]
+
+
+async def get_total_stats(*, db: AsyncSession, query: BackofficeAdTotalStatsParams) -> list[AdStatDTO]:
+    stmt = (
+        build_stats_stmt(query)
+        .join(Ad, Ad.id == AdHourlyStat.ad_id)
+        .where(Ad.is_ad.is_(True))
+        .execution_options(include_deleted=True)
+    )
+
+    if query.kind is not None:
+        stmt = stmt.where(Ad.kind == query.kind.value)
+
+    if query.country is not None:
+        stmt = stmt.where(
+            exists().where(
+                AdCountry.ad_id == AdHourlyStat.ad_id,
+                AdCountry.country == query.country,
+            )
+        )
+
+    rows = (await db.execute(stmt)).all()
+
+    return [AdStatDTO(started_at=started_at, kind=kind, count=count) for started_at, kind, count in rows]

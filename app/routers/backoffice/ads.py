@@ -9,12 +9,13 @@ from app.schemas.ads import (
     BackofficeAdListParams,
     BackofficeAdListResponse,
     BackofficeAdResponse,
+    BackofficeAdStatsParams,
     BackofficeAdStatsResponse,
+    BackofficeAdTotalStatsParams,
     CreateAdRequest,
     UpdateAdRequest,
 )
 from app.schemas.base import BaseResponse, ReorderRequest, UploadResponse
-from app.schemas.dashboard import DashboardParams
 from app.services import ads
 
 router = APIRouter(prefix="/ads")
@@ -48,6 +49,15 @@ async def add_image(body: AdImageUploadRequest, db: DBSession, storage: Storage)
     )
 
 
+@router.get("/stats", name="광고 전체 통계 조회")
+async def get_total_stats(
+    query: Annotated[BackofficeAdTotalStatsParams, Query()], db: DBSession
+) -> BackofficeAdStatsResponse:
+    return BackofficeAdStatsResponse(
+        message="광고 전체 통계 조회 성공", data=await ads.get_total_stats(db=db, query=query)
+    )
+
+
 @router.get("/{ad_id}", name="광고 상세 조회")
 async def get_detail(ad: Annotated[Ad, Depends(require_ad)], db: DBSession, storage: Storage) -> BackofficeAdResponse:
     return BackofficeAdResponse(message="광고 상세 조회 성공", data=await ads.get_detail(db=db, storage=storage, ad=ad))
@@ -69,10 +79,8 @@ async def delete(ad: Annotated[Ad, Depends(require_ad)], db: DBSession) -> BaseR
     return BaseResponse(message="광고 삭제 성공")
 
 
-@router.get("/{ad_id}/stats", name="광고 시간별 통계 조회")
+@router.get("/{ad_id}/stats", name="광고 통계 조회")
 async def get_stats(
-    ad: Annotated[Ad, Depends(require_ad)], query: Annotated[DashboardParams, Query()], db: DBSession
+    ad: Annotated[Ad, Depends(require_ad)], query: Annotated[BackofficeAdStatsParams, Query()], db: DBSession
 ) -> BackofficeAdStatsResponse:
-    return BackofficeAdStatsResponse(
-        message="광고 시간별 통계 조회 성공", data=await ads.get_stats(db=db, ad=ad, query=query)
-    )
+    return BackofficeAdStatsResponse(message="광고 통계 조회 성공", data=await ads.get_stats(db=db, ad=ad, query=query))

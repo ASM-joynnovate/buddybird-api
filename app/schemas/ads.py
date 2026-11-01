@@ -5,7 +5,15 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, StringConstraints, field_validator, model_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
-from app.enums import AdClickTargetEnum, AdEventKindEnum, AdImageKindEnum, AdKindEnum, AdStatusEnum, FeedItemKindEnum
+from app.enums import (
+    AdClickTargetEnum,
+    AdEventKindEnum,
+    AdImageKindEnum,
+    AdKindEnum,
+    AdStatusEnum,
+    FeedItemKindEnum,
+    StatsIntervalEnum,
+)
 from app.schemas.base import (
     BaseRequest,
     BaseResponse,
@@ -20,6 +28,7 @@ from app.schemas.base import (
     UpdateI18nTitleRequest,
     UploadRequest,
 )
+from app.schemas.dashboard import DashboardParams
 
 Color = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 
@@ -133,6 +142,15 @@ class BackofficeAdListParams(PageParams):
     country: Country | None = None
 
 
+class BackofficeAdStatsParams(DashboardParams):
+    interval: StatsIntervalEnum = StatsIntervalEnum.HOUR
+
+
+class BackofficeAdTotalStatsParams(BackofficeAdStatsParams):
+    kind: AdKindEnum | None = None
+    country: Country | None = None
+
+
 class CreateAdRequest(BaseRequest):
     null_fields: ClassVar[set] = {
         "ends_at",
@@ -221,9 +239,9 @@ class AdImageUploadRequest(UploadRequest):
     kind: AdImageKindEnum
 
 
-class AdHourlyStatDTO(AdEventCountDTO):
-    occurred_hour: datetime
+class AdStatDTO(AdEventCountDTO):
+    started_at: datetime
 
 
 class BackofficeAdStatsResponse(BaseResponse):
-    data: list[AdHourlyStatDTO]
+    data: list[AdStatDTO]
