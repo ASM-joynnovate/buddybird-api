@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.36.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.35.0...v2.36.0) (2026-11-01)
+
+
+### Features
+
+* add unread notification count badge to iOS push ([492ebb9](https://github.com/ASM-joynnovate/buddybird-api/commit/492ebb9f364a774ee79f9b501c6df4938283c38c))
+* add unread notification count badge to iOS push ([0c61663](https://github.com/ASM-joynnovate/buddybird-api/commit/0c616635e7043992ced92850ced096c60e67bcfb))
+
 ## [2.35.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.34.1...v2.35.0) (2026-10-31)
 
 

@@ -1174,7 +1174,7 @@ async def deliver(delivery_id: UUID) -> None:
             expired = announcement.is_deleted or (announcement.ends_at is not None and announcement.ends_at <= now)
 
         stmt = (
-            select(Device, NIGHT_ENABLED)
+            select(Device, NIGHT_ENABLED, User)
             .join(User, User.id == Device.user_id)
             .outerjoin(UserSetting, UserSetting.user_id == User.id)
             .where(
@@ -1235,12 +1235,15 @@ async def deliver(delivery_id: UUID) -> None:
                 }
                 body += "\n" + unsubscribe_texts[body_i18n.text_locale(locale)]
 
+            unread_count = (await get_unread_count(db=db, user=row.User)).count
+
             try:
                 await send_push(
                     token=device.push_token,
                     title=title_i18n.get_text(locale),
                     body=body,
                     image_url=image_url,
+                    badge=unread_count or None,
                     data=data,
                 )
 
