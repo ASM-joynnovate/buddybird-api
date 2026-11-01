@@ -18,22 +18,19 @@ def get_fcm() -> firebase_admin.App:
     )
 
 
-async def send_push(*, token: str, title: str, body: str, image_url: str | None, data: dict[str, str]) -> None:
-    apns = messaging.APNSConfig(headers={"apns-priority": "10"})
-
-    if image_url is not None:
-        apns = messaging.APNSConfig(
-            headers={"apns-priority": "10"},
-            payload=messaging.APNSPayload(aps=messaging.Aps(mutable_content=True)),
-            fcm_options=messaging.APNSFCMOptions(image=image_url),
-        )
-
+async def send_push(
+    *, token: str, title: str, body: str, image_url: str | None, badge: int | None, data: dict[str, str]
+) -> None:
     message = messaging.Message(
         token=token,
         notification=messaging.Notification(title=title, body=body, image=image_url),
         data=data,
         android=messaging.AndroidConfig(priority="high"),
-        apns=apns,
+        apns=messaging.APNSConfig(
+            headers={"apns-priority": "10"},
+            payload=messaging.APNSPayload(aps=messaging.Aps(badge=badge, mutable_content=image_url is not None)),
+            fcm_options=messaging.APNSFCMOptions(image=image_url),
+        ),
     )
 
     await asyncio.to_thread(messaging.send, message, app=get_fcm())
