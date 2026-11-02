@@ -29,6 +29,7 @@ from app.schemas.ads import (
     AdImageUploadRequest,
     AdListParams,
     AdStatDTO,
+    AdTotalStatDTO,
     BackofficeAdDTO,
     BackofficeAdFileDTO,
     BackofficeAdListParams,
@@ -522,13 +523,19 @@ async def get_stats(*, db: AsyncSession, ad: Ad, query: BackofficeAdStatsParams)
     return [AdStatDTO(started_at=started_at, kind=kind, count=count) for started_at, kind, count in rows]
 
 
-async def get_total_stats(*, db: AsyncSession, query: BackofficeAdStatsParams) -> list[AdStatDTO]:
+async def get_total_stats(*, db: AsyncSession, query: BackofficeAdStatsParams) -> list[AdTotalStatDTO]:
     stmt = (
         build_stats_stmt(query)
+        .add_columns(Ad.kind)
         .join(Ad, Ad.id == AdHourlyStat.ad_id)
         .where(Ad.is_ad.is_(True))
+        .group_by(Ad.kind)
+        .order_by(Ad.kind)
         .execution_options(include_deleted=True)
     )
     rows = (await db.execute(stmt)).all()
 
-    return [AdStatDTO(started_at=started_at, kind=kind, count=count) for started_at, kind, count in rows]
+    return [
+        AdTotalStatDTO(started_at=started_at, kind=kind, count=count, ad_kind=ad_kind)
+        for started_at, kind, count, ad_kind in rows
+    ]
