@@ -9,7 +9,6 @@ from app.schemas.settings import (
     SaveUserNotificationSettingRequest,
     SettingsResponse,
     UpdateCommunitySettingsRequest,
-    UpdateNotificationSettingsRequest,
     UpdatePushSettingRequest,
     UpdateSleepSettingsRequest,
 )
@@ -34,15 +33,6 @@ async def update_sleep(user: ActiveUser, body: UpdateSleepSettingsRequest, db: D
 async def update_community(user: ActiveUser, body: UpdateCommunitySettingsRequest, db: DBSession) -> SettingsResponse:
     return SettingsResponse(
         message="커뮤니티 설정 수정 성공", data=await settings.update_community(db=db, user=user, data=body)
-    )
-
-
-@router.put("/notifications", name="알림 설정 수정")
-async def update_notifications(
-    user: ActiveUser, body: UpdateNotificationSettingsRequest, db: DBSession
-) -> SettingsResponse:
-    return SettingsResponse(
-        message="알림 설정 수정 성공", data=await settings.update_notifications(db=db, user=user, data=body)
     )
 
 

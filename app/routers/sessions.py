@@ -20,7 +20,6 @@ from app.schemas.sessions import (
     AddSessionEventsRequest,
     HeartbeatRequest,
     HeartbeatResponse,
-    SessionEventListParams,
     SessionEventListResponse,
     SessionListResponse,
     SessionLogListParams,
@@ -29,7 +28,6 @@ from app.schemas.sessions import (
     SessionPetcamEventUploadResponse,
     SessionPetcamVideoUploadRequest,
     SessionResponse,
-    SessionSoundListParams,
     SessionSoundListResponse,
     SessionSoundUploadRequest,
     SessionSummaryResponse,
@@ -104,20 +102,11 @@ async def add_events(
 
 @router.get("/{session_id}/events", name="세션 이벤트 조회", deprecated=True)
 async def get_events(
-    session: Annotated[Session, Depends(require_session)],
-    query: Annotated[SessionEventListParams, Query()],
-    db: DBSession,
-    storage: Storage,
+    session: Annotated[Session, Depends(require_session)], db: DBSession, storage: Storage
 ) -> SessionEventListResponse:
     return SessionEventListResponse(
         message="세션 이벤트 조회 성공",
-        data=await sessions.get_events(
-            db=db,
-            storage=storage,
-            session=session,
-            petcam=query.petcam,
-            distress_call=query.distress_call,
-        ),
+        data=await sessions.get_events(db=db, storage=storage, session=session),
     )
 
 
@@ -169,7 +158,7 @@ async def upload_sound(
 @router.get("/{session_id}/sounds", name="세션 소리 목록 조회", deprecated=True)
 async def get_sounds(
     session: Annotated[Session, Depends(require_session)],
-    query: Annotated[SessionSoundListParams, Query()],
+    query: Annotated[PageParams, Query()],
     db: DBSession,
     storage: Storage,
 ) -> SessionSoundListResponse:

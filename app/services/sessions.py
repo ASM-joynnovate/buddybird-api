@@ -732,25 +732,12 @@ async def add_petcam_video(
     )
 
 
-async def get_events(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, petcam: bool, distress_call: bool
-) -> list[SessionEventDTO]:
+async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Session) -> list[SessionEventDTO]:
     stmt = (
         select(SessionEvent)
         .where(SessionEvent.session_id == session.id, SessionEvent.is_correct.is_not(False))
         .order_by(SessionEvent.occurred_at)
     )
-
-    if not petcam:
-        stmt = stmt.where(
-            SessionEvent.kind.not_in(
-                [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
-            )
-        )
-
-    if not distress_call:
-        stmt = stmt.where(SessionEvent.kind != SessionEventKindEnum.DISTRESS_CALL_DETECTED.value)
-
     events = (await db.scalars(stmt)).all()
     sound_ids, ended_ats, reviews = await get_event_details(db=db, session=session)
     appeared_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_APPEARED.value]

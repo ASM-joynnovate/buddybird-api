@@ -57,7 +57,6 @@ from app.schemas.sessions import (
     SessionSoundAnalysisDTO,
     SessionSoundDTO,
     SessionSoundJudgmentDTO,
-    SessionSoundListParams,
     SessionSoundUploadRequest,
     SessionUserReviewDTO,
     UpdateSessionUserReviewRequest,
@@ -176,7 +175,7 @@ async def build_sound_dtos(
 
 
 async def get_list(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: SessionSoundListParams
+    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: PageParams
 ) -> tuple[list[SessionSoundDTO], int]:
     stmt = (
         select(SessionSound)
@@ -194,10 +193,6 @@ async def get_list(
             ),
         )
     )
-
-    if query.mimic:
-        stmt = stmt.where(SessionSound.kind == SessionSoundKindEnum.MIMIC.value)
-
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
     sounds = (
         await db.scalars(

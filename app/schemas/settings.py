@@ -55,15 +55,6 @@ class UpdateCommunitySettingsRequest(BaseRequest):
     feed_enabled: bool | MISSING = MISSING
 
 
-class UpdateNotificationSettingsRequest(BaseRequest):
-    push_enabled: bool
-    announcement_enabled: bool
-    report_enabled: bool
-    emergency_enabled: bool | MISSING = MISSING
-    marketing_enabled: bool
-    marketing_night_enabled: bool
-
-
 class NotificationSettingItemDTO(CustomBaseModel):
     allow_null_fields: ClassVar[set] = {"description"}
 

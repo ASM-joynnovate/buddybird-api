@@ -44,7 +44,6 @@ from app.schemas.settings import (
     UpdateCommunitySettingsRequest,
     UpdateNotificationSettingGroupRequest,
     UpdateNotificationSettingItemRequest,
-    UpdateNotificationSettingsRequest,
     UpdatePushSettingRequest,
     UpdateSleepSettingsRequest,
 )
@@ -212,47 +211,6 @@ async def update_community(*, db: AsyncSession, user: User, data: UpdateCommunit
     for name, value in data.model_dump(exclude_unset=True).items():
         setattr(setting, name, value)
 
-    await db.flush()
-
-    return await build_settings_dto(db=db, setting=setting)
-
-
-@transactional(unavailable_error=UserSaveUnavailableError)
-async def update_notifications(*, db: AsyncSession, user: User, data: UpdateNotificationSettingsRequest) -> SettingsDTO:
-    setting = await get_or_create_settings(db=db, user=user)
-
-    setting.push_notification_enabled = data.push_enabled
-
-    values = {
-        NotificationSettingKindEnum.ANNOUNCEMENT: data.announcement_enabled,
-        NotificationSettingKindEnum.REPORT: data.report_enabled,
-        NotificationSettingKindEnum.MARKETING: data.marketing_enabled,
-        NotificationSettingKindEnum.MARKETING_NIGHT: data.marketing_night_enabled,
-    }
-
-    if data.emergency_enabled is not MISSING:
-        values[NotificationSettingKindEnum.EMERGENCY] = data.emergency_enabled
-
-    stmt = select(NotificationSettingItem.id, NotificationSettingItem.kind).where(
-        NotificationSettingItem.kind.in_(values)
-    )
-    items = (await db.execute(stmt)).all()
-
-    decided_at = datetime.now(UTC)
-    stmt = insert(UserNotificationSetting).values(
-        [
-            {"user_id": user.id, "item_id": item_id, "is_enabled": values[kind], "decided_at": decided_at}
-            for item_id, kind in items
-        ]
-    )
-
-    await db.execute(
-        stmt.on_conflict_do_update(
-            index_elements=[UserNotificationSetting.user_id, UserNotificationSetting.item_id],
-            set_={"is_enabled": stmt.excluded.is_enabled, "decided_at": stmt.excluded.decided_at},
-            where=UserNotificationSetting.is_enabled != stmt.excluded.is_enabled,
-        )
-    )
     await db.flush()
 
     return await build_settings_dto(db=db, setting=setting)
