@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.40.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.39.0...v2.40.0) (2026-11-02)
+
+
+### Features
+
+* add capitalize_first utility for notification subjects ([459ddc4](https://github.com/ASM-joynnovate/buddybird-api/commit/459ddc4e11af2bcc289c5994314e9f703bd76d18))
+* add parrot motionless and moved petcam events ([25092be](https://github.com/ASM-joynnovate/buddybird-api/commit/25092be2e4d893d50f15f03de049bc9df12b6b38))
+* add parrot motionless and moved petcam events ([3d7c6c3](https://github.com/ASM-joynnovate/buddybird-api/commit/3d7c6c3ea09ef34ede0a2fab8e3aa1f89b0950cd))
+* merge previous petcam event queries ([4c4709e](https://github.com/ASM-joynnovate/buddybird-api/commit/4c4709e8e33155bd6fda874640f3ee3e998ac317))
+* update parrot motion notification translations ([731d9c1](https://github.com/ASM-joynnovate/buddybird-api/commit/731d9c1eff3aaaaf0064c3549a114356bd0a1d6b))
+
 ## [2.39.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.38.0...v2.39.0) (2026-11-02)
 
 
