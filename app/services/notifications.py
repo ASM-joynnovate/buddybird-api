@@ -542,46 +542,38 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
     if session_status != SessionStatusEnum.RUNNING.value:
         return []
 
+    petcam_kinds = [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
+
     if event.kind in MOTION_EVENT_KINDS:
-        stmt = (
-            select(SessionEvent.kind)
-            .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
-            .join(File, File.id == SessionEventFile.file_id)
-            .where(
-                SessionEvent.session_id == event.session_id,
-                SessionEvent.kind.in_([*MOTION_EVENT_KINDS, SessionEventKindEnum.PARROT_DISAPPEARED.value]),
-                SessionEvent.occurred_at < event.occurred_at,
-                SessionEvent.is_correct.is_not(False),
-                SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
-                File.status == FileStatusEnum.UPLOADED.value,
-            )
-            .order_by(SessionEvent.occurred_at.desc())
-            .limit(1)
-        )
-        is_after_motionless = await db.scalar(stmt) == SessionEventKindEnum.PARROT_MOTIONLESS.value
+        petcam_kinds = [*MOTION_EVENT_KINDS, SessionEventKindEnum.PARROT_DISAPPEARED.value]
 
-        if is_after_motionless == (event.kind == SessionEventKindEnum.PARROT_MOTIONLESS.value):
-            return []
-    else:
-        petcam_kinds = [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
-        stmt = (
-            select(SessionEvent.kind)
-            .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
-            .join(File, File.id == SessionEventFile.file_id)
-            .where(
-                SessionEvent.session_id == event.session_id,
-                SessionEvent.kind.in_(petcam_kinds),
-                SessionEvent.occurred_at < event.occurred_at,
-                SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
-                File.status == FileStatusEnum.UPLOADED.value,
-            )
-            .order_by(SessionEvent.occurred_at.desc())
-            .limit(1)
+    stmt = (
+        select(SessionEvent.kind)
+        .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
+        .join(File, File.id == SessionEventFile.file_id)
+        .where(
+            SessionEvent.session_id == event.session_id,
+            SessionEvent.kind.in_(petcam_kinds),
+            SessionEvent.occurred_at < event.occurred_at,
+            SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
+            File.status == FileStatusEnum.UPLOADED.value,
         )
-        previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_APPEARED.value
+        .order_by(SessionEvent.occurred_at.desc())
+        .limit(1)
+    )
 
-        if previous_kind == event.kind:
-            return []
+    if event.kind in MOTION_EVENT_KINDS:
+        stmt = stmt.where(SessionEvent.is_correct.is_not(False))
+
+    previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_APPEARED.value
+    is_repeated = previous_kind == event.kind
+    is_moved_without_motionless = (
+        event.kind == SessionEventKindEnum.PARROT_MOVED.value
+        and previous_kind != SessionEventKindEnum.PARROT_MOTIONLESS.value
+    )
+
+    if is_repeated or is_moved_without_motionless:
+        return []
 
     stmt = select(File.id).where(File.id == image_file_id).with_for_update()
     await db.execute(stmt)
