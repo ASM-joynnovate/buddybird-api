@@ -210,6 +210,11 @@ class SortOrderEnum(StrEnum):
     DESC = "desc"
 
 
+class StatsIntervalEnum(StrEnum):
+    HOUR = "hour"
+    DAY = "day"
+
+
 class UserSortEnum(StrEnum):
     CREATED_AT = "created_at"
     RECENT_DURATION = "recent_duration"

@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.38.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.37.1...v2.38.0) (2026-11-02)
+
+
+### Features
+
+* split total ad stats by ad kind ([b73a260](https://github.com/ASM-joynnovate/buddybird-api/commit/b73a2609b3e248be1cfaccd07e6c5304eafff11a))
+* split total ad stats by ad kind ([764a010](https://github.com/ASM-joynnovate/buddybird-api/commit/764a010eacf772987729c9c8e8fcc5daaa3c381c))
+
+## [2.37.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.37.0...v2.37.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* include all-country ads in backoffice ad country filter ([4e46221](https://github.com/ASM-joynnovate/buddybird-api/commit/4e46221c890da756bad33bfce986eb10486b5642))
+* include all-country ads in backoffice ad country filter ([067daa6](https://github.com/ASM-joynnovate/buddybird-api/commit/067daa6333fe204e1e0e003ea7d965055b6d72e8))
+
+## [2.37.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.36.0...v2.37.0) (2026-11-01)
+
+
+### Features
+
+* add total ad stats API and daily stats interval ([9541c1c](https://github.com/ASM-joynnovate/buddybird-api/commit/9541c1cf867465493888e00a32207ddcb2af67cc))
+* add total ad stats API and daily stats interval ([ad89c53](https://github.com/ASM-joynnovate/buddybird-api/commit/ad89c5344dcf75744f4d7daa94db728c52f108b9))
+
 ## [2.36.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.35.0...v2.36.0) (2026-11-01)
 
 
