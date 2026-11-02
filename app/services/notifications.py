@@ -82,7 +82,7 @@ from app.services.announcements import TARGET_USER
 from app.services.sessions import get_judgment_statuses
 from app.services.settings import ITEM_ENABLED
 from app.services.users import PUSHABLE
-from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL
+from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL, capitalize_first
 
 logger = logging.getLogger(__name__)
 
@@ -625,10 +625,6 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         subject_bn = f"{names[0]}-কে"
         subject_bn_without_particle = names[0]
 
-    capitalized_subject_en = subject_en[:1].upper() + subject_en[1:]
-    capitalized_subject_ru = subject_ru[:1].upper() + subject_ru[1:]
-    capitalized_subject_es = subject_es[:1].upper() + subject_es[1:]
-    capitalized_subject_vi = subject_vi[:1].upper() + subject_vi[1:]
     title_i18n = I18n(
         ko_kr=f"{subject_ko} 안 보여요",
         en_us=f"We can't see {subject_en}",
@@ -660,28 +656,28 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
     elif event.kind == SessionEventKindEnum.PARROT_MOTIONLESS.value:
         title_i18n = I18n(
             ko_kr=f"{subject_ko} 움직이지 않아요",
-            en_us=f"{capitalized_subject_en} isn't moving",
+            en_us=f"{capitalize_first(subject_en)} isn't moving",
             ja_jp=f"{subject_ja}が動いていません",
-            ru_ru=f"{capitalized_subject_ru} не двигается",
-            es_es=f"{capitalized_subject_es} no se mueve",
+            ru_ru=f"{capitalize_first(subject_ru)} не двигается",
+            es_es=f"{capitalize_first(subject_es)} no se mueve",
             zh_hans=f"{subject_zh_hans}一直没有动弹",
             zh_hant=f"{subject_zh_hant}一直沒有動作",
             th_th=f"{subject_th} ไม่ขยับเลย",
-            vi_vn=f"{capitalized_subject_vi} không di chuyển",
+            vi_vn=f"{capitalize_first(subject_vi)} không di chuyển",
             hi_in=f"{subject_hi} हिल-डुल नहीं रहा",
             bn_bd=f"{subject_bn_without_particle} নড়াচড়া করছে না",
         )
     elif event.kind == SessionEventKindEnum.PARROT_MOVED.value:
         title_i18n = I18n(
             ko_kr=f"{subject_ko} 다시 움직여요",
-            en_us=f"{capitalized_subject_en} is moving again",
+            en_us=f"{capitalize_first(subject_en)} is moving again",
             ja_jp=f"{subject_ja}がまた動き出しました",
-            ru_ru=f"{capitalized_subject_ru} снова двигается",
-            es_es=f"{capitalized_subject_es} vuelve a moverse",
+            ru_ru=f"{capitalize_first(subject_ru)} снова двигается",
+            es_es=f"{capitalize_first(subject_es)} vuelve a moverse",
             zh_hans=f"{subject_zh_hans}又动起来了",
             zh_hant=f"{subject_zh_hant}又有動作了",
             th_th=f"{subject_th} ขยับอีกครั้งแล้ว",
-            vi_vn=f"{capitalized_subject_vi} đã di chuyển trở lại",
+            vi_vn=f"{capitalize_first(subject_vi)} đã di chuyển trở lại",
             hi_in=f"{subject_hi} फिर से हिल-डुल रहा है",
             bn_bd=f"{subject_bn_without_particle} আবার নড়াচড়া করছে",
         )
