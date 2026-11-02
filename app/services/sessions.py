@@ -101,6 +101,7 @@ from app.schemas.sessions import (
 )
 from app.schemas.settings import SleepSettingsDTO
 from app.services.devices import mark_seen
+from app.services.feed import record_achievements
 from app.services.leaderboard import record_finished_sessions
 from app.services.session_periods import get_active_durations
 from app.utils import correctness_filter
@@ -486,7 +487,8 @@ async def finish(*, db: AsyncSession, session: Session) -> SessionDTO:
         )
     )
 
-    await record_finished_sessions(db=db, sessions=[session], now=now)
+    await record_achievements(db=db, sessions=[session], now=now)
+    await record_finished_sessions(db=db, sessions=[session])
     await db.flush()
 
     judgment_statuses = await get_judgment_statuses(db=db, sessions=[session])
@@ -538,7 +540,8 @@ async def finish_expired_sessions(*, db: AsyncSession) -> list[UUID]:
             )
         )
 
-    await record_finished_sessions(db=db, sessions=sessions, now=now)
+    await record_achievements(db=db, sessions=sessions, now=now)
+    await record_finished_sessions(db=db, sessions=sessions)
     await db.flush()
 
     return [session.id for session in sessions]
