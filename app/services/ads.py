@@ -33,7 +33,6 @@ from app.schemas.ads import (
     BackofficeAdFileDTO,
     BackofficeAdListParams,
     BackofficeAdStatsParams,
-    BackofficeAdTotalStatsParams,
     CreateAdRequest,
     FeedAdDTO,
     HomeBannerAdDTO,
@@ -274,7 +273,12 @@ async def get_backoffice_list(
         stmt = stmt.where(Ad.is_ad.is_(query.is_ad))
 
     if query.country is not None:
-        stmt = stmt.where(exists().where(AdCountry.ad_id == Ad.id, AdCountry.country == query.country))
+        stmt = stmt.where(
+            or_(
+                ~exists().where(AdCountry.ad_id == Ad.id),
+                exists().where(AdCountry.ad_id == Ad.id, AdCountry.country == query.country),
+            )
+        )
 
     if query.status is not None:
         stmt = stmt.where(
@@ -518,25 +522,13 @@ async def get_stats(*, db: AsyncSession, ad: Ad, query: BackofficeAdStatsParams)
     return [AdStatDTO(started_at=started_at, kind=kind, count=count) for started_at, kind, count in rows]
 
 
-async def get_total_stats(*, db: AsyncSession, query: BackofficeAdTotalStatsParams) -> list[AdStatDTO]:
+async def get_total_stats(*, db: AsyncSession, query: BackofficeAdStatsParams) -> list[AdStatDTO]:
     stmt = (
         build_stats_stmt(query)
         .join(Ad, Ad.id == AdHourlyStat.ad_id)
         .where(Ad.is_ad.is_(True))
         .execution_options(include_deleted=True)
     )
-
-    if query.kind is not None:
-        stmt = stmt.where(Ad.kind == query.kind.value)
-
-    if query.country is not None:
-        stmt = stmt.where(
-            exists().where(
-                AdCountry.ad_id == AdHourlyStat.ad_id,
-                AdCountry.country == query.country,
-            )
-        )
-
     rows = (await db.execute(stmt)).all()
 
     return [AdStatDTO(started_at=started_at, kind=kind, count=count) for started_at, kind, count in rows]
