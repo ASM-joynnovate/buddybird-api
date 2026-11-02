@@ -25,7 +25,7 @@ def upgrade() -> None:
     # ### end Alembic commands ###
     op.execute("""
         INSERT INTO i18n (id, ko_kr, en_us, ja_jp, ru_ru, es_es, zh_hans, zh_hant, th_th, vi_vn, hi_in, bn_bd) VALUES
-        ('01a19ba3-f12c-73db-82c5-59a05381c71f', '앵무새 움직임 없음 / 다시 움직임', 'Parrot not moving / moving again', 'うちの子が動かない / また動き出した', 'Попугай не двигается / снова двигается', 'Tu loro no se mueve / vuelve a moverse', '鹦鹉一直没有动 / 又动起来了', '鸚鵡一直沒有動 / 又動起來了', 'นกแก้วไม่ขยับ / นกแก้วขยับอีกครั้ง', 'Vẹt không cử động / Vẹt cử động trở lại', 'तोता हिल नहीं रहा / फिर से हिल रहा है', 'টিয়া নড়ছে না / আবার নড়ছে')
+        ('01a19ba3-f12c-73db-82c5-59a05381c71f', '앵무새 움직임 없음 / 다시 움직임', 'Parrot not moving / moving again', 'うちの子が動かない / また動き出した', 'Попугай не двигается / снова двигается', 'Tu loro no se mueve / vuelve a moverse', '鹦鹉一直没有动弹 / 又动起来了', '鸚鵡一直沒有動作 / 又有動作了', 'นกแก้วไม่ขยับ / นกแก้วขยับอีกครั้ง', 'Vẹt không di chuyển / Vẹt di chuyển trở lại', 'तोता हिल-डुल नहीं रहा / फिर से हिल-डुल रहा है', 'টিয়া নড়াচড়া করছে না / আবার নড়াচড়া করছে')
     """)
     op.execute("""
         INSERT INTO notification_setting_items (id, group_id, kind, title_i18n_id, description_i18n_id, default_enabled, sort_order) VALUES

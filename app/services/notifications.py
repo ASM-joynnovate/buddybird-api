@@ -664,12 +664,12 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
             ja_jp=f"{subject_ja}が動いていません",
             ru_ru=f"{capitalized_subject_ru} не двигается",
             es_es=f"{capitalized_subject_es} no se mueve",
-            zh_hans=f"{subject_zh_hans}一直没有动",
-            zh_hant=f"{subject_zh_hant}一直沒有動",
+            zh_hans=f"{subject_zh_hans}一直没有动弹",
+            zh_hant=f"{subject_zh_hant}一直沒有動作",
             th_th=f"{subject_th} ไม่ขยับเลย",
-            vi_vn=f"{capitalized_subject_vi} không cử động",
-            hi_in=f"{subject_hi} हिल नहीं रहा",
-            bn_bd=f"{subject_bn_without_particle} নড়ছে না",
+            vi_vn=f"{capitalized_subject_vi} không di chuyển",
+            hi_in=f"{subject_hi} हिल-डुल नहीं रहा",
+            bn_bd=f"{subject_bn_without_particle} নড়াচড়া করছে না",
         )
     elif event.kind == SessionEventKindEnum.PARROT_MOVED.value:
         title_i18n = I18n(
@@ -679,11 +679,11 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
             ru_ru=f"{capitalized_subject_ru} снова двигается",
             es_es=f"{capitalized_subject_es} vuelve a moverse",
             zh_hans=f"{subject_zh_hans}又动起来了",
-            zh_hant=f"{subject_zh_hant}又動起來了",
+            zh_hant=f"{subject_zh_hant}又有動作了",
             th_th=f"{subject_th} ขยับอีกครั้งแล้ว",
-            vi_vn=f"{capitalized_subject_vi} đã cử động trở lại",
-            hi_in=f"{subject_hi} फिर से हिल रहा है",
-            bn_bd=f"{subject_bn_without_particle} আবার নড়ছে",
+            vi_vn=f"{capitalized_subject_vi} đã di chuyển trở lại",
+            hi_in=f"{subject_hi} फिर से हिल-डुल रहा है",
+            bn_bd=f"{subject_bn_without_particle} আবার নড়াচড়া করছে",
         )
 
     _, delivery_ids = await create_notifications(
