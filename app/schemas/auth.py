@@ -17,7 +17,6 @@ class AppleLoginRequest(BaseRequest):
 class LoginRequest(BaseRequest):
     google: GoogleLoginRequest | None = None
     apple: AppleLoginRequest | None = None
-    language: str | None = Field(None, deprecated=True)
 
     @model_validator(mode="after")
     def validate_provider(self) -> LoginRequest:

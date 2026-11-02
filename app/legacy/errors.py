@@ -31,24 +31,6 @@ class InvalidLabelCategoryTargetError(CustomError):
     message = "이 라벨은 해당 대상에 지정할 수 없습니다."
 
 
-class AudioCaptureArchiveInvalidError(CustomError):
-    status_code = 400
-    error_code = "AUDIO_CAPTURE__ARCHIVE_INVALID"
-    message = "압축 파일을 풀 수 없습니다."
-
-
-class AudioCaptureArchiveEntryNotFoundError(CustomError):
-    status_code = 400
-    error_code = "AUDIO_CAPTURE__ARCHIVE_ENTRY_NOT_FOUND"
-    message = "압축 파일 안에서 해당 오디오를 찾을 수 없습니다."
-
-
-class NotAllowedFileTypeError(CustomError):
-    status_code = 400
-    error_code = "COMMON__FILE_NOT_ALLOWED_FILE_TYPE"
-    message = "허용되지 않는 파일 타입입니다. 허용된 파일 타입: audio/wav, audio/x-wav, audio/vnd.wave, audio/wave"
-
-
 class BackofficePasswordMissingError(CustomError):
     status_code = 401
     error_code = "AUDIO_CAPTURE__BACKOFFICE_PASSWORD_MISSING"

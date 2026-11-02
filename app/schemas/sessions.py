@@ -232,13 +232,6 @@ class SessionEventDTO(CustomBaseModel):
     user_review: SessionUserReviewDTO | None
 
 
-class SessionEventListParams(BaseRequest):
-    model_config = ConfigDict(extra="ignore")
-
-    petcam: bool = False
-    distress_call: bool = False
-
-
 class SessionEventListResponse(BaseResponse):
     data: list[SessionEventDTO]
 
@@ -340,12 +333,6 @@ class SessionSoundDTO(CustomBaseModel):
 
 class SessionSoundUploadRequest(UploadRequest):
     captured_at: datetime
-
-
-class SessionSoundListParams(PageParams):
-    model_config = ConfigDict(extra="ignore")
-
-    mimic: bool = False
 
 
 class SessionSoundListResponse(BaseResponse):
