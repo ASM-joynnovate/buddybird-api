@@ -302,6 +302,7 @@ class ScoreMetricEnum(StrEnum):
 
 class LeaderboardPeriodEnum(StrEnum):
     MONTHLY = "monthly"
+    ALL = "all"
 
 
 class LeaderboardUnrankedReasonEnum(StrEnum):
