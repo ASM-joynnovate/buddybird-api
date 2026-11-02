@@ -238,5 +238,13 @@ class AdStatDTO(AdEventCountDTO):
     started_at: datetime
 
 
+class AdTotalStatDTO(AdStatDTO):
+    ad_kind: AdKindEnum
+
+
 class BackofficeAdStatsResponse(BaseResponse):
     data: list[AdStatDTO]
+
+
+class BackofficeAdTotalStatsResponse(BaseResponse):
+    data: list[AdTotalStatDTO]
