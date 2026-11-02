@@ -59,6 +59,7 @@ class NotificationSettingKindEnum(StrEnum):
     EMERGENCY = "emergency"
     MARKETING = "marketing"
     MARKETING_NIGHT = "marketing_night"
+    PARROT_MOTIONLESS = "parrot_motionless"
 
 
 class NotificationDispatchTargetEnum(StrEnum):
@@ -84,6 +85,8 @@ class SessionEventKindEnum(StrEnum):
     DISTRESS_CALL_DETECTED = "distress_call_detected"
     PARROT_DISAPPEARED = "parrot_disappeared"
     PARROT_APPEARED = "parrot_appeared"
+    PARROT_MOTIONLESS = "parrot_motionless"
+    PARROT_MOVED = "parrot_moved"
     SESSION_FINISHED = "session_finished"
 
 
@@ -132,6 +135,8 @@ class SessionLogKindEnum(StrEnum):
     DISTRESS_CALL_DETECTED = "distress_call_detected"
     PARROT_DISAPPEARED = "parrot_disappeared"
     PARROT_APPEARED = "parrot_appeared"
+    PARROT_MOTIONLESS = "parrot_motionless"
+    PARROT_MOVED = "parrot_moved"
 
 
 class CorrectnessEnum(StrEnum):
