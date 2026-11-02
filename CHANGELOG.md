@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.37.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.37.0...v2.37.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* include all-country ads in backoffice ad country filter ([4e46221](https://github.com/ASM-joynnovate/buddybird-api/commit/4e46221c890da756bad33bfce986eb10486b5642))
+* include all-country ads in backoffice ad country filter ([067daa6](https://github.com/ASM-joynnovate/buddybird-api/commit/067daa6333fe204e1e0e003ea7d965055b6d72e8))
+
 ## [2.37.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.36.0...v2.37.0) (2026-11-01)
 
 
