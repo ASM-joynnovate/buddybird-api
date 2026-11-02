@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.38.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.37.1...v2.38.0) (2026-11-02)
+
+
+### Features
+
+* split total ad stats by ad kind ([b73a260](https://github.com/ASM-joynnovate/buddybird-api/commit/b73a2609b3e248be1cfaccd07e6c5304eafff11a))
+* split total ad stats by ad kind ([764a010](https://github.com/ASM-joynnovate/buddybird-api/commit/764a010eacf772987729c9c8e8fcc5daaa3c381c))
+
 ## [2.37.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.37.0...v2.37.1) (2026-11-02)
 
 
