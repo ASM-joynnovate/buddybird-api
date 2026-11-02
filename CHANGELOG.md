@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.39.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.38.0...v2.39.0) (2026-11-02)
+
+
+### Features
+
+* add all-time and past-month leaderboard ([0be1a8a](https://github.com/ASM-joynnovate/buddybird-api/commit/0be1a8a7555994864c76be0acac1464b96e089b5))
+* add all-time and past-month leaderboard ([6911702](https://github.com/ASM-joynnovate/buddybird-api/commit/6911702eee3568382acddd0872d94109cb0b3244))
+
 ## [2.38.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.37.1...v2.38.0) (2026-11-02)
 
 
