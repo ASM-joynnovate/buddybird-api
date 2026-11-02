@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
@@ -7,7 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import transactional
-from app.enums import FeedItemKindEnum, LocaleEnum, SessionSoundKindEnum
+from app.enums import FeedItemKindEnum, LocaleEnum, ScoreMetricEnum, SessionSoundKindEnum
 from app.errors import (
     FeedAlreadySharedError,
     FeedAnonymousUserError,
@@ -18,14 +19,30 @@ from app.errors import (
     ResourceNotFoundError,
 )
 from app.file import build_public_file_dto
-from app.models import FeedItem, FeedItemLike, Parrot, Session, SessionSound, User, UserBlock, UserSetting, Word
+from app.models import (
+    FeedItem,
+    FeedItemLike,
+    LearningSegment,
+    Parrot,
+    ScoreEntry,
+    Session,
+    SessionSound,
+    User,
+    UserBlock,
+    UserSetting,
+    Word,
+)
 from app.s3 import S3StorageClient
 from app.schemas.feed import CreateFeedItemRequest, FeedEntryDTO, FeedItemDTO, FeedItemLikeDTO, FeedParams
 from app.schemas.parrots import CommunityParrotDTO
 from app.schemas.users import CommunityUserDTO
 from app.services.ads import pick_feed_ads
+from app.services.session_periods import get_active_durations
 
 PUBLIC_USER = and_(User.nickname.is_not(None), User.is_anonymous.is_(False))
+TOTAL_LEARNING_TIME_MILESTONES_MS = [hours * 3_600_000 for hours in (1, 10, 50, 100, 300, 500, 1000)]
+MONTHLY_LEARNING_TIME_MILESTONES_MS = [hours * 3_600_000 for hours in (10, 30, 50, 100)]
+WORD_PLAY_COUNT_MILESTONES = [100, 500, 1000, 5000, 10000]
 
 
 def select_visible_items(user: User) -> Select:
@@ -107,6 +124,72 @@ async def add_items(*, db: AsyncSession, user_id: UUID, now: datetime, items: li
     ]
 
     await db.execute(insert(FeedItem).values(values).on_conflict_do_nothing())
+
+
+async def record_achievements(*, db: AsyncSession, sessions: Sequence[Session], now: datetime) -> None:
+    if not sessions:
+        return
+
+    durations = await get_active_durations(db=db, sessions=sessions)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    unrecorded_amounts = defaultdict(int)
+
+    for session in sessions:
+        amount = durations[session.id]
+        items = []
+
+        if amount > 0:
+            stmt = select(
+                func.coalesce(func.sum(ScoreEntry.amount), 0),
+                func.coalesce(func.sum(ScoreEntry.amount).filter(ScoreEntry.occurred_at >= month_start), 0),
+            ).where(ScoreEntry.user_id == session.user_id, ScoreEntry.metric == ScoreMetricEnum.LEARNING_TIME)
+            total, monthly = (await db.execute(stmt)).one()
+
+            total += unrecorded_amounts[session.user_id]
+            monthly += unrecorded_amounts[session.user_id]
+            unrecorded_amounts[session.user_id] += amount
+
+            items += [
+                {"kind": FeedItemKindEnum.TOTAL_LEARNING_TIME_REACHED, "threshold": threshold}
+                for threshold in TOTAL_LEARNING_TIME_MILESTONES_MS
+                if total < threshold <= total + amount
+            ]
+            items += [
+                {"kind": FeedItemKindEnum.MONTHLY_LEARNING_TIME_REACHED, "threshold": threshold}
+                for threshold in MONTHLY_LEARNING_TIME_MILESTONES_MS
+                if monthly < threshold <= monthly + amount
+            ]
+
+        stmt = (
+            select(
+                LearningSegment.word_id,
+                Word.name,
+                func.sum(LearningSegment.play_count).filter(LearningSegment.session_id == session.id),
+                func.sum(LearningSegment.play_count),
+            )
+            .join(Word, Word.id == LearningSegment.word_id)
+            .where(
+                LearningSegment.word_id.in_(
+                    select(LearningSegment.word_id).where(LearningSegment.session_id == session.id)
+                )
+            )
+            .group_by(LearningSegment.word_id, Word.name)
+            .execution_options(include_deleted=True)
+        )
+
+        for word_id, word_name, session_count, total_count in (await db.execute(stmt)).all():
+            items += [
+                {
+                    "kind": FeedItemKindEnum.WORD_PLAY_COUNT_REACHED,
+                    "word_id": word_id,
+                    "word_name": word_name,
+                    "threshold": threshold,
+                }
+                for threshold in WORD_PLAY_COUNT_MILESTONES
+                if total_count - session_count < threshold <= total_count
+            ]
+
+        await add_items(db=db, user_id=session.user_id, now=now, items=items)
 
 
 async def get_likes(*, db: AsyncSession, user: User, feed_item_ids: list[UUID]) -> dict[UUID, FeedItemLikeDTO]:

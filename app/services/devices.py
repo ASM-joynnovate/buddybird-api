@@ -18,6 +18,7 @@ from app.schemas.devices import (
     UpdateDeviceRequest,
     UpdatePushTokenRequest,
 )
+from app.services.feed import record_achievements
 from app.services.leaderboard import record_finished_sessions
 from app.utils import SEOUL
 
@@ -109,7 +110,8 @@ async def finish_running_sessions(
             )
         )
 
-    await record_finished_sessions(db=db, sessions=sessions, now=now)
+    await record_achievements(db=db, sessions=sessions, now=now)
+    await record_finished_sessions(db=db, sessions=sessions)
 
     return [session.id for session in sessions]
 
