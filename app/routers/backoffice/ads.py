@@ -11,7 +11,6 @@ from app.schemas.ads import (
     BackofficeAdResponse,
     BackofficeAdStatsParams,
     BackofficeAdStatsResponse,
-    BackofficeAdTotalStatsParams,
     CreateAdRequest,
     UpdateAdRequest,
 )
@@ -51,7 +50,7 @@ async def add_image(body: AdImageUploadRequest, db: DBSession, storage: Storage)
 
 @router.get("/stats", name="광고 전체 통계 조회")
 async def get_total_stats(
-    query: Annotated[BackofficeAdTotalStatsParams, Query()], db: DBSession
+    query: Annotated[BackofficeAdStatsParams, Query()], db: DBSession
 ) -> BackofficeAdStatsResponse:
     return BackofficeAdStatsResponse(
         message="광고 전체 통계 조회 성공", data=await ads.get_total_stats(db=db, query=query)

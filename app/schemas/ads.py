@@ -146,11 +146,6 @@ class BackofficeAdStatsParams(DashboardParams):
     interval: StatsIntervalEnum = StatsIntervalEnum.HOUR
 
 
-class BackofficeAdTotalStatsParams(BackofficeAdStatsParams):
-    kind: AdKindEnum | None = None
-    country: Country | None = None
-
-
 class CreateAdRequest(BaseRequest):
     null_fields: ClassVar[set] = {
         "ends_at",
