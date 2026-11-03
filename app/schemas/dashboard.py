@@ -315,11 +315,8 @@ class NotificationDashboardKindDTO(CustomBaseModel):
 
 class NotificationDashboardDailyDTO(CustomBaseModel):
     date: date
-    report_count: int
-    announcement_count: int
-    marketing_count: int
-    urgent_count: int
-    emergency_count: int
+    kind: NotificationKindEnum
+    count: int
 
 
 class NotificationDashboardDTO(CustomBaseModel):
