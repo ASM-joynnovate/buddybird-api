@@ -82,7 +82,7 @@ from app.services.announcements import TARGET_USER
 from app.services.sessions import get_judgment_statuses
 from app.services.settings import ITEM_ENABLED
 from app.services.users import PUSHABLE
-from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL
+from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES, SEOUL, capitalize_first
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,7 @@ KIND_ENABLED = {
     NotificationKindEnum.REPORT: ITEM_ENABLED[NotificationSettingKindEnum.REPORT],
     NotificationKindEnum.EMERGENCY: ITEM_ENABLED[NotificationSettingKindEnum.EMERGENCY],
 }
+MOTION_EVENT_KINDS = [SessionEventKindEnum.PARROT_MOTIONLESS.value, SessionEventKindEnum.PARROT_MOVED.value]
 NOTIFICATION_PUSH = (
     select(
         PushDelivery.notification_id,
@@ -236,6 +237,7 @@ async def create_notifications(
     local_datetime: datetime | None,
     session_id: UUID | None,
     target: NotificationDispatchTargetEnum | None,
+    setting_kind: NotificationSettingKindEnum | None = None,
 ) -> tuple[list[Notification], list[UUID]]:
     image_file = None
 
@@ -248,7 +250,7 @@ async def create_notifications(
         select(User.id, PUSH_ENABLED, NIGHT_ENABLED, Device)
         .outerjoin(UserSetting, UserSetting.user_id == User.id)
         .outerjoin(Device, Device.user_id == User.id)
-        .where(KIND_ENABLED[kind])
+        .where(KIND_ENABLED[kind] if setting_kind is None else ITEM_ENABLED[setting_kind])
         .order_by(User.id)
     )
 
@@ -541,6 +543,10 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         return []
 
     petcam_kinds = [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
+
+    if event.kind in MOTION_EVENT_KINDS:
+        petcam_kinds = [*MOTION_EVENT_KINDS, SessionEventKindEnum.PARROT_DISAPPEARED.value]
+
     stmt = (
         select(SessionEvent.kind)
         .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
@@ -555,9 +561,18 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         .order_by(SessionEvent.occurred_at.desc())
         .limit(1)
     )
-    previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_APPEARED.value
 
-    if previous_kind == event.kind:
+    if event.kind in MOTION_EVENT_KINDS:
+        stmt = stmt.where(SessionEvent.is_correct.is_not(False))
+
+    previous_kind = await db.scalar(stmt) or SessionEventKindEnum.PARROT_APPEARED.value
+    is_repeated = previous_kind == event.kind
+    is_moved_without_motionless = (
+        event.kind == SessionEventKindEnum.PARROT_MOVED.value
+        and previous_kind != SessionEventKindEnum.PARROT_MOTIONLESS.value
+    )
+
+    if is_repeated or is_moved_without_motionless:
         return []
 
     stmt = select(File.id).where(File.id == image_file_id).with_for_update()
@@ -585,6 +600,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
     subject_vi = "vẹt của bạn"
     subject_hi = "आपका तोता"
     subject_bn = "আপনার টিয়াকে"
+    subject_bn_without_particle = "আপনার টিয়া"
 
     if len(names) == 1:
         has_final_consonant = "가" <= names[0][-1] <= "힣" and (ord(names[0][-1]) - ord("가")) % 28 != 0
@@ -599,6 +615,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         subject_vi = names[0]
         subject_hi = names[0]
         subject_bn = f"{names[0]}-কে"
+        subject_bn_without_particle = names[0]
 
     title_i18n = I18n(
         ko_kr=f"{subject_ko} 안 보여요",
@@ -628,6 +645,34 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
             hi_in=f"{subject_hi} फिर से दिखाई दे रहा है",
             bn_bd=f"{subject_bn} আবার দেখা যাচ্ছে",
         )
+    elif event.kind == SessionEventKindEnum.PARROT_MOTIONLESS.value:
+        title_i18n = I18n(
+            ko_kr=f"{subject_ko} 움직이지 않아요",
+            en_us=f"{capitalize_first(subject_en)} isn't moving",
+            ja_jp=f"{subject_ja}が動いていません",
+            ru_ru=f"{capitalize_first(subject_ru)} не двигается",
+            es_es=f"{capitalize_first(subject_es)} no se mueve",
+            zh_hans=f"{subject_zh_hans}一直没有动弹",
+            zh_hant=f"{subject_zh_hant}一直沒有動作",
+            th_th=f"{subject_th} ไม่ขยับเลย",
+            vi_vn=f"{capitalize_first(subject_vi)} không di chuyển",
+            hi_in=f"{subject_hi} हिल-डुल नहीं रहा",
+            bn_bd=f"{subject_bn_without_particle} নড়াচড়া করছে না",
+        )
+    elif event.kind == SessionEventKindEnum.PARROT_MOVED.value:
+        title_i18n = I18n(
+            ko_kr=f"{subject_ko} 다시 움직여요",
+            en_us=f"{capitalize_first(subject_en)} is moving again",
+            ja_jp=f"{subject_ja}がまた動き出しました",
+            ru_ru=f"{capitalize_first(subject_ru)} снова двигается",
+            es_es=f"{capitalize_first(subject_es)} vuelve a moverse",
+            zh_hans=f"{subject_zh_hans}又动起来了",
+            zh_hant=f"{subject_zh_hant}又有動作了",
+            th_th=f"{subject_th} ขยับอีกครั้งแล้ว",
+            vi_vn=f"{capitalize_first(subject_vi)} đã di chuyển trở lại",
+            hi_in=f"{subject_hi} फिर से हिल-डुल रहा है",
+            bn_bd=f"{subject_bn_without_particle} আবার নড়াচড়া করছে",
+        )
 
     _, delivery_ids = await create_notifications(
         db=db,
@@ -653,6 +698,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
         local_datetime=None,
         session_id=event.session_id,
         target=None,
+        setting_kind=NotificationSettingKindEnum.PARROT_MOTIONLESS if event.kind in MOTION_EVENT_KINDS else None,
     )
 
     return delivery_ids
@@ -1173,6 +1219,18 @@ async def deliver(delivery_id: UUID) -> None:
             data = {"kind": kind, "data_id": str(announcement.id)}
             expired = announcement.is_deleted or (announcement.ends_at is not None and announcement.ends_at <= now)
 
+        kind_enabled = KIND_ENABLED[kind]
+
+        if kind == NotificationKindEnum.EMERGENCY:
+            stmt = (
+                select(SessionEvent.kind)
+                .join(SessionEventFile, SessionEventFile.event_id == SessionEvent.id)
+                .where(SessionEventFile.file_id == notification.image_file_id)
+            )
+
+            if await db.scalar(stmt) in MOTION_EVENT_KINDS:
+                kind_enabled = ITEM_ENABLED[NotificationSettingKindEnum.PARROT_MOTIONLESS]
+
         stmt = (
             select(Device, NIGHT_ENABLED, User)
             .join(User, User.id == Device.user_id)
@@ -1181,7 +1239,7 @@ async def deliver(delivery_id: UUID) -> None:
                 Device.id == delivery.device_id,
                 Device.push_token.is_not(None),
                 PUSH_ENABLED,
-                KIND_ENABLED[kind],
+                kind_enabled,
             )
         )
 

@@ -82,6 +82,8 @@ from app.schemas.sessions import (
     SessionLogParrotAppearedDTO,
     SessionLogParrotDisappearedDTO,
     SessionLogParrotDTO,
+    SessionLogParrotMotionlessDTO,
+    SessionLogParrotMovedDTO,
     SessionPeriodDTO,
     SessionPetcamEventRequest,
     SessionPetcamEventUploadDTO,
@@ -114,6 +116,8 @@ REVIEWABLE_EVENT_KINDS = [
     SessionEventKindEnum.DISTRESS_CALL_DETECTED.value,
     SessionEventKindEnum.PARROT_DISAPPEARED.value,
     SessionEventKindEnum.PARROT_APPEARED.value,
+    SessionEventKindEnum.PARROT_MOTIONLESS.value,
+    SessionEventKindEnum.PARROT_MOVED.value,
 ]
 SESSION_COUNT = (
     select(func.count())
@@ -131,6 +135,25 @@ APPEARED_EVENT_ID = (
         APPEARED_EVENT.is_correct.is_not(False),
     )
     .order_by(APPEARED_EVENT.occurred_at)
+    .limit(1)
+    .scalar_subquery()
+)
+MOTIONLESS_END_EVENT = aliased(SessionEvent)
+MOTIONLESS_END_EVENT_ID = (
+    select(MOTIONLESS_END_EVENT.id)
+    .join(SessionEventFile, SessionEventFile.event_id == MOTIONLESS_END_EVENT.id)
+    .join(File, File.id == SessionEventFile.file_id)
+    .where(
+        MOTIONLESS_END_EVENT.session_id == SessionEvent.session_id,
+        MOTIONLESS_END_EVENT.kind.in_(
+            [SessionEventKindEnum.PARROT_MOVED.value, SessionEventKindEnum.PARROT_DISAPPEARED.value]
+        ),
+        MOTIONLESS_END_EVENT.occurred_at > SessionEvent.occurred_at,
+        MOTIONLESS_END_EVENT.is_correct.is_not(False),
+        SessionEventFile.kind == SessionEventFileKindEnum.IMAGE.value,
+        File.status == FileStatusEnum.UPLOADED.value,
+    )
+    .order_by(MOTIONLESS_END_EVENT.occurred_at)
     .limit(1)
     .scalar_subquery()
 )
@@ -218,6 +241,7 @@ async def get_event_counts(*, db: AsyncSession, sessions: Sequence[Session]) -> 
             SessionEvent.session_id,
             func.count().filter(SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value),
             func.count().filter(SessionEvent.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value),
+            func.count().filter(SessionEvent.kind == SessionEventKindEnum.PARROT_MOTIONLESS.value),
         )
         .where(
             SessionEvent.session_id.in_([session.id for session in sessions]),
@@ -229,12 +253,18 @@ async def get_event_counts(*, db: AsyncSession, sessions: Sequence[Session]) -> 
         session_id: SessionEventsDTO(
             distress_call_count=distress_call_count,
             parrot_disappeared_count=parrot_disappeared_count,
+            parrot_motionless_count=parrot_motionless_count,
         )
-        for session_id, distress_call_count, parrot_disappeared_count in (await db.execute(stmt)).all()
+        for session_id, distress_call_count, parrot_disappeared_count, parrot_motionless_count in (
+            await db.execute(stmt)
+        ).all()
     }
 
     return {
-        session.id: event_counts.get(session.id, SessionEventsDTO(distress_call_count=0, parrot_disappeared_count=0))
+        session.id: event_counts.get(
+            session.id,
+            SessionEventsDTO(distress_call_count=0, parrot_disappeared_count=0, parrot_motionless_count=0),
+        )
         for session in sessions
     }
 
@@ -465,7 +495,7 @@ async def start(*, db: AsyncSession, user: User, device: Device, data: StartSess
         session,
         JudgmentStatusEnum.PENDING,
         SessionSoundsDTO(vad_count=0, parrot_count=0, mimic_count=0),
-        SessionEventsDTO(distress_call_count=0, parrot_disappeared_count=0),
+        SessionEventsDTO(distress_call_count=0, parrot_disappeared_count=0, parrot_motionless_count=0),
     )
 
 
@@ -732,35 +762,14 @@ async def add_petcam_video(
     )
 
 
-async def get_events(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, petcam: bool, distress_call: bool
-) -> list[SessionEventDTO]:
+async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Session) -> list[SessionEventDTO]:
     stmt = (
         select(SessionEvent)
         .where(SessionEvent.session_id == session.id, SessionEvent.is_correct.is_not(False))
         .order_by(SessionEvent.occurred_at)
     )
-
-    if not petcam:
-        stmt = stmt.where(
-            SessionEvent.kind.not_in(
-                [SessionEventKindEnum.PARROT_DISAPPEARED.value, SessionEventKindEnum.PARROT_APPEARED.value]
-            )
-        )
-
-    if not distress_call:
-        stmt = stmt.where(SessionEvent.kind != SessionEventKindEnum.DISTRESS_CALL_DETECTED.value)
-
     events = (await db.scalars(stmt)).all()
     sound_ids, ended_ats, reviews = await get_event_details(db=db, session=session)
-    appeared_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_APPEARED.value]
-
-    for event in events:
-        if event.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value:
-            ended_at = next((at for at in appeared_ats if at > event.occurred_at), None)
-
-            if ended_at is not None:
-                ended_ats[event.id] = ended_at
 
     stmt = (
         select(SessionEventFile)
@@ -768,6 +777,26 @@ async def get_events(
         .where(SessionEvent.session_id == session.id)
     )
     files = {(event_file.event_id, event_file.kind): event_file.file for event_file in (await db.scalars(stmt)).all()}
+    appeared_ats = [event.occurred_at for event in events if event.kind == SessionEventKindEnum.PARROT_APPEARED.value]
+    motionless_end_ats = [
+        event.occurred_at
+        for event in events
+        if event.kind in [SessionEventKindEnum.PARROT_MOVED.value, SessionEventKindEnum.PARROT_DISAPPEARED.value]
+        and (event.id, SessionEventFileKindEnum.IMAGE.value) in files
+        and files[(event.id, SessionEventFileKindEnum.IMAGE.value)].status == FileStatusEnum.UPLOADED.value
+    ]
+
+    for event in events:
+        if event.kind == SessionEventKindEnum.PARROT_DISAPPEARED.value:
+            ended_at = next((at for at in appeared_ats if at > event.occurred_at), None)
+
+            if ended_at is not None:
+                ended_ats[event.id] = ended_at
+        elif event.kind == SessionEventKindEnum.PARROT_MOTIONLESS.value:
+            ended_at = next((at for at in motionless_end_ats if at > event.occurred_at), None)
+
+            if ended_at is not None:
+                ended_ats[event.id] = ended_at
 
     return [
         SessionEventDTO(
@@ -857,9 +886,11 @@ async def get_log(
     shared_file_ids = set((await db.scalars(stmt)).all())
 
     appeared_event = aliased(SessionEvent)
+    motionless_end_event = aliased(SessionEvent)
     stmt = (
-        select(SessionEvent, appeared_event.occurred_at)
+        select(SessionEvent, appeared_event.occurred_at, motionless_end_event.occurred_at)
         .outerjoin(appeared_event, appeared_event.id == APPEARED_EVENT_ID)
+        .outerjoin(motionless_end_event, motionless_end_event.id == MOTIONLESS_END_EVENT_ID)
         .where(SessionEvent.id.in_(event_ids))
     )
     events = (await db.execute(stmt)).all()
@@ -913,7 +944,7 @@ async def get_log(
                 user_review=user_review,
             )
 
-    for event, appeared_at in events:
+    for event, appeared_at, motionless_ended_at in events:
         user_review = (
             SessionUserReviewDTO(is_correct=event_reviews[event.id].is_correct) if event.id in event_reviews else None
         )
@@ -943,6 +974,24 @@ async def get_log(
                 ended_at=appeared_at,
                 image=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
                 video=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
+                user_review=user_review,
+            )
+        elif event.kind == SessionEventKindEnum.PARROT_MOTIONLESS.value:
+            items[event.id] = SessionLogParrotMotionlessDTO(
+                id=event.id,
+                kind=SessionLogKindEnum.PARROT_MOTIONLESS,
+                occurred_at=event.occurred_at,
+                ended_at=motionless_ended_at,
+                image=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
+                video=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.VIDEO.value))),
+                user_review=user_review,
+            )
+        elif event.kind == SessionEventKindEnum.PARROT_MOVED.value:
+            items[event.id] = SessionLogParrotMovedDTO(
+                id=event.id,
+                kind=SessionLogKindEnum.PARROT_MOVED,
+                occurred_at=event.occurred_at,
+                image=build_file_dto(storage=storage, file=files.get((event.id, SessionEventFileKindEnum.IMAGE.value))),
                 user_review=user_review,
             )
         else:

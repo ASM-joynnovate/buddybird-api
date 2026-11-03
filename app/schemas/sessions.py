@@ -67,6 +67,7 @@ class SessionSoundsDTO(CustomBaseModel):
 class SessionEventsDTO(CustomBaseModel):
     distress_call_count: int
     parrot_disappeared_count: int
+    parrot_motionless_count: int
 
 
 class SessionDTO(CustomBaseModel):
@@ -193,7 +194,12 @@ class SessionEventWordDTO(CustomBaseModel):
 
 
 class SessionPetcamEventRequest(BaseRequest):
-    kind: Literal[SessionEventKindEnum.PARROT_DISAPPEARED, SessionEventKindEnum.PARROT_APPEARED]
+    kind: Literal[
+        SessionEventKindEnum.PARROT_DISAPPEARED,
+        SessionEventKindEnum.PARROT_APPEARED,
+        SessionEventKindEnum.PARROT_MOTIONLESS,
+        SessionEventKindEnum.PARROT_MOVED,
+    ]
     occurred_at: datetime
     file_size: int = Field(gt=0)
 
@@ -230,13 +236,6 @@ class SessionEventDTO(CustomBaseModel):
     image: FileDTO | None
     video: FileDTO | None
     user_review: SessionUserReviewDTO | None
-
-
-class SessionEventListParams(BaseRequest):
-    model_config = ConfigDict(extra="ignore")
-
-    petcam: bool = False
-    distress_call: bool = False
 
 
 class SessionEventListResponse(BaseResponse):
@@ -340,12 +339,6 @@ class SessionSoundDTO(CustomBaseModel):
 
 class SessionSoundUploadRequest(UploadRequest):
     captured_at: datetime
-
-
-class SessionSoundListParams(PageParams):
-    model_config = ConfigDict(extra="ignore")
-
-    mimic: bool = False
 
 
 class SessionSoundListResponse(BaseResponse):
@@ -502,12 +495,36 @@ class SessionLogParrotAppearedDTO(CustomBaseModel):
     user_review: SessionUserReviewDTO | None
 
 
+class SessionLogParrotMotionlessDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"ended_at", "image", "video", "user_review"}
+
+    id: UUID
+    kind: Literal[SessionLogKindEnum.PARROT_MOTIONLESS]
+    occurred_at: datetime
+    ended_at: datetime | None
+    image: FileDTO | None
+    video: FileDTO | None
+    user_review: SessionUserReviewDTO | None
+
+
+class SessionLogParrotMovedDTO(CustomBaseModel):
+    allow_null_fields: ClassVar[set] = {"image", "user_review"}
+
+    id: UUID
+    kind: Literal[SessionLogKindEnum.PARROT_MOVED]
+    occurred_at: datetime
+    image: FileDTO | None
+    user_review: SessionUserReviewDTO | None
+
+
 SessionLogItemDTO = Annotated[
     SessionLogParrotDTO
     | SessionLogMimicDTO
     | SessionLogDistressCallDTO
     | SessionLogParrotDisappearedDTO
-    | SessionLogParrotAppearedDTO,
+    | SessionLogParrotAppearedDTO
+    | SessionLogParrotMotionlessDTO
+    | SessionLogParrotMovedDTO,
     Field(discriminator="kind"),
 ]
 

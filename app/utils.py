@@ -16,3 +16,7 @@ def correctness_filter(column: ColumnElement, values: list[CorrectnessEnum]) -> 
             for value in values
         )
     )
+
+
+def capitalize_first(text: str) -> str:
+    return text[:1].upper() + text[1:]
