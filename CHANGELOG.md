@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.41.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.40.1...v2.41.0) (2026-11-03)
+
+
+### Features
+
+* return notification dashboard daily counts per kind ([a074320](https://github.com/ASM-joynnovate/buddybird-api/commit/a0743209cf90e9af389ce41848b2e7abced9d0a4))
+* return notification dashboard daily counts per kind ([d6e5587](https://github.com/ASM-joynnovate/buddybird-api/commit/d6e55874d43dfeda4c6f76173d29813e18b13453))
+
 ## [2.40.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.40.0...v2.40.1) (2026-11-03)
 
 
