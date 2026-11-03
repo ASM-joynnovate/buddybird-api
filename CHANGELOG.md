@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.40.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.40.0...v2.40.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* resolve ambiguous join in session log query ([00794a4](https://github.com/ASM-joynnovate/buddybird-api/commit/00794a49cee6d0b3b9cbea00ae9aa45c0e379014))
+* resolve ambiguous join in session log query ([a73a72e](https://github.com/ASM-joynnovate/buddybird-api/commit/a73a72ec06f7d09e8e48584b719a3b8a80bae7c5))
+
 ## [2.40.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.39.0...v2.40.0) (2026-11-02)
 
 
