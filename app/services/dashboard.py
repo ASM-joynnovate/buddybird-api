@@ -814,7 +814,7 @@ async def get_withdrawal_dashboard(*, db: AsyncSession, query: DashboardParams) 
 
 
 async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams) -> NotificationDashboardDTO:
-    dates, period_start, period_end, previous_start = get_period(query)
+    _, period_start, period_end, previous_start = get_period(query)
 
     notification_counts = await get_notification_counts(db=db, period_start=period_start, period_end=period_end)
     previous_counts = await get_notification_counts(db=db, period_start=previous_start, period_end=period_start)
@@ -828,8 +828,9 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
             Notification.sent_at <= func.now(),
         )
         .group_by(local_date, Notification.kind)
+        .order_by(local_date, Notification.kind)
     )
-    daily_counts = {(date, kind): count for date, kind, count in (await db.execute(stmt)).all()}
+    daily_rows = (await db.execute(stmt)).all()
 
     return NotificationDashboardDTO(
         notifications=DashboardCountDTO(
@@ -845,17 +846,7 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
             )
             for row in notification_counts
         ],
-        daily=[
-            NotificationDashboardDailyDTO(
-                date=date,
-                report_count=daily_counts.get((date, NotificationKindEnum.REPORT.value), 0),
-                announcement_count=daily_counts.get((date, NotificationKindEnum.ANNOUNCEMENT.value), 0),
-                marketing_count=daily_counts.get((date, NotificationKindEnum.MARKETING.value), 0),
-                urgent_count=daily_counts.get((date, NotificationKindEnum.URGENT.value), 0),
-                emergency_count=daily_counts.get((date, NotificationKindEnum.EMERGENCY.value), 0),
-            )
-            for date in dates
-        ],
+        daily=[NotificationDashboardDailyDTO(date=date, kind=kind, count=count) for date, kind, count in daily_rows],
     )
 
 
