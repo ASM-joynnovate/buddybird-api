@@ -889,6 +889,7 @@ async def get_log(
     motionless_end_event = aliased(SessionEvent)
     stmt = (
         select(SessionEvent, appeared_event.occurred_at, motionless_end_event.occurred_at)
+        .select_from(SessionEvent)
         .outerjoin(appeared_event, appeared_event.id == APPEARED_EVENT_ID)
         .outerjoin(motionless_end_event, motionless_end_event.id == MOTIONLESS_END_EVENT_ID)
         .where(SessionEvent.id.in_(event_ids))
