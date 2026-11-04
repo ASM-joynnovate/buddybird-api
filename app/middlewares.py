@@ -72,6 +72,7 @@ class IdempotencyMiddleware:
             (
                 "/api/v1/auth/",
                 "/api/v1/petcam/",
+                "/api/v1/ads/events",
                 "/api/v1/backoffice/labels",
                 "/api/v1/backoffice/captures",
                 "/api/v1/backoffice/segments",
