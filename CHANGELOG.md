@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.41.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.41.0...v2.41.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* exempt ad events from idempotency key check ([d0c2b68](https://github.com/ASM-joynnovate/buddybird-api/commit/d0c2b684e547cbff4f983a38c87d37ede6309b77))
+* exempt ad events from idempotency key check ([e6715fc](https://github.com/ASM-joynnovate/buddybird-api/commit/e6715fc567fa23b8550ea21b66821fb8ae7e7e04))
+
 ## [2.41.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.40.1...v2.41.0) (2026-11-03)
 
 
