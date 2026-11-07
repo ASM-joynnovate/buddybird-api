@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     SQLALCHEMY_ECHO: bool = _local or _env == "dev"
 
     BACKOFFICE_PASSWORD: str
+    BACKOFFICE_READONLY_PASSWORD: str | None = None
 
     SUPABASE_URL: str | None = None
     SUPABASE_PUBLISHABLE_KEY: str | None = None
