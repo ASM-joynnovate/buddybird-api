@@ -192,6 +192,12 @@ class BackofficePasswordInvalidError(CustomError):
     message = "백오피스 비밀번호가 올바르지 않습니다."
 
 
+class BackofficeReadonlyError(CustomError):
+    status_code = 403
+    error_code = "BACKOFFICE__READONLY"
+    message = "조회 전용 계정은 데이터를 변경할 수 없습니다."
+
+
 class FeedbackSaveUnavailableError(CustomError):
     status_code = 503
     error_code = "FEEDBACK__SAVE_UNAVAILABLE"

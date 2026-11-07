@@ -17,6 +17,7 @@ from app.errors import (
     AuthenticationError,
     BackofficePasswordInvalidError,
     BackofficePasswordMissingError,
+    BackofficeReadonlyError,
     DeviceNotRegisteredError,
     ResourceNotFoundError,
 )
@@ -193,13 +194,26 @@ async def require_preset_word(db: DBSession, preset_word_id: UUID) -> PresetWord
 
 
 async def require_backoffice(
+    request: Request,
     x_backoffice_password: Annotated[str | None, Header(alias="X-Backoffice-Password")] = None,
 ) -> None:
     if x_backoffice_password is None:
         raise BackofficePasswordMissingError
 
-    if not secrets.compare_digest(x_backoffice_password.encode(), config.BACKOFFICE_PASSWORD.encode()):
+    if secrets.compare_digest(x_backoffice_password.encode(), config.BACKOFFICE_PASSWORD.encode()):
+        return
+
+    readonly_password = config.BACKOFFICE_READONLY_PASSWORD
+    readonly_authorized = readonly_password is not None and secrets.compare_digest(
+        x_backoffice_password.encode(),
+        readonly_password.encode(),
+    )
+
+    if not readonly_authorized:
         raise BackofficePasswordInvalidError
+
+    if request.method != "GET":
+        raise BackofficeReadonlyError
 
 
 async def require_backoffice_user(db: DBSession, user_id: UUID) -> User:
