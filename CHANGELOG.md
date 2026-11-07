@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.42.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.41.1...v2.42.0) (2026-11-07)
+
+
+### Features
+
+* add read-only backoffice password ([b5b107a](https://github.com/ASM-joynnovate/buddybird-api/commit/b5b107a211b27c99558d0d689f56cd3d907b103b))
+* add read-only backoffice password ([8b0f4d8](https://github.com/ASM-joynnovate/buddybird-api/commit/8b0f4d82b4ce181eb99fa471454765b8e5b6efc6))
+
 ## [2.41.1](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.41.0...v2.41.1) (2026-11-04)
 
 
