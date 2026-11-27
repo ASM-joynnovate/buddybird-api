@@ -6,27 +6,27 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from app.enums import AdImageKindEnum, FileStatusEnum
 from app.errors import InvalidAdImageError, InvalidProfilePhotoError, ResourceNotFoundError
 from app.models import File
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.base import FileDTO, PublicFileDTO
 
 MAX_PHOTO_PIXELS = 20_000_000
 
 
-def build_file_dto(*, storage: S3StorageClient, file: File | None) -> FileDTO | None:
+def build_file_dto(*, storage: R2StorageClient, file: File | None) -> FileDTO | None:
     if file is None:
         return None
 
     return FileDTO(url=storage.generate_presigned_url(path=file.object_key), status=FileStatusEnum(file.status))
 
 
-def build_public_file_dto(*, storage: S3StorageClient, file: File | None) -> PublicFileDTO | None:
+def build_public_file_dto(*, storage: R2StorageClient, file: File | None) -> PublicFileDTO | None:
     if file is None:
         return None
 
     return PublicFileDTO(url=storage.generate_presigned_url(path=file.object_key))
 
 
-async def confirm_uploaded_photo(*, storage: S3StorageClient, file: File) -> None:
+async def confirm_uploaded_photo(*, storage: R2StorageClient, file: File) -> None:
     key = f"upload/{file.object_key}"
     content = await storage.download(path=key)
     parts = file.file_path.split("/")
@@ -87,7 +87,7 @@ async def confirm_uploaded_photo(*, storage: S3StorageClient, file: File) -> Non
     file.file_size = len(photo)
 
 
-async def ensure_uploaded_photo(*, storage: S3StorageClient, file: File) -> None:
+async def ensure_uploaded_photo(*, storage: R2StorageClient, file: File) -> None:
     if file.status == FileStatusEnum.PENDING.value:
         await confirm_uploaded_photo(storage=storage, file=file)
 

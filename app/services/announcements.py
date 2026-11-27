@@ -19,7 +19,7 @@ from app.errors import (
 )
 from app.file import ensure_uploaded_photo
 from app.models import Announcement, AnnouncementCountry, AnnouncementImage, AnnouncementRead, File, I18n, User
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.announcements import (
     AnnouncementDTO,
     AnnouncementImageDTO,
@@ -45,7 +45,7 @@ TARGET_USER_COUNT = (
 
 
 def build_announcement_dto(
-    announcement: Announcement, read_at: datetime | None, locale: LocaleEnum, storage: S3StorageClient
+    announcement: Announcement, read_at: datetime | None, locale: LocaleEnum, storage: R2StorageClient
 ) -> AnnouncementDTO:
     return AnnouncementDTO(
         id=announcement.id,
@@ -62,7 +62,7 @@ def build_announcement_dto(
 
 
 def build_backoffice_announcement_dto(
-    announcement: Announcement, storage: S3StorageClient
+    announcement: Announcement, storage: R2StorageClient
 ) -> BackofficeAnnouncementDTO:
     return BackofficeAnnouncementDTO(
         id=announcement.id,
@@ -88,7 +88,7 @@ def build_backoffice_announcement_dto(
 
 
 async def get_list(
-    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, query: PageParams
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: R2StorageClient, query: PageParams
 ) -> tuple[list[AnnouncementDTO], int]:
     now = datetime.now(UTC)
     stmt = (
@@ -116,7 +116,7 @@ async def get_list(
 
 
 async def get_detail(
-    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, announcement: Announcement
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: R2StorageClient, announcement: Announcement
 ) -> AnnouncementDTO:
     read_at = await db.scalar(
         select(AnnouncementRead.read_at).where(
@@ -128,7 +128,7 @@ async def get_detail(
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeAnnouncementListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeAnnouncementListParams
 ) -> tuple[list[BackofficeAnnouncementListItemDTO], int]:
     now = datetime.now(UTC)
     stmt = select(Announcement)
@@ -172,7 +172,7 @@ async def get_backoffice_list(
 
 @transactional(unavailable_error=AnnouncementSaveUnavailableError)
 async def mark_read(
-    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, announcement: Announcement
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: R2StorageClient, announcement: Announcement
 ) -> AnnouncementDTO:
     await db.execute(
         insert(AnnouncementRead)
@@ -190,7 +190,7 @@ async def mark_read(
 
 @transactional(unavailable_error=AnnouncementSaveUnavailableError)
 async def create(
-    *, db: AsyncSession, storage: S3StorageClient, data: CreateAnnouncementRequest
+    *, db: AsyncSession, storage: R2StorageClient, data: CreateAnnouncementRequest
 ) -> BackofficeAnnouncementDTO:
     stmt = select(exists().where(AnnouncementImage.file_id.in_(data.image_file_ids)))
 
@@ -229,7 +229,7 @@ async def create(
 
 @transactional(unavailable_error=AnnouncementSaveUnavailableError)
 async def update(
-    *, db: AsyncSession, storage: S3StorageClient, announcement: Announcement, data: UpdateAnnouncementRequest
+    *, db: AsyncSession, storage: R2StorageClient, announcement: Announcement, data: UpdateAnnouncementRequest
 ) -> BackofficeAnnouncementDTO:
     if data.title is not MISSING:
         for name, value in data.title.model_dump(exclude_unset=True).items():
@@ -322,7 +322,7 @@ async def delete(*, db: AsyncSession, announcement: Announcement) -> None:
 
 
 @transactional(unavailable_error=AnnouncementSaveUnavailableError)
-async def add_image(*, db: AsyncSession, storage: S3StorageClient, data: UploadRequest) -> UploadDTO:
+async def add_image(*, db: AsyncSession, storage: R2StorageClient, data: UploadRequest) -> UploadDTO:
     if data.content_type not in PHOTO_TYPES:
         raise InvalidProfilePhotoError
 

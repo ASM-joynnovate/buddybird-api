@@ -8,7 +8,7 @@ from app.db import get_or_404, transactional
 from app.errors import AbuseReportSaveUnavailableError, ResourceNotFoundError, SelfTargetError
 from app.file import build_file_dto
 from app.models import AbuseReport, FeedItem, Parrot, User
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.abuse_reports import (
     BackofficeAbuseReportDTO,
     BackofficeAbuseReportedUserDTO,
@@ -45,7 +45,7 @@ async def create(*, db: AsyncSession, user: User, data: CreateAbuseReportRequest
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeAbuseReportListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeAbuseReportListParams
 ) -> tuple[list[BackofficeAbuseReportDTO], int]:
     stmt = select(AbuseReport)
 

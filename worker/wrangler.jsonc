@@ -1,0 +1,328 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "jn-buddybird-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-11-23",
+	"workers_dev": false,
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"invocation_logs": false
+		}
+	},
+	"exports": {
+		"Api": {
+			"type": "durable-object",
+			"storage": "sqlite"
+		},
+		"ApiRouter": {
+			"type": "durable-object",
+			"storage": "sqlite"
+		}
+	},
+	"env": {
+		"dev": {
+			"name": "jn-buddybird-api-dev",
+			"routes": [
+				{
+					"pattern": "dev.buddybird.xyz",
+					"custom_domain": true
+				}
+			],
+			"triggers": {
+				"crons": ["* * * * *"]
+			},
+			"containers": [
+				{
+					"class_name": "Api",
+					"scheduling_policy": "durable_object",
+					"images": {
+						"api": {
+							"dockerfile": "../Dockerfile",
+							"build_context": ".."
+						}
+					},
+					"observability": {
+						"enabled": true
+					}
+				}
+			],
+			"durable_objects": {
+				"bindings": [
+					{
+						"name": "API",
+						"class_name": "Api"
+					},
+					{
+						"name": "API_ROUTER",
+						"class_name": "ApiRouter"
+					}
+				],
+				"code_update_strategy": {
+					"mode": "deferred",
+					"max_delay": 1200
+				}
+			},
+			"queues": {
+				"producers": [
+					{
+						"binding": "PARROT_SOUND_DETECTION_QUEUE",
+						"queue": "jn-buddybird-dev-parrot-sound-detection"
+					},
+					{
+						"binding": "MIMICRY_JUDGMENT_QUEUE",
+						"queue": "jn-buddybird-dev-mimicry-judgment"
+					},
+					{
+						"binding": "NOTIFICATION_QUEUE",
+						"queue": "jn-buddybird-dev-notification"
+					},
+					{
+						"binding": "WITHDRAWAL_QUEUE",
+						"queue": "jn-buddybird-dev-withdrawal"
+					}
+				],
+				"consumers": [
+					{
+						"queue": "jn-buddybird-dev-upload-confirmation",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 300,
+						"dead_letter_queue": "jn-buddybird-dev-upload-confirmation-dlq"
+					},
+					{
+						"queue": "jn-buddybird-dev-judgment-result",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 30,
+						"dead_letter_queue": "jn-buddybird-dev-judgment-result-dlq"
+					},
+					{
+						"queue": "jn-buddybird-dev-notification",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 30,
+						"dead_letter_queue": "jn-buddybird-dev-notification-dlq"
+					},
+					{
+						"queue": "jn-buddybird-dev-withdrawal",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 300,
+						"dead_letter_queue": "jn-buddybird-dev-withdrawal-dlq"
+					},
+					{
+						"queue": "jn-buddybird-dev-parrot-sound-detection-dlq",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 100
+					},
+					{
+						"queue": "jn-buddybird-dev-mimicry-judgment-dlq",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 100
+					}
+				]
+			},
+			"version_metadata": {
+				"binding": "VERSION"
+			},
+			"secrets": {
+				"required": [
+					"DB_HOST",
+					"DB_NAME",
+					"DB_USER",
+					"DB_PASSWORD",
+					"BACKOFFICE_PASSWORD",
+					"BACKOFFICE_READONLY_PASSWORD",
+					"SUPABASE_SECRET_KEY",
+					"OAUTH_CREDENTIALS_KEY",
+					"GOOGLE_CLIENT_SECRET",
+					"APPLE_PRIVATE_KEY",
+					"KAKAO_ADMIN_KEY",
+					"FIREBASE_SERVICE_ACCOUNT_JSON",
+					"SENTRY_DSN",
+					"SENTRY_API_TOKEN",
+					"CLOUDFLARE_TURN_API_TOKEN",
+					"STORAGE_ACCESS_KEY",
+					"STORAGE_SECRET_KEY"
+				]
+			},
+			"vars": {
+				"ENV": "dev",
+				"DB_SSL_MODE": "verify-full",
+				"PGSSLMODE": "verify-full",
+				"PGSSLROOTCERT": "/etc/ssl/certs/ca-certificates.crt",
+				"FRONTEND_CORS_ORIGIN": "[\"http://localhost:3000\"]",
+				"SUPABASE_URL": "https://ksjyuunszwetaolrlcsy.supabase.co",
+				"SUPABASE_PUBLISHABLE_KEY": "sb_publishable_pJpDmV_bolQCFKS3-kZMNQ_CdojqTPE",
+				"GOOGLE_CLIENT_ID": "174796393695-5r4rkiuss4aariqiiuap78uct3k44jia.apps.googleusercontent.com",
+				"APPLE_CLIENT_IDS": "[\"com.joynnovate.buddybird.dev\"]",
+				"APPLE_TEAM_ID": "73TZC3K2JG",
+				"APPLE_KEY_ID": "T3ZFB6J55W",
+				"GA4_PROPERTY_ID": "538251025",
+				"CLOUDFLARE_TURN_KEY_ID": "07b2cf0cdd498732bb474897cd67c4e3",
+				"STORAGE_ENDPOINT_URL": "https://0c4453da6d81adec04df8132e00660c4.r2.cloudflarestorage.com",
+				"STORAGE_BUCKET_NAME": "jn-buddybird-data-dev",
+				"QUEUE_URL": "http://queues.internal"
+			}
+		},
+		"prod": {
+			"name": "jn-buddybird-api-prod",
+			"routes": [
+				{
+					"pattern": "buddybird.xyz/api/*",
+					"zone_name": "buddybird.xyz"
+				}
+			],
+			"triggers": {
+				"crons": ["* * * * *"]
+			},
+			"containers": [
+				{
+					"class_name": "Api",
+					"scheduling_policy": "durable_object",
+					"images": {
+						"api": {
+							"dockerfile": "../Dockerfile",
+							"build_context": ".."
+						}
+					},
+					"observability": {
+						"enabled": true
+					}
+				}
+			],
+			"durable_objects": {
+				"bindings": [
+					{
+						"name": "API",
+						"class_name": "Api"
+					},
+					{
+						"name": "API_ROUTER",
+						"class_name": "ApiRouter"
+					}
+				],
+				"code_update_strategy": {
+					"mode": "deferred",
+					"max_delay": 1200
+				}
+			},
+			"queues": {
+				"producers": [
+					{
+						"binding": "PARROT_SOUND_DETECTION_QUEUE",
+						"queue": "jn-buddybird-prod-parrot-sound-detection"
+					},
+					{
+						"binding": "MIMICRY_JUDGMENT_QUEUE",
+						"queue": "jn-buddybird-prod-mimicry-judgment"
+					},
+					{
+						"binding": "NOTIFICATION_QUEUE",
+						"queue": "jn-buddybird-prod-notification"
+					},
+					{
+						"binding": "WITHDRAWAL_QUEUE",
+						"queue": "jn-buddybird-prod-withdrawal"
+					}
+				],
+				"consumers": [
+					{
+						"queue": "jn-buddybird-prod-upload-confirmation",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 300,
+						"dead_letter_queue": "jn-buddybird-prod-upload-confirmation-dlq"
+					},
+					{
+						"queue": "jn-buddybird-prod-judgment-result",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 30,
+						"dead_letter_queue": "jn-buddybird-prod-judgment-result-dlq"
+					},
+					{
+						"queue": "jn-buddybird-prod-notification",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 30,
+						"dead_letter_queue": "jn-buddybird-prod-notification-dlq"
+					},
+					{
+						"queue": "jn-buddybird-prod-withdrawal",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 4,
+						"retry_delay": 300,
+						"dead_letter_queue": "jn-buddybird-prod-withdrawal-dlq"
+					},
+					{
+						"queue": "jn-buddybird-prod-parrot-sound-detection-dlq",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 100
+					},
+					{
+						"queue": "jn-buddybird-prod-mimicry-judgment-dlq",
+						"max_batch_timeout": 0,
+						"max_concurrency": 1,
+						"max_retries": 100
+					}
+				]
+			},
+			"version_metadata": {
+				"binding": "VERSION"
+			},
+			"secrets": {
+				"required": [
+					"DB_HOST",
+					"DB_NAME",
+					"DB_USER",
+					"DB_PASSWORD",
+					"BACKOFFICE_PASSWORD",
+					"BACKOFFICE_READONLY_PASSWORD",
+					"SUPABASE_SECRET_KEY",
+					"OAUTH_CREDENTIALS_KEY",
+					"GOOGLE_CLIENT_SECRET",
+					"APPLE_PRIVATE_KEY",
+					"KAKAO_ADMIN_KEY",
+					"FIREBASE_SERVICE_ACCOUNT_JSON",
+					"SENTRY_DSN",
+					"SENTRY_API_TOKEN",
+					"CLOUDFLARE_TURN_API_TOKEN",
+					"STORAGE_ACCESS_KEY",
+					"STORAGE_SECRET_KEY"
+				]
+			},
+			"vars": {
+				"ENV": "prod",
+				"DB_SSL_MODE": "verify-full",
+				"PGSSLMODE": "verify-full",
+				"PGSSLROOTCERT": "/etc/ssl/certs/ca-certificates.crt",
+				"FRONTEND_CORS_ORIGIN": "[\"https://backoffice.buddybird.xyz\"]",
+				"SUPABASE_URL": "https://iiadbuftuingqcjwtlvq.supabase.co",
+				"SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ohDoOGndX9uP0vha9GwL6w_PDUP0H2g",
+				"GOOGLE_CLIENT_ID": "125131174181-57dp3od7a6htdhe1uoe581ho4e8leag1.apps.googleusercontent.com",
+				"APPLE_CLIENT_IDS": "[\"com.joynnovate.buddybird\"]",
+				"APPLE_TEAM_ID": "73TZC3K2JG",
+				"APPLE_KEY_ID": "KQCQD8Q46G",
+				"GA4_PROPERTY_ID": "538111158",
+				"CLOUDFLARE_TURN_KEY_ID": "3a3437dcb285027ad2ea0dcc3e7b28ac",
+				"STORAGE_ENDPOINT_URL": "https://0c4453da6d81adec04df8132e00660c4.r2.cloudflarestorage.com",
+				"STORAGE_BUCKET_NAME": "jn-buddybird-data-prod",
+				"QUEUE_URL": "http://queues.internal"
+			}
+		}
+	}
+}

@@ -1,0 +1,12 @@
+{
+	"rules": [
+		{
+			"allowed": {
+				"origins": ["https://dev.buddybird.xyz", "http://localhost:3000"],
+				"methods": ["GET", "PUT"],
+				"headers": ["Content-Type"]
+			},
+			"exposeHeaders": ["Content-Length", "Content-Type"]
+		}
+	]
+}

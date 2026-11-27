@@ -10,10 +10,12 @@ def traces_sampler(context: dict) -> float:
     if context.get("parent_sampled") is not None:
         return float(context["parent_sampled"])
 
-    if context.get("asgi_scope", {}).get("path") == "/api/healthz":
+    path = context.get("asgi_scope", {}).get("path", "")
+
+    if path == "/api/healthz" or path.startswith("/internal/queues/"):
         return 0.0
 
-    if context.get("transaction_context", {}).get("name") == "run_periodic_command":
+    if path.startswith("/internal/cron/"):
         return 0.01
 
     return config.SENTRY_TRACES_SAMPLE_RATE

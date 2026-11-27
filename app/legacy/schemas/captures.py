@@ -73,7 +73,7 @@ class MigrateReviewRequest(BaseRequest):
 
     audio_file_id: str = Field(
         ...,
-        description="S3 object key",
+        description="object key",
         examples=["audio_capture/{uid}/{capture_id}/{file_id}/session-xxx.wav"],
     )
     label: list[MigrateReviewLabelRequest] = Field(..., description="라벨 목록", examples=[[]])

@@ -8,14 +8,14 @@ from app.enums import FileStatusEnum
 from app.errors import FileSizeExceededError, InvalidProfilePhotoError, ParrotSaveUnavailableError
 from app.file import build_file_dto
 from app.models import File, Parrot, User
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.parrots import CreateParrotRequest, ParrotDTO, UpdateParrotRequest
 from app.services.users import get_uploading_photo_files
 from app.utils import MAX_PHOTO_BYTES, PHOTO_TYPES
 
 
-def build_parrot_dto(parrot: Parrot, uploading_photo_file: File | None, storage: S3StorageClient) -> ParrotDTO:
+def build_parrot_dto(parrot: Parrot, uploading_photo_file: File | None, storage: R2StorageClient) -> ParrotDTO:
     return ParrotDTO(
         id=parrot.id,
         name=parrot.name,
@@ -26,7 +26,7 @@ def build_parrot_dto(parrot: Parrot, uploading_photo_file: File | None, storage:
     )
 
 
-async def get_list(*, db: AsyncSession, user: User, storage: S3StorageClient) -> list[ParrotDTO]:
+async def get_list(*, db: AsyncSession, user: User, storage: R2StorageClient) -> list[ParrotDTO]:
     parrots = (await db.scalars(select(Parrot).where(Parrot.user_id == user.id).order_by(Parrot.created_at))).all()
     uploading_photo_files = await get_uploading_photo_files(
         db=db,
@@ -40,7 +40,7 @@ async def get_list(*, db: AsyncSession, user: User, storage: S3StorageClient) ->
 
 
 @transactional(unavailable_error=ParrotSaveUnavailableError)
-async def create(*, db: AsyncSession, user: User, storage: S3StorageClient, data: CreateParrotRequest) -> ParrotDTO:
+async def create(*, db: AsyncSession, user: User, storage: R2StorageClient, data: CreateParrotRequest) -> ParrotDTO:
     parrot = Parrot(user_id=user.id, name=data.name, species=data.species, birthdate=data.birthdate, is_deleted=False)
 
     db.add(parrot)
@@ -50,7 +50,7 @@ async def create(*, db: AsyncSession, user: User, storage: S3StorageClient, data
 
 
 @transactional(unavailable_error=ParrotSaveUnavailableError)
-async def update(*, db: AsyncSession, storage: S3StorageClient, parrot: Parrot, data: UpdateParrotRequest) -> ParrotDTO:
+async def update(*, db: AsyncSession, storage: R2StorageClient, parrot: Parrot, data: UpdateParrotRequest) -> ParrotDTO:
     for name, value in data.model_dump(exclude_unset=True).items():
         setattr(parrot, name, value)
 
@@ -78,7 +78,7 @@ async def delete(*, db: AsyncSession, parrot: Parrot) -> None:
 async def update_photo(
     *,
     db: AsyncSession,
-    storage: S3StorageClient,
+    storage: R2StorageClient,
     parrot: Parrot,
     data: UploadRequest,
 ) -> UploadDTO:
@@ -127,7 +127,7 @@ async def delete_photo(*, db: AsyncSession, parrot: Parrot) -> None:
     await db.flush()
 
 
-async def get_detail(*, db: AsyncSession, parrot: Parrot, storage: S3StorageClient) -> ParrotDTO:
+async def get_detail(*, db: AsyncSession, parrot: Parrot, storage: R2StorageClient) -> ParrotDTO:
     uploading_photo_files = await get_uploading_photo_files(
         db=db,
         file_ids={parrot.uploading_photo_file_id} if parrot.uploading_photo_file_id is not None else set(),

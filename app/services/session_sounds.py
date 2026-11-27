@@ -7,8 +7,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager
 
-from app import sqs
-from app.config import config
+from app import queues
 from app.db import transactional
 from app.enums import (
     FeedItemKindEnum,
@@ -44,7 +43,7 @@ from app.models import (
     Word,
     WordRecording,
 )
-from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.r2 import UPLOAD_URL_EXPIRES_IN, R2StorageClient
 from app.schemas.base import FileDTO, PageParams, UploadDTO
 from app.schemas.sessions import (
     BackofficeMimicJudgmentDTO,
@@ -126,7 +125,7 @@ IS_LABELED = or_(
 
 
 async def build_sound_dtos(
-    *, db: AsyncSession, storage: S3StorageClient, sounds: Sequence[SessionSound]
+    *, db: AsyncSession, storage: R2StorageClient, sounds: Sequence[SessionSound]
 ) -> list[SessionSoundDTO]:
     stmt = select(Session.id, Session.word_id).where(Session.id.in_({sound.session_id for sound in sounds}))
     session_word_ids = dict((await db.execute(stmt)).all())
@@ -175,7 +174,7 @@ async def build_sound_dtos(
 
 
 async def get_list(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: PageParams
+    *, db: AsyncSession, storage: R2StorageClient, session: Session, query: PageParams
 ) -> tuple[list[SessionSoundDTO], int]:
     stmt = (
         select(SessionSound)
@@ -207,7 +206,7 @@ async def get_list(
 
 
 async def get_user_list(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, query: PageParams
+    *, db: AsyncSession, storage: R2StorageClient, user: User, query: PageParams
 ) -> tuple[list[SessionSoundDTO], int]:
     stmt = (
         select(SessionSound)
@@ -234,7 +233,7 @@ async def get_user_list(
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: BackofficeSessionSoundListParams
+    *, db: AsyncSession, storage: R2StorageClient, session: Session, query: BackofficeSessionSoundListParams
 ) -> list[BackofficeSessionSoundDTO]:
     stmt = select(SessionSound).where(SessionSound.session_id == session.id).order_by(SessionSound.captured_at)
 
@@ -279,7 +278,7 @@ async def get_backoffice_list(
 
 
 async def get_backoffice_detail(
-    *, db: AsyncSession, storage: S3StorageClient, sound: SessionSound
+    *, db: AsyncSession, storage: R2StorageClient, sound: SessionSound
 ) -> BackofficeSessionSoundDetailDTO:
     [dto] = await build_sound_dtos(db=db, storage=storage, sounds=[sound])
 
@@ -426,8 +425,8 @@ async def request_mimic_judgment(*, db: AsyncSession, sound_id: UUID, session_id
     )
     recording_files = (await db.scalars(stmt)).all()
 
-    await sqs.send(
-        queue_url=config.SQS_MIMICRY_JUDGMENT_QUEUE_URL,
+    await queues.send(
+        queue="mimicry-judgment",
         body={
             "type": "audio.judge_mimic",
             "session_id": str(session_id),
@@ -461,7 +460,7 @@ async def request_backoffice_mimic_judgment(*, db: AsyncSession, sound: SessionS
 async def upload(
     *,
     db: AsyncSession,
-    storage: S3StorageClient,
+    storage: R2StorageClient,
     session: Session,
     device: Device,
     data: SessionSoundUploadRequest,

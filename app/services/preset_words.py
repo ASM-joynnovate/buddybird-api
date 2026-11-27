@@ -15,7 +15,7 @@ from app.errors import (
     PresetWordSaveUnavailableError,
 )
 from app.models import File, PresetWord
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.base import FileDTO
 from app.schemas.preset_words import CreatePresetWordRequest, PresetWordDTO, UpdatePresetWordRequest
 from app.services.words import MAX_RECORDING_BYTES, RECORDING_TYPES
@@ -23,7 +23,7 @@ from app.services.words import MAX_RECORDING_BYTES, RECORDING_TYPES
 logger = logging.getLogger(__name__)
 
 
-def build_preset_word_dto(preset_word: PresetWord, storage: S3StorageClient) -> PresetWordDTO:
+def build_preset_word_dto(preset_word: PresetWord, storage: R2StorageClient) -> PresetWordDTO:
     return PresetWordDTO(
         id=preset_word.id,
         language=LocaleEnum(preset_word.language),
@@ -35,7 +35,7 @@ def build_preset_word_dto(preset_word: PresetWord, storage: S3StorageClient) -> 
     )
 
 
-async def get_list(*, db: AsyncSession, storage: S3StorageClient) -> list[PresetWordDTO]:
+async def get_list(*, db: AsyncSession, storage: R2StorageClient) -> list[PresetWordDTO]:
     stmt = select(PresetWord).order_by(PresetWord.language, PresetWord.created_at)
     preset_words = (await db.scalars(stmt)).all()
 
@@ -52,7 +52,7 @@ async def save_preset_word(*, db: AsyncSession, preset_word: PresetWord) -> None
         raise DuplicatePresetWordError from exc
 
 
-async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreatePresetWordRequest) -> PresetWordDTO:
+async def create(*, db: AsyncSession, storage: R2StorageClient, data: CreatePresetWordRequest) -> PresetWordDTO:
     preset_word = PresetWord(language=data.language, is_deleted=False)
 
     return await update(db=db, storage=storage, preset_word=preset_word, data=data)
@@ -61,7 +61,7 @@ async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreatePres
 async def update(
     *,
     db: AsyncSession,
-    storage: S3StorageClient,
+    storage: R2StorageClient,
     preset_word: PresetWord,
     data: CreatePresetWordRequest | UpdatePresetWordRequest,
 ) -> PresetWordDTO:

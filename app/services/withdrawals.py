@@ -7,8 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app import sqs
-from app.config import config
+from app import queues
 from app.db import session_factory, transactional
 from app.enums import (
     OAuthProviderEnum,
@@ -35,7 +34,7 @@ from app.oauth.base import SocialIdentity, decrypt_credentials, encrypt_credenti
 from app.oauth.google import revoke_google
 from app.oauth.kakao import unlink_kakao
 from app.oauth.supabase import delete_supabase_user, get_admin_social_identities, get_social_identities
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.devices import BackofficeLastSeenDeviceDTO
 from app.schemas.withdrawals import (
     BackofficeWithdrawalDTO,
@@ -73,7 +72,7 @@ def build_backoffice_withdrawal_dto(withdrawal: UserWithdrawal) -> BackofficeWit
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeWithdrawalListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeWithdrawalListParams
 ) -> tuple[list[BackofficeWithdrawalListItemDTO], int]:
     stmt = select(UserWithdrawal)
 
@@ -469,8 +468,8 @@ async def process_user_withdrawal(user_id: UUID) -> None:
 async def enqueue_withdrawal(*user_ids: UUID) -> None:
     for user_id in user_ids:
         try:
-            await sqs.send(
-                queue_url=config.SQS_WITHDRAWAL_QUEUE_URL,
+            await queues.send(
+                queue="withdrawal",
                 body={"type": "withdrawal.process", "user_id": str(user_id)},
             )
         except Exception:

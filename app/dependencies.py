@@ -41,7 +41,7 @@ from app.models import (
     User,
     Word,
 )
-from app.s3 import S3StorageClient, get_s3
+from app.r2 import R2StorageClient, get_r2
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -50,7 +50,7 @@ async def get_db() -> AsyncIterator[AsyncSession]:
 
 
 DBSession = Annotated[AsyncSession, Depends(get_db)]
-Storage = Annotated[S3StorageClient, Depends(get_s3)]
+Storage = Annotated[R2StorageClient, Depends(get_r2)]
 
 bearer = HTTPBearer(auto_error=False, scheme_name="Bearer", bearerFormat="JWT")
 
@@ -295,10 +295,10 @@ Locale = Annotated[LocaleEnum, Depends(get_locale)]
 
 
 async def get_country(
-    cloudfront_viewer_country: Annotated[str | None, Header(alias="CloudFront-Viewer-Country")] = None,
+    cf_ipcountry: Annotated[str | None, Header(alias="CF-IPCountry")] = None,
 ) -> str | None:
-    if cloudfront_viewer_country is not None and re.fullmatch("[A-Z]{2}", cloudfront_viewer_country):
-        return cloudfront_viewer_country
+    if cf_ipcountry is not None and re.fullmatch("[A-Z]{2}", cf_ipcountry):
+        return cf_ipcountry
 
     return None
 
