@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.42.0...v2.43.0) (2026-11-27)
+
+
+### Features
+
+* move infrastructure from AWS to Cloudflare ([#253](https://github.com/ASM-joynnovate/buddybird-api/issues/253)) ([a934058](https://github.com/ASM-joynnovate/buddybird-api/commit/a934058313538bbfea0ef91058a342afe1997030))
+
 ## [2.42.0](https://github.com/ASM-joynnovate/buddybird-api/compare/v2.41.1...v2.42.0) (2026-11-07)
 
 
