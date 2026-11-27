@@ -50,7 +50,7 @@ from app.models import (
     User,
     Word,
 )
-from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.r2 import UPLOAD_URL_EXPIRES_IN, R2StorageClient
 from app.schemas.base import PageParams, UploadDTO
 from app.schemas.sessions import (
     AcknowledgedLearningSegmentDTO,
@@ -664,7 +664,7 @@ async def add_events(*, db: AsyncSession, session: Session, data: AddSessionEven
 async def add_petcam_event(
     *,
     db: AsyncSession,
-    storage: S3StorageClient,
+    storage: R2StorageClient,
     session: Session,
     device: Device,
     data: SessionPetcamEventRequest,
@@ -713,7 +713,7 @@ async def add_petcam_event(
 async def add_petcam_video(
     *,
     db: AsyncSession,
-    storage: S3StorageClient,
+    storage: R2StorageClient,
     session: Session,
     device: Device,
     event_id: UUID,
@@ -762,7 +762,7 @@ async def add_petcam_video(
     )
 
 
-async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Session) -> list[SessionEventDTO]:
+async def get_events(*, db: AsyncSession, storage: R2StorageClient, session: Session) -> list[SessionEventDTO]:
     stmt = (
         select(SessionEvent)
         .where(SessionEvent.session_id == session.id, SessionEvent.is_correct.is_not(False))
@@ -815,7 +815,7 @@ async def get_events(*, db: AsyncSession, storage: S3StorageClient, session: Ses
 
 
 async def get_log(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: SessionLogListParams
+    *, db: AsyncSession, storage: R2StorageClient, session: Session, query: SessionLogListParams
 ) -> tuple[list[SessionLogItemDTO], int]:
     distress_call_sound = (
         select(SessionEventSound.sound_id)
@@ -1008,7 +1008,7 @@ async def get_log(
 
 
 async def get_backoffice_events(
-    *, db: AsyncSession, storage: S3StorageClient, session: Session, query: BackofficeSessionEventListParams
+    *, db: AsyncSession, storage: R2StorageClient, session: Session, query: BackofficeSessionEventListParams
 ) -> list[BackofficeSessionEventDTO]:
     stmt = (
         select(SessionEvent, Word.name)

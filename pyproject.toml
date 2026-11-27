@@ -98,6 +98,7 @@ classmethod-decorators = ["classmethod", "pydantic.field_validator"]
 
 [tool.ruff.lint.per-file-ignores]
 "migrations/versions/*.py" = ["N999", "ERA001", "E501"]
+"tests/**" = ["S101"]
 
 [tool.ruff.format]
 indent-style = "space"

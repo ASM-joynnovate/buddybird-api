@@ -32,7 +32,7 @@ from app.models import (
     UserSetting,
     Word,
 )
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.feed import CreateFeedItemRequest, FeedEntryDTO, FeedItemDTO, FeedItemLikeDTO, FeedParams
 from app.schemas.parrots import CommunityParrotDTO
 from app.schemas.users import CommunityUserDTO
@@ -71,7 +71,7 @@ def select_visible_items(user: User) -> Select:
 
 
 async def build_community_users(
-    *, db: AsyncSession, storage: S3StorageClient, users: Sequence[User]
+    *, db: AsyncSession, storage: R2StorageClient, users: Sequence[User]
 ) -> dict[UUID, CommunityUserDTO]:
     stmt = select(Parrot).where(Parrot.user_id.in_({user.id for user in users})).order_by(Parrot.created_at)
     parrots = (await db.scalars(stmt)).all()
@@ -211,7 +211,7 @@ async def get_likes(*, db: AsyncSession, user: User, feed_item_ids: list[UUID]) 
 
 
 async def get_list(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, locale: LocaleEnum, query: FeedParams
+    *, db: AsyncSession, storage: R2StorageClient, user: User, locale: LocaleEnum, query: FeedParams
 ) -> tuple[list[FeedEntryDTO], UUID | None]:
     stmt = select_visible_items(user).add_columns(User)
 

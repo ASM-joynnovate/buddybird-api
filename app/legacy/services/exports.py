@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.legacy.models import AudioSegment, audio_capture_label_table
 from app.legacy.services.labels import get_label_list
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 
 
 async def export_audio_segments(
-    *, db: AsyncSession, storage: S3StorageClient, audio_capture_label_option_ids: list[UUID] | None
+    *, db: AsyncSession, storage: R2StorageClient, audio_capture_label_option_ids: list[UUID] | None
 ) -> bytes:
     segments = []
 

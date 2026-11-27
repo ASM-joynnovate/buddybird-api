@@ -7,7 +7,7 @@ from app.db import transactional
 from app.errors import FeedbackSaveUnavailableError
 from app.file import build_file_dto
 from app.models import Device, Feedback, User
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.feedback import (
     BackofficeFeedbackDeviceDTO,
     BackofficeFeedbackDTO,
@@ -42,7 +42,7 @@ async def create(*, db: AsyncSession, user: User, device: Device, data: CreateFe
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeFeedbackListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeFeedbackListParams
 ) -> tuple[list[BackofficeFeedbackDTO], int]:
     conditions = []
 

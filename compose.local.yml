@@ -1,6 +1,3 @@
-include:
-  - local/storage.compose.yml
-
 services:
   api:
     build: .
@@ -10,47 +7,25 @@ services:
     environment:
       ENV: local
       DB_HOST: postgres
-      SQS_ENDPOINT_URL: http://elasticmq:9324
-      SQS_UPLOAD_CONFIRMATION_QUEUE_URL: http://elasticmq:9324/000000000000/upload-confirmation
-      SQS_NOTIFICATION_QUEUE_URL: http://elasticmq:9324/000000000000/notification
-      SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
-      SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
-      SQS_PARROT_SOUND_DETECTION_QUEUE_URL: http://elasticmq:9324/000000000000/parrot-sound-detection
-      SQS_PARROT_SOUND_DETECTION_DLQ_URL: http://elasticmq:9324/000000000000/parrot-sound-detection-dlq
-      SQS_JUDGMENT_RESULT_QUEUE_URL: http://elasticmq:9324/000000000000/judgment-result
-      SQS_MIMICRY_JUDGMENT_QUEUE_URL: http://elasticmq:9324/000000000000/mimicry-judgment
-      SQS_MIMICRY_JUDGMENT_DLQ_URL: http://elasticmq:9324/000000000000/mimicry-judgment-dlq
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
-      elasticmq:
-        condition: service_started
 
-  consumer:
+  queues:
     build: .
     image: buddybird-api
     profiles: [app]
     env_file: .env.local
     environment:
       ENV: local
-      DB_HOST: postgres
-      SQS_ENDPOINT_URL: http://elasticmq:9324
-      SQS_UPLOAD_CONFIRMATION_QUEUE_URL: http://elasticmq:9324/000000000000/upload-confirmation
-      SQS_NOTIFICATION_QUEUE_URL: http://elasticmq:9324/000000000000/notification
-      SQS_WITHDRAWAL_QUEUE_URL: http://elasticmq:9324/000000000000/withdrawal
-      SQS_PERIODIC_COMMAND_QUEUE_URL: http://elasticmq:9324/000000000000/periodic-command
-      SQS_PARROT_SOUND_DETECTION_QUEUE_URL: http://elasticmq:9324/000000000000/parrot-sound-detection
-      SQS_PARROT_SOUND_DETECTION_DLQ_URL: http://elasticmq:9324/000000000000/parrot-sound-detection-dlq
-      SQS_JUDGMENT_RESULT_QUEUE_URL: http://elasticmq:9324/000000000000/judgment-result
-      SQS_MIMICRY_JUDGMENT_QUEUE_URL: http://elasticmq:9324/000000000000/mimicry-judgment
-      SQS_MIMICRY_JUDGMENT_DLQ_URL: http://elasticmq:9324/000000000000/mimicry-judgment-dlq
-    command: [python, -m, app.consumer]
+    network_mode: service:api
+    volumes:
+      - ./local:/app/local:ro
+    command: [python, -m, local.queues]
     depends_on:
-      postgres:
-        condition: service_healthy
-      elasticmq:
+      api:
         condition: service_started
 
   postgres:
@@ -69,14 +44,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  elasticmq:
-    image: softwaremill/elasticmq-native
-    container_name: buddybird-elasticmq
-    ports:
-      - "9324:9324"
-    volumes:
-      - ./local/elasticmq.conf:/opt/elasticmq.conf:ro
 
 volumes:
   postgres-data:

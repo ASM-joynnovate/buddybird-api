@@ -1,0 +1,30 @@
+{
+	"rules": [
+		{
+			"id": "expire-upload-originals",
+			"enabled": true,
+			"conditions": {
+				"prefix": "upload/"
+			},
+			"deleteObjectsTransition": {
+				"condition": {
+					"type": "Age",
+					"maxAge": 86400
+				}
+			}
+		},
+		{
+			"id": "abort-incomplete-multipart-upload",
+			"enabled": true,
+			"conditions": {
+				"prefix": ""
+			},
+			"abortMultipartUploadsTransition": {
+				"condition": {
+					"type": "Age",
+					"maxAge": 604800
+				}
+			}
+		}
+	]
+}

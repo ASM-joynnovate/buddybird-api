@@ -45,7 +45,7 @@ from app.models import (
     UserWithdrawal,
     UserWithdrawalFailure,
 )
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.base import I18nDTO
 from app.schemas.dashboard import (
     AppUpdateDashboardDTO,
@@ -851,7 +851,7 @@ async def get_notification_dashboard(*, db: AsyncSession, query: DashboardParams
 
 
 async def get_emergency_dashboard(
-    *, db: AsyncSession, storage: S3StorageClient, query: DashboardParams
+    *, db: AsyncSession, storage: R2StorageClient, query: DashboardParams
 ) -> EmergencyDashboardDTO:
     dates, period_start, period_end, previous_start = get_period(query)
     is_sound = SessionEvent.kind == SessionEventKindEnum.DISTRESS_CALL_DETECTED.value

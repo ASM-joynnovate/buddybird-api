@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enums import LeaderboardPeriodEnum, LeaderboardUnrankedReasonEnum, ScoreMetricEnum
 from app.file import build_public_file_dto
 from app.models import ScoreEntry, Session, User, UserSetting
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.leaderboard import LeaderboardDTO, LeaderboardItemDTO, LeaderboardMeDTO, LeaderboardParams
 from app.schemas.users import CommunityUserDTO
 from app.services.feed import PUBLIC_USER
@@ -36,7 +36,7 @@ async def record_finished_sessions(*, db: AsyncSession, sessions: Sequence[Sessi
 
 
 async def get_leaderboard(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, query: LeaderboardParams
+    *, db: AsyncSession, storage: R2StorageClient, user: User, query: LeaderboardParams
 ) -> LeaderboardDTO:
     score_filters = [ScoreEntry.metric == query.metric]
 

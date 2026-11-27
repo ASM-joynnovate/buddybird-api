@@ -22,7 +22,7 @@ from app.errors import (
 )
 from app.file import build_public_file_dto, ensure_uploaded_photo
 from app.models import Ad, AdCountry, AdEvent, AdHourlyStat, Device, File, I18n, User
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.ads import (
     AddAdEventsRequest,
     AdEventCountDTO,
@@ -67,7 +67,7 @@ def select_active_ads(*, user: User, kind: AdKindEnum, now: datetime) -> Select:
     )
 
 
-def build_home_banner_ad_dto(ad: Ad, locale: LocaleEnum, storage: S3StorageClient) -> HomeBannerAdDTO:
+def build_home_banner_ad_dto(ad: Ad, locale: LocaleEnum, storage: R2StorageClient) -> HomeBannerAdDTO:
     return HomeBannerAdDTO(
         id=ad.id,
         serve_id=uuid7(),
@@ -78,7 +78,7 @@ def build_home_banner_ad_dto(ad: Ad, locale: LocaleEnum, storage: S3StorageClien
     )
 
 
-def build_feed_ad_dto(ad: Ad, locale: LocaleEnum, storage: S3StorageClient) -> FeedAdDTO:
+def build_feed_ad_dto(ad: Ad, locale: LocaleEnum, storage: R2StorageClient) -> FeedAdDTO:
     return FeedAdDTO(
         id=ad.id,
         kind=FeedItemKindEnum.AD,
@@ -98,7 +98,7 @@ def build_feed_ad_dto(ad: Ad, locale: LocaleEnum, storage: S3StorageClient) -> F
     )
 
 
-def build_backoffice_ad_dto(ad: Ad, storage: S3StorageClient, event_counts: list[AdEventCountDTO]) -> BackofficeAdDTO:
+def build_backoffice_ad_dto(ad: Ad, storage: R2StorageClient, event_counts: list[AdEventCountDTO]) -> BackofficeAdDTO:
     now = datetime.now(UTC)
 
     if not ad.is_enabled:
@@ -161,7 +161,7 @@ async def get_event_counts(*, db: AsyncSession, ad_ids: list[UUID]) -> dict[UUID
     return counts
 
 
-async def get_ad_file(*, db: AsyncSession, storage: S3StorageClient, file_id: UUID, kind: AdImageKindEnum) -> File:
+async def get_ad_file(*, db: AsyncSession, storage: R2StorageClient, file_id: UUID, kind: AdImageKindEnum) -> File:
     stmt = select(File).where(File.id == file_id, File.file_path == f"ad/{kind.value}/{file_id}")
     file = await db.scalar(stmt)
 
@@ -181,7 +181,7 @@ async def get_ad_file(*, db: AsyncSession, storage: S3StorageClient, file_id: UU
 
 
 async def get_list(
-    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, query: AdListParams
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: R2StorageClient, query: AdListParams
 ) -> list[HomeBannerAdDTO]:
     stmt = select_active_ads(user=user, kind=query.kind, now=datetime.now(UTC)).order_by(Ad.display_order)
     ads = (await db.scalars(stmt)).all()
@@ -190,7 +190,7 @@ async def get_list(
 
 
 async def pick_feed_ads(
-    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: S3StorageClient, count: int
+    *, db: AsyncSession, user: User, locale: LocaleEnum, storage: R2StorageClient, count: int
 ) -> list[FeedAdDTO]:
     stmt = select_active_ads(user=user, kind=AdKindEnum.FEED, now=datetime.now(UTC))
     candidates = list((await db.scalars(stmt)).all())
@@ -262,7 +262,7 @@ async def add_events(
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeAdListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeAdListParams
 ) -> tuple[list[BackofficeAdDTO], int]:
     now = datetime.now(UTC)
     stmt = select(Ad)
@@ -305,14 +305,14 @@ async def get_backoffice_list(
     return [build_backoffice_ad_dto(ad, storage, counts[ad.id]) for ad in ads], total
 
 
-async def get_detail(*, db: AsyncSession, storage: S3StorageClient, ad: Ad) -> BackofficeAdDTO:
+async def get_detail(*, db: AsyncSession, storage: R2StorageClient, ad: Ad) -> BackofficeAdDTO:
     counts = await get_event_counts(db=db, ad_ids=[ad.id])
 
     return build_backoffice_ad_dto(ad, storage, counts[ad.id])
 
 
 @transactional(unavailable_error=AdSaveUnavailableError)
-async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreateAdRequest) -> BackofficeAdDTO:
+async def create(*, db: AsyncSession, storage: R2StorageClient, data: CreateAdRequest) -> BackofficeAdDTO:
     image_file = await get_ad_file(
         db=db, storage=storage, file_id=data.image_file_id, kind=AdImageKindEnum(data.kind.value)
     )
@@ -361,7 +361,7 @@ async def create(*, db: AsyncSession, storage: S3StorageClient, data: CreateAdRe
 
 
 @transactional(unavailable_error=AdSaveUnavailableError)
-async def update(*, db: AsyncSession, storage: S3StorageClient, ad: Ad, data: UpdateAdRequest) -> BackofficeAdDTO:
+async def update(*, db: AsyncSession, storage: R2StorageClient, ad: Ad, data: UpdateAdRequest) -> BackofficeAdDTO:
     for name in ("advertiser_name", "link_url"):
         value = getattr(data, name)
 
@@ -447,7 +447,7 @@ async def delete(*, db: AsyncSession, ad: Ad) -> None:
 
 
 @transactional(unavailable_error=AdSaveUnavailableError)
-async def reorder(*, db: AsyncSession, storage: S3StorageClient, data: ReorderRequest) -> list[BackofficeAdDTO]:
+async def reorder(*, db: AsyncSession, storage: R2StorageClient, data: ReorderRequest) -> list[BackofficeAdDTO]:
     now = datetime.now(UTC)
     stmt = select(Ad).where(Ad.kind == AdKindEnum.HOME_BANNER.value, or_(Ad.ends_at.is_(None), Ad.ends_at > now))
     banners = {ad.id: ad for ad in (await db.scalars(stmt)).all()}
@@ -466,7 +466,7 @@ async def reorder(*, db: AsyncSession, storage: S3StorageClient, data: ReorderRe
 
 
 @transactional(unavailable_error=AdSaveUnavailableError)
-async def add_image(*, db: AsyncSession, storage: S3StorageClient, data: AdImageUploadRequest) -> UploadDTO:
+async def add_image(*, db: AsyncSession, storage: R2StorageClient, data: AdImageUploadRequest) -> UploadDTO:
     if data.content_type not in PHOTO_TYPES:
         raise InvalidProfilePhotoError
 

@@ -27,7 +27,7 @@ from app.legacy.schemas.captures import (
     UpdateAudioCaptureMemoRequest,
 )
 from app.legacy.schemas.segments import GetAudioSegmentDTO
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 
 
 async def get_audio_capture_list(
@@ -125,7 +125,7 @@ async def get_audio_capture_list(
 
 
 async def get_audio_capture_detail(
-    *, db: AsyncSession, storage: S3StorageClient, audio_capture_id: UUID
+    *, db: AsyncSession, storage: R2StorageClient, audio_capture_id: UUID
 ) -> GetAudioCaptureDetailDTO:
     capture = await get_or_404(db=db, model=AudioCapture, id=audio_capture_id)
 

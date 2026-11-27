@@ -52,22 +52,12 @@ class Settings(BaseSettings):
     FIREBASE_SERVICE_ACCOUNT_JSON: SecretStr | None = None
     GA4_PROPERTY_ID: str | None = None
 
-    S3_ENDPOINT_URL: str | None = None
-    S3_ACCESS_KEY: str | None = None
-    S3_SECRET_KEY: str | None = None
-    S3_REGION: str = "ap-northeast-2"
-    S3_BUCKET_NAME: str
+    STORAGE_ENDPOINT_URL: str
+    STORAGE_ACCESS_KEY: str
+    STORAGE_SECRET_KEY: str
+    STORAGE_BUCKET_NAME: str
 
-    SQS_ENDPOINT_URL: str | None = None
-    SQS_UPLOAD_CONFIRMATION_QUEUE_URL: str
-    SQS_NOTIFICATION_QUEUE_URL: str
-    SQS_WITHDRAWAL_QUEUE_URL: str
-    SQS_PERIODIC_COMMAND_QUEUE_URL: str
-    SQS_PARROT_SOUND_DETECTION_QUEUE_URL: str
-    SQS_PARROT_SOUND_DETECTION_DLQ_URL: str
-    SQS_JUDGMENT_RESULT_QUEUE_URL: str
-    SQS_MIMICRY_JUDGMENT_QUEUE_URL: str
-    SQS_MIMICRY_JUDGMENT_DLQ_URL: str
+    QUEUE_URL: str
 
     FRONTEND_CORS_ORIGIN: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://localhost:3001"] if _local else []

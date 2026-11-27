@@ -17,6 +17,7 @@ from app.errors import register_exception_handlers
 from app.legacy.routers import captures, labels
 from app.middlewares import AuthBackend, IdempotencyMiddleware, NoStoreMiddleware
 from app.oauth.base import http_client
+from app.r2 import r2
 from app.routers import (
     abuse_reports,
     ads,
@@ -28,6 +29,7 @@ from app.routers import (
     devices,
     feed,
     feedback,
+    internal,
     leaderboard,
     notifications,
     parrots,
@@ -41,7 +43,6 @@ from app.routers import (
     users,
     words,
 )
-from app.s3 import s3
 
 
 @asynccontextmanager
@@ -54,7 +55,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await engine.dispose()
         await http_client.aclose()
 
-        s3.close()
+        r2.close()
 
 
 def create_app() -> FastAPI:
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     application.include_router(feed.router, prefix="/api/v1", tags=["피드"])
     application.include_router(abuse_reports.router, prefix="/api/v1", tags=["신고"])
     application.include_router(ads.router, prefix="/api/v1", tags=["광고"])
+    application.include_router(internal.router)
 
     @application.get("/api/healthz", tags=["공통"])
     async def healthz() -> dict[str, str]:
