@@ -8,11 +8,11 @@ from app.db import get_or_404, transactional
 from app.errors import SelfTargetError, UserSaveUnavailableError
 from app.file import build_public_file_dto
 from app.models import User, UserBlock
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.users import BlockedUserDTO
 
 
-async def get_list(*, db: AsyncSession, storage: S3StorageClient, user: User) -> list[BlockedUserDTO]:
+async def get_list(*, db: AsyncSession, storage: R2StorageClient, user: User) -> list[BlockedUserDTO]:
     stmt = (
         select(User)
         .join(UserBlock, UserBlock.blocked_user_id == User.id)

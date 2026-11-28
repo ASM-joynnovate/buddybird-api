@@ -26,7 +26,7 @@ from app.oauth.apple import verify_apple_credential
 from app.oauth.base import SocialIdentity, credential_cipher, decrypt_credentials, encrypt_credentials, match_identity
 from app.oauth.google import verify_google_credential
 from app.oauth.supabase import get_social_identities
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.auth import LoginDTO, LoginRequest
 from app.services.devices import finish_running_sessions
 from app.services.users import delete_uploaded_photo, download_social_photo, save_identities
@@ -86,7 +86,7 @@ async def verify_login_credential(
 async def complete_login(
     *,
     db: AsyncSession,
-    storage: S3StorageClient,
+    storage: R2StorageClient,
     auth_user_id: UUID,
     access_token: str,
     is_anonymous: bool,
@@ -130,7 +130,6 @@ async def complete_login(
     anonymous_without_photo = user is not None and user.is_anonymous and user.photo_file_id is None
     photo_file = None
     uploaded_path = None
-    uploaded_version_id = None
 
     if (user is None or anonymous_without_photo) and profile.photo_url:
         photo = await download_social_photo(url=profile.photo_url, provider=profile.provider)
@@ -142,7 +141,7 @@ async def complete_login(
             path = f"{file_path}/{file_name}"
 
             with suppress(BotoCoreError, ClientError, OSError, TimeoutError):
-                uploaded_version_id = await storage.upload(path=path, file=content)
+                await storage.upload(path=path, file=content)
                 uploaded_path = path
                 photo_file = File(
                     id=file_id,
@@ -168,12 +167,12 @@ async def complete_login(
         )
     except Exception, asyncio.CancelledError:
         if uploaded_path is not None:
-            await delete_uploaded_photo(storage=storage, path=uploaded_path, version_id=uploaded_version_id)
+            await delete_uploaded_photo(storage=storage, path=uploaded_path)
 
         raise
 
     if uploaded_path is not None and not login.is_new_user and not anonymous_without_photo:
-        await delete_uploaded_photo(storage=storage, path=uploaded_path, version_id=uploaded_version_id)
+        await delete_uploaded_photo(storage=storage, path=uploaded_path)
 
     return login
 

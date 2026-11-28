@@ -1,0 +1,12 @@
+{
+	"rules": [
+		{
+			"allowed": {
+				"origins": ["https://buddybird.xyz", "https://backoffice.buddybird.xyz"],
+				"methods": ["GET", "PUT"],
+				"headers": ["Content-Type"]
+			},
+			"exposeHeaders": ["Content-Length", "Content-Type"]
+		}
+	]
+}

@@ -17,7 +17,7 @@ from app.legacy.schemas.segments import (
     UpdateAudioSegmentMemoRequest,
 )
 from app.models import File
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ async def replace_audio_segment_file(
 
 
 async def create_audio_segment(
-    *, db: AsyncSession, storage: S3StorageClient, audio_capture_id: UUID, data: CreateAudioSegmentRequest
+    *, db: AsyncSession, storage: R2StorageClient, audio_capture_id: UUID, data: CreateAudioSegmentRequest
 ) -> None:
     capture = await get_or_404(db=db, model=AudioCapture, id=audio_capture_id)
 
@@ -124,7 +124,7 @@ async def create_audio_segment(
 
 
 async def trim_audio_segment(
-    *, db: AsyncSession, storage: S3StorageClient, audio_segment_id: UUID, data: TrimAudioSegmentRequest
+    *, db: AsyncSession, storage: R2StorageClient, audio_segment_id: UUID, data: TrimAudioSegmentRequest
 ) -> None:
     segment = await get_or_404(db=db, model=AudioSegment, id=audio_segment_id)
     capture = await get_or_404(db=db, model=AudioCapture, id=segment.audio_capture_id)

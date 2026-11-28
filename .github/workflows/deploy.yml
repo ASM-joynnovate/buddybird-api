@@ -8,19 +8,19 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency: deploy-${{ github.ref_name }}
 
 jobs:
   deploy:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     env:
-      ECR_REPOSITORY: jn-buddybird-api
-      ECS_CLUSTER: jn-cluster
       ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
-      ECS_SERVICE: jn-buddybird-api-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      WORKER_NAME: jn-buddybird-api-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      IMAGE_REPOSITORY: registry.cloudflare.com/0c4453da6d81adec04df8132e00660c4/jn-buddybird-api
+      HEALTH_URL: https://${{ github.ref_name == 'main' && 'buddybird.xyz' || 'dev.buddybird.xyz' }}/api/healthz
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      CLOUDFLARE_ACCOUNT_ID: 0c4453da6d81adec04df8132e00660c4
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -38,7 +38,7 @@ jobs:
         continue-on-error: true
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          title: 🚀 ${{ env.ECS_SERVICE }} 배포 시작
+          title: 🚀 ${{ env.WORKER_NAME }} 배포 시작
           fields: |
             환경=${{ env.ENVIRONMENT }}
             버전=${{ steps.version.outputs.version }}
@@ -49,114 +49,83 @@ jobs:
             변경 내역=${{ github.event.compare }}
           commit-range: ${{ github.event.before }}..${{ github.sha }}
 
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: arn:aws:iam::198252712951:role/jn-buddybird-api-deploy
-          aws-region: ap-northeast-2
+      - name: install wrangler
+        id: wrangler
+        working-directory: worker
+        run: npm ci
 
-      - name: login to ecr
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: login to registry
+        id: registry
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          credentials=$(npx wrangler containers registries credentials --pull --json)
+          jq -r .password <<< "$credentials" | docker login --password-stdin --username "$(jq -r .username <<< "$credentials")" registry.cloudflare.com
 
       - name: resolve image uri
         id: image
-        run: echo "uri=${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+        run: echo "uri=$IMAGE_REPOSITORY:${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
 
-      - name: ensure version is not in ecr
+      - name: ensure version is not in registry
         id: check-new-version
         if: github.ref_name == 'dev'
-        run: "! aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.version.outputs.version }}"
+        run: "! docker manifest inspect ${{ steps.image.outputs.uri }}"
 
-      - name: ensure version is in ecr
+      - name: ensure version is in registry
         id: check-image-exists
         if: github.ref_name == 'main'
-        run: aws ecr describe-images --repository-name $ECR_REPOSITORY --image-ids imageTag=${{ steps.version.outputs.version }}
-
-      - name: set up buildx
-        id: buildx
-        if: github.ref_name == 'dev'
-        uses: docker/setup-buildx-action@v4
+        run: docker manifest inspect ${{ steps.image.outputs.uri }}
 
       - name: build and push image
         id: build
         if: github.ref_name == 'dev'
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.image.outputs.uri }}
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: render task definition
-        id: task
+        working-directory: worker
         env:
-          IMAGE: ${{ steps.image.outputs.uri }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler containers build .. --tag "jn-buddybird-api:${{ steps.version.outputs.version }}" --push
+
+      - name: resolve image digest
+        id: digest
         run: |
-          aws ecs describe-task-definition --task-definition "$ECS_SERVICE" --query taskDefinition \
-            | jq --arg image "$IMAGE" '.containerDefinitions[].image = $image' > task-definition.json
-          jq '.family += "-migration" | .containerDefinitions |= map(select(.name == "api"))' \
-            task-definition.json > migration-task-definition.json
-          network=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
-            --query 'services[0].networkConfiguration.awsvpcConfiguration')
-          echo "subnets=$(echo "$network" | jq -r '.subnets | join(",")')" >> "$GITHUB_OUTPUT"
-          echo "security_groups=$(echo "$network" | jq -r '.securityGroups | join(",")')" >> "$GITHUB_OUTPUT"
+          digest=$(docker manifest inspect -v ${{ steps.image.outputs.uri }} | jq -er .Descriptor.digest)
+          echo "uri=$IMAGE_REPOSITORY@$digest" >> "$GITHUB_OUTPUT"
 
-      - name: run migration
-        id: migration
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: migration-task-definition.json
-          cluster: ${{ env.ECS_CLUSTER }}
-          run-task: true
-          run-task-container-overrides: '[{"name": "api", "command": ["alembic", "upgrade", "head"]}]'
-          run-task-subnets: ${{ steps.task.outputs.subnets }}
-          run-task-security-groups: ${{ steps.task.outputs.security_groups }}
-          run-task-assign-public-IP: ENABLED
-          wait-for-task-stopped: true
-          wait-max-delay-seconds: 15
-
-      - name: show migration logs
-        if: failure() && steps.migration.outputs.run-task-arn != ''
-        env:
-          RUN_TASK_ARN: ${{ steps.migration.outputs.run-task-arn }}
-        run: |
-          task_id=$(echo "$RUN_TASK_ARN" | jq -r '.[0] | split("/")[-1]')
-          aws logs get-log-events --log-group-name "/ecs/$ECS_SERVICE" --log-stream-name "api/api/$task_id" \
-            --start-from-head --query 'events[].message' --output text
-
-      - name: deploy service
+      - name: deploy worker
         id: deploy
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: task-definition.json
-          cluster: ${{ env.ECS_CLUSTER }}
-          service: ${{ env.ECS_SERVICE }}
-          wait-for-service-stability: true
-          wait-max-delay-seconds: 15
-
-      - name: render consumer task definition
-        id: consumer-task
-        if: github.ref_name == 'main'
+        working-directory: worker
         env:
-          IMAGE: ${{ steps.image.outputs.uri }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/deploy.ndjson
         run: |
-          aws ecs describe-task-definition --task-definition "$ECS_SERVICE-consumer" --query taskDefinition \
-            | jq --arg image "$IMAGE" '.containerDefinitions[].image = $image' > consumer-task-definition.json
+          jq --arg env "$ENVIRONMENT" --arg image "${{ steps.digest.outputs.uri }}" '.env[$env].containers[0].images.api = {image: $image}' wrangler.jsonc > wrangler.json
+          mv wrangler.json wrangler.jsonc
+          npx wrangler deploy --env "$ENVIRONMENT"
+          version=$(jq -er 'select(.type == "deploy").version_id' "$WRANGLER_OUTPUT_FILE_PATH")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: deploy consumer service
-        id: deploy-consumer
-        if: github.ref_name == 'main'
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: consumer-task-definition.json
-          cluster: ${{ env.ECS_CLUSTER }}
-          service: ${{ env.ECS_SERVICE }}-consumer
-          wait-for-service-stability: true
-          wait-max-delay-seconds: 15
+      - name: verify deployment
+        id: verify
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          VERSION: ${{ steps.deploy.outputs.version }}
+        run: |
+          reached=false
+          deadline=$(( $(date +%s) + 600 ))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            response=$(curl -sS --max-time 300 -o /dev/null -D - -w '%{http_code}' "$HEALTH_URL" | tr -d '\r' || true)
+            version=$(grep -i '^x-container-version:' <<< "$response" | tr -d - || true)
+            case "${response##*$'\n'} $version" in
+              "200 "*"${VERSION//-/}"*) exit 0 ;;
+              *" "?*) reached=true ;;
+            esac
+            sleep 5
+          done
+          if [ "$reached" = true ]; then
+            npx wrangler rollback --env "$ENVIRONMENT" --message "deploy ${{ steps.version.outputs.version }} failed"
+          fi
+          exit 1
 
       - name: collect result
         id: result
@@ -175,7 +144,7 @@ jobs:
         continue-on-error: true
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          title: "${{ job.status == 'success' && '✅' || job.status == 'failure' && '❌' || '⚠️' }} ${{ env.ECS_SERVICE }} 배포 ${{ job.status == 'success' && '성공' || job.status == 'failure' && '실패' || '취소' }}"
+          title: "${{ job.status == 'success' && '✅' || job.status == 'failure' && '❌' || '⚠️' }} ${{ env.WORKER_NAME }} 배포 ${{ job.status == 'success' && '성공' || job.status == 'failure' && '실패' || '취소' }}"
           fields: |
             환경=${{ env.ENVIRONMENT }}
             버전=${{ steps.version.outputs.version }}

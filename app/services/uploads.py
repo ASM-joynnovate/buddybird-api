@@ -6,14 +6,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import sqs
-from app.config import config
+from app import queues
 from app.db import session_factory, transactional
 from app.enums import FileStatusEnum
 from app.errors import InvalidAdImageError, InvalidProfilePhotoError
 from app.file import confirm_uploaded_photo
 from app.models import File, Parrot, SessionSound, User
-from app.s3 import s3
+from app.r2 import r2
 from app.services import notifications
 
 logger = logging.getLogger(__name__)
@@ -40,11 +39,11 @@ async def process(*, key: str, size: int) -> None:
 
         if key != path:
             try:
-                await confirm_uploaded_photo(storage=s3, file=file)
+                await confirm_uploaded_photo(storage=r2, file=file)
             except InvalidAdImageError, InvalidProfilePhotoError:
                 logger.warning("이미지 검증 실패로 업로드를 거부함; key=%s", key)
 
-                await s3.delete(path=key)
+                await r2.delete(path=key)
                 await reject(db=db, file=file)
 
                 return
@@ -54,7 +53,7 @@ async def process(*, key: str, size: int) -> None:
         duration_ms = None
 
         if path.split("/")[2] == "session":
-            content = await s3.download(path=key)
+            content = await r2.download(path=key)
 
             try:
                 with wave.open(io.BytesIO(content)) as audio:
@@ -69,8 +68,8 @@ async def process(*, key: str, size: int) -> None:
             sound = await db.scalar(stmt)
 
             try:
-                await sqs.send(
-                    queue_url=config.SQS_PARROT_SOUND_DETECTION_QUEUE_URL,
+                await queues.send(
+                    queue="parrot-sound-detection",
                     body={
                         "type": "audio.detect_parrot",
                         "session_id": str(sound.session_id),

@@ -25,7 +25,7 @@ from app.models import (
     SessionSound,
     User,
 )
-from app.s3 import S3StorageClient
+from app.r2 import R2StorageClient
 from app.schemas.emergencies import (
     BackofficeEmergencyAppearedDTO,
     BackofficeEmergencyDeviceDTO,
@@ -69,7 +69,7 @@ NOTIFICATION_STATUS = case(
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeEmergencyListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeEmergencyListParams
 ) -> tuple[list[BackofficeEmergencyDTO], int]:
     conditions = [SessionEvent.kind.in_(EMERGENCY_KINDS)]
 

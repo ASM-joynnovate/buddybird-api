@@ -17,7 +17,7 @@ from app.errors import (
     WordSaveUnavailableError,
 )
 from app.models import File, User, Word, WordRecording
-from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.r2 import UPLOAD_URL_EXPIRES_IN, R2StorageClient
 from app.schemas.base import FileDTO, ReorderRequest
 from app.schemas.words import (
     BackofficeWordDTO,
@@ -40,7 +40,7 @@ RECORDING_TYPES = {
 }
 
 
-def build_word_dto(word: Word, recordings: Iterable[WordRecording], storage: S3StorageClient) -> WordDTO:
+def build_word_dto(word: Word, recordings: Iterable[WordRecording], storage: R2StorageClient) -> WordDTO:
     return WordDTO(
         id=word.id,
         name=word.name,
@@ -85,14 +85,14 @@ async def get_recordings_by_word(*, db: AsyncSession, word_ids: Iterable[UUID]) 
     return grouped
 
 
-async def get_list(*, db: AsyncSession, user: User, storage: S3StorageClient) -> list[WordDTO]:
+async def get_list(*, db: AsyncSession, user: User, storage: R2StorageClient) -> list[WordDTO]:
     words = (await db.scalars(select(Word).where(Word.user_id == user.id).order_by(Word.created_at))).all()
     recordings = await get_recordings_by_word(db=db, word_ids=[word.id for word in words])
 
     return [build_word_dto(word, recordings.get(word.id, []), storage) for word in words]
 
 
-async def get_backoffice_list(*, db: AsyncSession, user: User, storage: S3StorageClient) -> list[BackofficeWordDTO]:
+async def get_backoffice_list(*, db: AsyncSession, user: User, storage: R2StorageClient) -> list[BackofficeWordDTO]:
     stmt = select(Word).where(Word.user_id == user.id).order_by(Word.created_at)
     words = (await db.scalars(stmt)).all()
 
@@ -128,7 +128,7 @@ async def get_backoffice_list(*, db: AsyncSession, user: User, storage: S3Storag
 
 
 @transactional(unavailable_error=WordSaveUnavailableError)
-async def create(*, db: AsyncSession, user: User, storage: S3StorageClient, data: SaveWordRequest) -> WordDTO:
+async def create(*, db: AsyncSession, user: User, storage: R2StorageClient, data: SaveWordRequest) -> WordDTO:
     word = Word(user_id=user.id, name=data.name, is_deleted=False)
 
     db.add(word)
@@ -138,7 +138,7 @@ async def create(*, db: AsyncSession, user: User, storage: S3StorageClient, data
 
 
 @transactional(unavailable_error=WordSaveUnavailableError)
-async def update(*, db: AsyncSession, storage: S3StorageClient, word: Word, data: SaveWordRequest) -> WordDTO:
+async def update(*, db: AsyncSession, storage: R2StorageClient, word: Word, data: SaveWordRequest) -> WordDTO:
     word.name = data.name
 
     await db.flush()
@@ -169,7 +169,7 @@ async def delete(*, db: AsyncSession, word: Word) -> None:
 
 @transactional(unavailable_error=WordSaveUnavailableError)
 async def add_recording(
-    *, db: AsyncSession, storage: S3StorageClient, word: Word, data: WordRecordingUploadRequest
+    *, db: AsyncSession, storage: R2StorageClient, word: Word, data: WordRecordingUploadRequest
 ) -> WordRecordingUploadDTO:
     extension = RECORDING_TYPES.get(data.content_type)
 
@@ -243,7 +243,7 @@ async def delete_recording(*, db: AsyncSession, word: Word, recording_id: UUID) 
 
 @transactional(unavailable_error=WordSaveUnavailableError)
 async def reorder_recordings(
-    *, db: AsyncSession, storage: S3StorageClient, word: Word, data: ReorderRequest
+    *, db: AsyncSession, storage: R2StorageClient, word: Word, data: ReorderRequest
 ) -> WordDTO:
     recordings = {
         recording.id: recording
@@ -261,7 +261,7 @@ async def reorder_recordings(
     return build_word_dto(word, [recordings[recording_id] for recording_id in data.ids], storage)
 
 
-async def get_detail(*, db: AsyncSession, storage: S3StorageClient, word: Word) -> WordDTO:
+async def get_detail(*, db: AsyncSession, storage: R2StorageClient, word: Word) -> WordDTO:
     recordings = await get_recordings_by_word(db=db, word_ids=[word.id])
 
     return build_word_dto(word, recordings.get(word.id, []), storage)

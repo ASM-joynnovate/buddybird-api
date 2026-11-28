@@ -59,7 +59,7 @@ from app.models import (
     UserWithdrawal,
 )
 from app.oauth.base import http_client
-from app.s3 import UPLOAD_URL_EXPIRES_IN, S3StorageClient
+from app.r2 import UPLOAD_URL_EXPIRES_IN, R2StorageClient
 from app.schemas.base import UploadDTO, UploadRequest
 from app.schemas.devices import BackofficeLastSeenDeviceDTO
 from app.schemas.parrots import BackofficeParrotDTO
@@ -191,9 +191,9 @@ async def download_social_photo(*, url: str, provider: str) -> tuple[bytes, str,
     return bytes(content), file_name, file_type
 
 
-async def delete_uploaded_photo(*, storage: S3StorageClient, path: str, version_id: str) -> None:
+async def delete_uploaded_photo(*, storage: R2StorageClient, path: str) -> None:
     try:
-        await storage.delete(path=path, version_id=version_id)
+        await storage.delete(path=path)
     except Exception:
         logger.exception("업로드된 프로필 사진 정리 실패")
 
@@ -221,7 +221,7 @@ async def get_uploading_photo_files(*, db: AsyncSession, file_ids: set[UUID]) ->
     return {file.id: file for file in files}
 
 
-async def get_profile(*, db: AsyncSession, user: User, storage: S3StorageClient) -> UserDTO:
+async def get_profile(*, db: AsyncSession, user: User, storage: R2StorageClient) -> UserDTO:
     uploading_photo_files = await get_uploading_photo_files(
         db=db,
         file_ids={user.uploading_photo_file_id} if user.uploading_photo_file_id is not None else set(),
@@ -239,7 +239,7 @@ async def get_profile(*, db: AsyncSession, user: User, storage: S3StorageClient)
 
 
 async def get_community_profile(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, target_user_id: UUID
+    *, db: AsyncSession, storage: R2StorageClient, user: User, target_user_id: UUID
 ) -> CommunityUserDetailDTO:
     stmt = select(User).where(User.id == target_user_id)
 
@@ -274,7 +274,7 @@ def build_backoffice_user_dto(user: User) -> BackofficeUserDTO:
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeUserListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeUserListParams
 ) -> tuple[list[BackofficeUserListItemDTO], int]:
     now = datetime.now(UTC)
     today = now.astimezone(SEOUL).date()
@@ -524,7 +524,7 @@ async def get_backoffice_list(
     return items, total
 
 
-async def get_backoffice_detail(*, db: AsyncSession, storage: S3StorageClient, user: User) -> BackofficeUserDetailDTO:
+async def get_backoffice_detail(*, db: AsyncSession, storage: R2StorageClient, user: User) -> BackofficeUserDetailDTO:
     setting = await db.get(UserSetting, user.id)
     withdrawal = await db.get(UserWithdrawal, user.id)
 
@@ -583,7 +583,7 @@ async def update_profile(*, db: AsyncSession, user: User, data: UpdateUserReques
 
 
 @transactional(unavailable_error=UserSaveUnavailableError)
-async def update_photo(*, db: AsyncSession, storage: S3StorageClient, user: User, data: UploadRequest) -> UploadDTO:
+async def update_photo(*, db: AsyncSession, storage: R2StorageClient, user: User, data: UploadRequest) -> UploadDTO:
     if data.content_type not in PHOTO_TYPES:
         raise InvalidProfilePhotoError
 

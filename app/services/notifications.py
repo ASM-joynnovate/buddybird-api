@@ -9,8 +9,7 @@ from sqlalchemy import Integer, and_, cast, delete, exists, func, not_, or_, sel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app import sqs
-from app.config import config
+from app import queues
 from app.db import get_or_404, session_factory, transactional
 from app.enums import (
     FileStatusEnum,
@@ -52,7 +51,7 @@ from app.models import (
     User,
     UserSetting,
 )
-from app.s3 import S3StorageClient, s3
+from app.r2 import R2StorageClient, r2
 from app.schemas.base import I18nDTO, I18nTitleRequest, PageParams, UploadDTO, UploadRequest
 from app.schemas.notifications import (
     BackofficeNotificationAudienceDTO,
@@ -122,7 +121,7 @@ DISPATCH_COUNTS = (
 )
 
 
-def build_notification_dto(notification: Notification, locale: LocaleEnum, storage: S3StorageClient) -> NotificationDTO:
+def build_notification_dto(notification: Notification, locale: LocaleEnum, storage: R2StorageClient) -> NotificationDTO:
     image = None
 
     if notification.image_file is not None:
@@ -141,7 +140,7 @@ def build_notification_dto(notification: Notification, locale: LocaleEnum, stora
 
 
 def build_backoffice_notification_dto(
-    notification: Notification, storage: S3StorageClient
+    notification: Notification, storage: R2StorageClient
 ) -> BackofficeNotificationDTO:
     image = None
 
@@ -216,8 +215,8 @@ def build_notification_i18n(
 async def enqueue_push_deliveries(*delivery_ids: UUID) -> None:
     for delivery_id in delivery_ids:
         try:
-            await sqs.send(
-                queue_url=config.SQS_NOTIFICATION_QUEUE_URL,
+            await queues.send(
+                queue="notification",
                 body={"type": "push.send", "delivery_id": str(delivery_id)},
             )
         except Exception:
@@ -227,7 +226,7 @@ async def enqueue_push_deliveries(*delivery_ids: UUID) -> None:
 async def create_notifications(
     *,
     db: AsyncSession,
-    storage: S3StorageClient,
+    storage: R2StorageClient,
     kind: NotificationKindEnum,
     title_i18n: I18n,
     body_i18n: I18n,
@@ -333,7 +332,7 @@ async def create_notifications(
 
 @transactional(unavailable_error=NotificationSendFailedError)
 async def create(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, data: SendNotificationRequest
+    *, db: AsyncSession, storage: R2StorageClient, user: User, data: SendNotificationRequest
 ) -> tuple[BackofficeNotificationDTO | None, list[UUID]]:
     title_i18n, body_i18n = build_notification_i18n(kind=data.kind, title=data.title, body=data.body)
     notifications, delivery_ids = await create_notifications(
@@ -357,7 +356,7 @@ async def create(
 
 
 async def send(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, data: SendNotificationRequest
+    *, db: AsyncSession, storage: R2StorageClient, user: User, data: SendNotificationRequest
 ) -> BackofficeNotificationDTO | None:
     dto, delivery_ids = await create(db=db, storage=storage, user=user, data=data)
 
@@ -368,7 +367,7 @@ async def send(
 
 @transactional(unavailable_error=NotificationSendFailedError)
 async def create_broadcast(
-    *, db: AsyncSession, storage: S3StorageClient, data: BroadcastNotificationRequest
+    *, db: AsyncSession, storage: R2StorageClient, data: BroadcastNotificationRequest
 ) -> tuple[int, list[UUID]]:
     target = NotificationDispatchTargetEnum.SELECTED
 
@@ -396,7 +395,7 @@ async def create_broadcast(
 
 
 async def broadcast(
-    *, db: AsyncSession, storage: S3StorageClient, data: BroadcastNotificationRequest
+    *, db: AsyncSession, storage: R2StorageClient, data: BroadcastNotificationRequest
 ) -> BroadcastNotificationDTO:
     notification_count, delivery_ids = await create_broadcast(db=db, storage=storage, data=data)
 
@@ -472,7 +471,7 @@ async def create_report(*, db: AsyncSession, session_id: UUID) -> list[UUID]:
 
     _, delivery_ids = await create_notifications(
         db=db,
-        storage=s3,
+        storage=r2,
         kind=NotificationKindEnum.REPORT,
         title_i18n=I18n(
             ko_kr="학습 리포트가 준비됐어요",
@@ -676,7 +675,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
 
     _, delivery_ids = await create_notifications(
         db=db,
-        storage=s3,
+        storage=r2,
         kind=NotificationKindEnum.EMERGENCY,
         title_i18n=title_i18n,
         body_i18n=I18n(
@@ -705,7 +704,7 @@ async def create_emergency_notification(*, db: AsyncSession, image_file_id: UUID
 
 
 @transactional(unavailable_error=NotificationSaveUnavailableError)
-async def add_image(*, db: AsyncSession, storage: S3StorageClient, data: UploadRequest) -> UploadDTO:
+async def add_image(*, db: AsyncSession, storage: R2StorageClient, data: UploadRequest) -> UploadDTO:
     if data.content_type not in PHOTO_TYPES:
         raise InvalidProfilePhotoError
 
@@ -737,7 +736,7 @@ async def add_image(*, db: AsyncSession, storage: S3StorageClient, data: UploadR
 
 
 async def get_list(
-    *, db: AsyncSession, storage: S3StorageClient, user: User, locale: LocaleEnum, query: PageParams
+    *, db: AsyncSession, storage: R2StorageClient, user: User, locale: LocaleEnum, query: PageParams
 ) -> tuple[list[NotificationDTO], int]:
     stmt = select(Notification).where(Notification.user_id == user.id, Notification.sent_at <= datetime.now(UTC))
     total = await db.scalar(stmt.with_only_columns(func.count(), maintain_column_froms=True))
@@ -767,7 +766,7 @@ async def get_unread_count(*, db: AsyncSession, user: User) -> NotificationUnrea
 
 
 async def get_backoffice_list(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeNotificationListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeNotificationListParams
 ) -> tuple[list[BackofficeNotificationListItemDTO], int]:
     now = datetime.now(UTC)
     conditions = [Notification.is_deleted.is_(False)]
@@ -834,7 +833,7 @@ async def get_backoffice_list(
 
 
 async def get_dispatches(
-    *, db: AsyncSession, storage: S3StorageClient, conditions: list, offset: int, limit: int
+    *, db: AsyncSession, storage: R2StorageClient, conditions: list, offset: int, limit: int
 ) -> list[BackofficeNotificationDispatchDTO]:
     notification = aliased(Notification)
     stmt = (
@@ -931,7 +930,7 @@ async def get_dispatches(
 
 
 async def get_backoffice_dispatches(
-    *, db: AsyncSession, storage: S3StorageClient, query: BackofficeNotificationDispatchListParams
+    *, db: AsyncSession, storage: R2StorageClient, query: BackofficeNotificationDispatchListParams
 ) -> tuple[list[BackofficeNotificationDispatchDTO], int]:
     conditions = []
     period = []
@@ -990,7 +989,7 @@ async def get_backoffice_dispatches(
 
 
 async def get_backoffice_dispatch(
-    *, db: AsyncSession, storage: S3StorageClient, dispatch_id: UUID
+    *, db: AsyncSession, storage: R2StorageClient, dispatch_id: UUID
 ) -> BackofficeNotificationDispatchDetailDTO:
     items = await get_dispatches(
         db=db,
@@ -1104,7 +1103,7 @@ async def get_backoffice_deliveries(
 
 @transactional(unavailable_error=NotificationReadFailedError)
 async def mark_read(
-    *, db: AsyncSession, storage: S3StorageClient, notification: Notification, locale: LocaleEnum
+    *, db: AsyncSession, storage: R2StorageClient, notification: Notification, locale: LocaleEnum
 ) -> NotificationDTO:
     if notification.read_at is None:
         notification.read_at = datetime.now(UTC)
@@ -1268,7 +1267,7 @@ async def deliver(delivery_id: UUID) -> None:
             device = row.Device
             locale = LocaleEnum.ranked(device.locale)[0]
             body = body_i18n.get_text(locale) if body_i18n is not None else ""
-            image_url = s3.generate_presigned_url(path=image_file.object_key) if image_file is not None else None
+            image_url = r2.generate_presigned_url(path=image_file.object_key) if image_file is not None else None
 
             if delivery.announcement_id is not None:
                 body = body[:500]
